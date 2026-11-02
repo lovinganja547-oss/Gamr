@@ -1,0 +1,71 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.neonrush.game'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
+
+    defaultConfig {
+        applicationId 'com.neonrush.game'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        dev {
+            storeFile rootProject.file('keystore/neonrush-dev.jks')
+            storePassword 'neonrush'
+            keyAlias 'neonrush'
+            keyPassword 'neonrush'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.dev
+        }
+        debug {
+            signingConfig signingConfigs.dev
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        // Jeu en portrait strict, volontairement non redimensionnable.
+        disable 'LockedOrientationActivity', 'NonResizeableActivity', 'DiscouragedApi', 'UnnecessaryRequiredFeature', 'ObsoleteSdkInt'
+        abortOnError true
+        warningsAsErrors false
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            returnDefaultValues = true
+            all {
+                maxHeapSize = '2g'
+                testLogging { events 'passed', 'failed', 'skipped'; showStandardStreams = true; exceptionFormat 'full' }
+            }
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}
+
+tasks.withType(Test).configureEach {
+    systemProperty 'robolectric.dependency.repo.url', 'https://maven-central.storage-download.googleapis.com/maven2'
+    systemProperty 'shots.dir', rootProject.file('docs/screenshots').absolutePath
+}

@@ -313,7 +313,7 @@ func _shell_mats(head: bool) -> Array:
 			m.set_shader_parameter(k, fur_mat.get_shader_parameter(k))
 		m.set_shader_parameter("layer", float(i + 1) / float(n))
 		m.set_shader_parameter("fur_len", length)
-		m.set_shader_parameter("density", 300.0 if pat == "poodle" else 420.0)
+		m.set_shader_parameter("density", 190.0 if pat == "poodle" else 250.0)
 		m.set_shader_parameter("curl", 0.6 if pat == "poodle" else 0.0)
 		if head:
 			var e := _v3("eye", Vector3(hr * 0.4, hr * 0.12, hr * 0.76))
@@ -321,7 +321,7 @@ func _shell_mats(head: bool) -> Array:
 			m.set_shader_parameter("hole_b", Vector3(-e.x, e.y, e.z))
 			var sn: Vector2 = bd["snout"]
 			m.set_shader_parameter("hole_c", _v3("nose", Vector3(0, -hr * 0.28 + sn.y * 0.45, hr * 0.78 + sn.x * 1.1)))
-			m.set_shader_parameter("hole_r", float(meta.get("eye_r", hr * 0.2)) * 1.15)
+			m.set_shader_parameter("hole_r", float(meta.get("eye_r", hr * 0.2)) * 1.2)
 			m.set_shader_parameter("comb", Vector3(0, -0.2, -0.6))
 		m.render_priority = i
 		arr.append(m)
@@ -371,9 +371,9 @@ func _build() -> void:
 	var collar_it := GameData.item(str(pet_data.get("collar", "collar_red")))
 	var cc: Color = collar_it.get("color", Color.RED)
 	var collar_pos := neck_base.lerp(head_pos, 0.5)
-	var collar := _mi(_torus(hr * 0.5, hr * 0.66), cc, body_pivot, collar_pos, Vector3(1, 1, 1), Vector3(0.75, 0, 0), 0.5, 0.1, 0.6 if collar_it.get("metal", false) else 0.0)
+	var collar := _mi(_torus(hr * 0.62, hr * 0.8), cc, body_pivot, collar_pos, Vector3(1, 1, 1), Vector3(0.75, 0, 0), 0.5, 0.1, 0.6 if collar_it.get("metal", false) else 0.0)
 	collar.name = "Collar"
-	_mi(_sphere(), Color(0.95, 0.8, 0.3), body_pivot, collar_pos + Vector3(0, -hr * 0.48, hr * 0.42), Vector3.ONE * hr * 0.22, Vector3.ZERO, 0.25, 0.1, 0.85)
+	_mi(_sphere(), Color(0.95, 0.8, 0.3), body_pivot, collar_pos + Vector3(0, -hr * 0.58, hr * 0.52), Vector3.ONE * hr * 0.26, Vector3.ZERO, 0.25, 0.1, 0.85)
 	acc_root = _pivot(body_pivot, collar_pos, "AccNeck")
 	# Tête sculptée
 	head_pivot = _pivot(body_pivot, head_pos, "Head")
@@ -410,22 +410,19 @@ func _build() -> void:
 		var e := _pivot(head_pivot, Vector3(sx * ep0.x, ep0.y, ep0.z), "Eye")
 		e.rotation = Vector3(0, sx * 0.3, 0)
 		e.scale = Vector3(1, 1, 0.62)
-		_mi(_sphere(), Color(0.08, 0.06, 0.06), e, Vector3.ZERO, Vector3.ONE * er * 2.0, Vector3.ZERO, 0.12, 0.0)
-		_mi(_sphere(), c_eye, e, Vector3(0, 0, er * 0.6), Vector3(er * 1.5, er * 1.55, er * 0.85), Vector3.ZERO, 0.15, 0.0)
+		_mi(_sphere(), c_eye.darkened(0.62), e, Vector3.ZERO, Vector3.ONE * er * 2.0, Vector3.ZERO, 0.12, 0.0)
+		_mi(_sphere(), c_eye, e, Vector3(0, 0, er * 0.55), Vector3(er * 1.78, er * 1.82, er * 0.95), Vector3.ZERO, 0.15, 0.0)
 		_mi(_sphere(), Color(0.02, 0.02, 0.03), e, Vector3(0, 0, er * 0.86), Vector3(er * 0.78, er * (0.95 if cat else 0.82), er * 0.4), Vector3.ZERO, 0.1, 0.0)
 		var hl := _mi(_sphere(), Color.WHITE, e, Vector3(er * 0.3, er * 0.38, er * 0.92), Vector3.ONE * er * 0.46, Vector3.ZERO, 0.1, 0.0)
 		hl.material_override = _glow_mat()
 		var hl2 := _mi(_sphere(), Color.WHITE, e, Vector3(-er * 0.28, -er * 0.3, er * 0.95), Vector3.ONE * er * 0.2, Vector3.ZERO, 0.1, 0.0)
 		hl2.material_override = _glow_mat()
 		var lid := _pivot(e, Vector3.ZERO, "Lid")
-		var lm := _mi(_hemi(er * 1.06), lid_c, lid, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
+		var lm := _mi(_hemi(er * 1.13), lid_c, lid, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
 		lm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		# liseré sombre au bord de la paupière (cils)
-		var rim := _mi(_torus(er * 1.0, er * 1.1), lid_c.darkened(0.55), lid, Vector3.ZERO, Vector3(1, 0.35, 1), Vector3.ZERO, 0.8, 0.0)
-		rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		lids.append(lid)
 		var low := _pivot(e, Vector3.ZERO, "LowerLid")
-		var lw := _mi(_hemi(er * 1.05), lid_c, low, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
+		var lw := _mi(_hemi(er * 1.12), lid_c, low, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
 		lw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		low.rotation.x = PI + 0.95
 		lower_lids.append(low)
@@ -687,7 +684,7 @@ func _apply(p: Dictionary, delta: float) -> void:
 	var open := 1.0
 	var ey := 0.0
 	match expression:
-		"happy": open = 0.55; ey = 0.012
+		"happy": open = 0.95; ey = 0.012
 		"closed": open = 0.08
 		"sad": open = 0.6; ey = -0.008
 		"focus": open = 0.85
@@ -695,11 +692,11 @@ func _apply(p: Dictionary, delta: float) -> void:
 		open *= 1.0 - _blink * 0.92
 	# paupière haute : au repos elle couvre le haut de l'œil (regard doux)
 	for lid in lids:
-		lid.rotation.x = lerpf(PI * 0.52, -0.42, clampf(open, 0.0, 1.0))
+		lid.rotation.x = lerpf(PI * 0.52, -0.78, clampf(open, 0.0, 1.0))
 	# paupière basse : remonte quand l'animal est content (yeux plissés)
 	var low_a := 0.95
 	match expression:
-		"happy": low_a = 0.42
+		"happy": low_a = 0.62
 		"closed": low_a = 0.6
 		"sad": low_a = 1.1
 	for low in lower_lids:

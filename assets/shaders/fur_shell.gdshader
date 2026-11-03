@@ -33,7 +33,7 @@ void vertex() {
 	float k = 1.0;
 	if (hole_r > 0.0) {
 		float d = min(min(distance(VERTEX, hole_a), distance(VERTEX, hole_b)), distance(VERTEX, hole_c));
-		k = smoothstep(hole_r, hole_r * 1.8, d);
+		k = smoothstep(hole_r * 0.95, hole_r * 1.35, d);
 	}
 	len_k = k;
 	vec3 dir = normalize(NORMAL + comb * layer);
@@ -43,6 +43,10 @@ void vertex() {
 
 void fragment() {
 	if (len_k < 0.05) { discard; }
+	if (hole_r > 0.0) {
+		float dh = min(min(distance(lpos, hole_a), distance(lpos, hole_b)), distance(lpos, hole_c));
+		if (dh < hole_r) { discard; }
+	}
 	vec3 p = lpos * density;
 	if (curl > 0.0) {
 		p += vec3(sin(lpos.y * 900.0), sin(lpos.z * 900.0), sin(lpos.x * 900.0)) * curl;
@@ -53,13 +57,13 @@ void fragment() {
 	float h2 = hash(cell + 7.31);
 	// chaque mèche a sa propre hauteur ; le poil s'affine vers la pointe
 	float height = 0.45 + h * 0.55;
-	float radius = (1.0 - layer / height) * 0.62;
+	float radius = (1.0 - layer / height) * 0.7 + 0.08;
 	if (layer > height || length(f.xy + (h2 - 0.5) * 0.2) > radius) { discard; }
 	vec4 m = COLOR;
 	vec3 col = mix(c_main.rgb, c_second.rgb, clamp(m.r * pattern_on, 0.0, 1.0));
 	col = mix(col, c_points.rgb, clamp(m.b * points_on, 0.0, 1.0));
 	col = mix(col, c_white.rgb, clamp(m.g, 0.0, 1.0));
-	col *= mix(0.62, 1.05, layer) * mix(0.75, 1.0, m.a) * (0.92 + h2 * 0.16);
+	col *= mix(0.82, 1.06, layer) * mix(0.75, 1.0, m.a) * (0.92 + h2 * 0.16);
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
 }

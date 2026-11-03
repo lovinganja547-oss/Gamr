@@ -85,7 +85,7 @@ const BREEDS := {
 		"name": "Beagle", "species": "dog", "voice": "bark_mid",
 		"desc": "Un nez exceptionnel et une curiosité sans limite. Un peu distrait…",
 		"body": Vector3(0.24, 0.22, 0.46), "leg_len": 0.2, "leg_rad": 0.055, "head": 0.17,
-		"snout": Vector2(0.13, 0.08), "ear": "long", "ear_size": 0.13, "tail": "whip",
+		"snout": Vector2(0.13, 0.064), "ear": "long", "ear_size": 0.13, "tail": "whip",
 		"pattern": "beagle", "scale": 0.9,
 		"palettes": [
 			{"name": "Tricolore", "main": Color(0.82, 0.55, 0.3), "second": Color(0.15, 0.13, 0.12)},

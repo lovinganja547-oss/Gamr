@@ -22,7 +22,7 @@ BREEDS = {
     "shiba": dict(species="dog", body=(0.24, 0.22, 0.44), leg_len=0.22, leg_rad=0.052, head=0.165, snout=(0.11, 0.07), ear="pointy", ear_size=0.085, tail="curl", pattern="shiba"),
     "poodle": dict(species="dog", body=(0.22, 0.24, 0.40), leg_len=0.30, leg_rad=0.045, head=0.155, snout=(0.14, 0.06), ear="fluffy", ear_size=0.09, tail="pompom", pattern="poodle"),
     "shepherd": dict(species="dog", body=(0.30, 0.28, 0.62), leg_len=0.31, leg_rad=0.065, head=0.18, snout=(0.18, 0.08), ear="pointy", ear_size=0.12, tail="bushy", pattern="saddle"),
-    "beagle": dict(species="dog", body=(0.24, 0.22, 0.46), leg_len=0.20, leg_rad=0.055, head=0.17, snout=(0.13, 0.08), ear="long", ear_size=0.13, tail="whip", pattern="beagle"),
+    "beagle": dict(species="dog", body=(0.24, 0.22, 0.46), leg_len=0.20, leg_rad=0.055, head=0.17, snout=(0.13, 0.064), ear="long", ear_size=0.13, tail="whip", pattern="beagle"),
     "cat": dict(species="cat", body=(0.19, 0.19, 0.42), leg_len=0.18, leg_rad=0.04, head=0.15, snout=(0.05, 0.06), ear="cat", ear_size=0.075, tail="cat", pattern="tabby"),
 }
 TAIL = {"otter": (3, 0.075, 0.042), "curl": (4, 0.055, 0.045), "pompom": (2, 0.07, 0.018),
@@ -221,7 +221,7 @@ def make_breed(name, B, res_scale):
     if cat:
         nose_p = np.array([0, -hr * 0.12, hr * 0.98])
 
-    def head_base(P):
+    def head_base(P, muzzle=True):
         d = sd_ellipsoid(P, (0, hr * 0.06, -hr * 0.04), (hr * 0.98, hr * 0.92, hr * 0.98))
         for sx in (-1, 1):
             d = smin(d, sd_ellipsoid(P, (sx * hr * 0.42, -hr * 0.28, hr * 0.3), (hr * 0.5, hr * 0.45, hr * 0.5)), 0.05)
@@ -231,7 +231,7 @@ def make_breed(name, B, res_scale):
                 d = smin(d, sd_ellipsoid(P, (sx * hr * 0.17, -hr * 0.3, hr * 0.82), (hr * 0.24, hr * 0.2, hr * 0.18)), 0.03)
             d = smin(d, sd_ellipsoid(P, (0, -hr * 0.46, hr * 0.7), (hr * 0.2, hr * 0.14, hr * 0.16)), 0.03)
             d = smin(d, sd_ellipsoid(P, (0, -hr * 0.1, hr * 0.85), (hr * 0.12, hr * 0.12, hr * 0.14)), 0.03)
-        else:
+        elif muzzle:
             tip = snout_c + [0, 0, sl * 0.55]
             back = snout_c - [0, -sw * 0.15, sl * 0.6]
             m = sd_round_cone(P, back, tip, sw * 1.0, sw * 0.82)
@@ -248,7 +248,7 @@ def make_breed(name, B, res_scale):
     # Profondeur de la peau devant l'œil (sans orbite) : marche le long de -Z
     zs = np.linspace(hr * 1.4, 0.0, 600)
     probe = np.stack([np.full_like(zs, eye_p[0]), np.full_like(zs, eye_p[1]), zs], axis=1)
-    dd = head_base(probe)
+    dd = head_base(probe, muzzle=False)
     skin_z = float(zs[np.argmax(dd < 0)])
     eye_c = np.array([eye_p[0], eye_p[1], skin_z - eye_r * 0.5])
 
@@ -256,7 +256,7 @@ def make_breed(name, B, res_scale):
         d = head_base(P)
         # orbites : l'œil est enchâssé, seul un dôme aplati dépasse
         for sx in (-1, 1):
-            d = smax(d, -sd_ellipsoid(P, eye_c * [sx, 1, 1] + [0, 0, eye_r * 0.15], (eye_r * 1.02, eye_r * 1.05, eye_r * 0.75)), 0.025)
+            d = smax(d, -sd_ellipsoid(P, eye_c * [sx, 1, 1] + [0, 0, eye_r * 0.02], (eye_r * 0.88, eye_r * 0.9, eye_r * 0.7)), 0.02)
         return d + fur(P, fur_amp * 0.6, fur_f)
 
     def paint_head(P, N):

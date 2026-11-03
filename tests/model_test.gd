@@ -14,6 +14,9 @@ func _ready() -> void:
 	var only: String = poses[1] if poses.size() > 1 else ""
 	if only != "":
 		cam.position = Vector3(1.3, 0.85, 1.9); cam.look_at(Vector3(0, 0.32, 0))
+		if pose == "face":
+			pose = "stand"
+			set_meta("face", true)
 	for b in GameData.BREED_ORDER:
 		if only != "" and b != only:
 			i += 1
@@ -29,6 +32,17 @@ func _ready() -> void:
 		pets.append(m); i += 1
 func _process(_d: float) -> void:
 	frames += 1
+	if frames == 20 and has_meta("face"):
+		var m: PetModel = pets[0]
+		m.rotation.y = 0.25
+		if OS.get_environment("NOLIDS") != "":
+			for l in m.lids + m.lower_lids: l.visible = false
+		if OS.get_environment("NOEYES") != "":
+			for e in m.eyes: e.visible = false
+		var hp := m.head_pivot.global_position
+		var c := get_viewport().get_camera_3d()
+		c.global_position = hp + Vector3(0.1, 0.03, m.hr * 5.5)
+		c.look_at(hp + Vector3(0, 0, m.hr))
 	if frames == 30:
 		var img := get_viewport().get_texture().get_image()
 		var args := OS.get_cmdline_user_args()

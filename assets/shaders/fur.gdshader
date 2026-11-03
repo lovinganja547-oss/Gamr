@@ -25,7 +25,7 @@ void fragment() {
 	float s1 = sin(lpos.x * 160.0 + sin(lpos.y * 90.0) * 2.0) * sin(lpos.y * 150.0 + sin(lpos.z * 110.0) * 2.0);
 	float s2 = sin(lpos.z * 240.0 + lpos.x * 70.0);
 	col *= 1.0 + (s1 * 0.05 + s2 * 0.025) * fur_strength;
-	col *= mix(0.7, 1.0, m.a);
+	col *= mix(0.86, 1.0, m.a);
 	ALBEDO = col;
 	ROUGHNESS = 0.92;
 	SPECULAR = 0.15;

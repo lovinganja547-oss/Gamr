@@ -60,9 +60,23 @@ func _run() -> void:
 	await shot("shelter_shiba")
 	ad._adopt()
 	await wait(0.8)
-	ad.custom["palette"] = 1
-	ad._build_custom()
 	await shot("customize")
+	ad.custom["palette"] = 1
+	ad._build_custom(false, "body")
+	await wait(0.8)
+	await shot("customize_palette")
+	ad.custom["eyes"] = 2
+	ad._build_custom(false, "head")
+	await wait(0.8)
+	await shot("customize_eyes")
+	ad.custom["collar"] = "collar_blue"
+	ad._build_custom(false, "neck")
+	await wait(0.8)
+	await shot("customize_collar")
+	ad.custom["accessory"] = "bow"
+	ad._build_custom(false, "head")
+	await wait(0.8)
+	await shot("customize_acc")
 	ad._confirm()
 	await wait(1.5)
 	main.close_all_panels()

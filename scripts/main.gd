@@ -358,6 +358,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if activity.handle_input(event):
 			get_viewport().set_input_as_handled()
 			return
+	if screen_name == "adopt" and not has_panel() and event is InputEventScreenDrag:
+		cam_rig.orbit(event.relative.x, 0.0)   # tourner autour de l'animal pour voir les détails
+		return
 	if screen_name != "home" or has_panel() or activity:
 		return
 	_home_input(event)

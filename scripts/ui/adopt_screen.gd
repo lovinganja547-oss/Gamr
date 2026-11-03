@@ -39,18 +39,35 @@ func _exit_tree() -> void:
 	if Main.inst:
 		Main.inst._clear_extra_pets()
 
-func _focus() -> void:
+func _focus(detail: String = "body", greet: bool = true) -> void:
 	var main := Main.inst
 	var c := candidates[idx]
 	main.cam_rig.follow = false
-	main.cam_rig.focus = c.position + Vector3(0, 0.3, 0)
-	main.cam_rig.reset_view(2.0 if step == "choose" else 1.7, -0.22, 0.0)
-	main.cam_rig.focus_offset = Vector3(0, 0.3, 0)
+	main.cam_rig.target = null
+	var top := c.model.top_height()
+	if detail == "head":
+		main.cam_rig.focus = c.model.head_pivot.global_position + Vector3(0, top * 0.05, 0)
+		main.cam_rig.reset_view(0.75 + top * 0.9, -0.15, 0.4)
+		main.cam_rig.screen_shift = 0.42
+	elif detail == "neck":
+		main.cam_rig.focus = c.model.acc_root.global_position
+		main.cam_rig.reset_view(0.75 + top * 0.9, -0.1, 0.95)
+		main.cam_rig.screen_shift = 0.42
+	elif step == "choose":
+		main.cam_rig.focus = c.position + Vector3(0, top * 0.45, 0)
+		main.cam_rig.reset_view(1.1 + top * 1.6, -0.2, 0.0)
+		main.cam_rig.screen_shift = 0.32
+	else:
+		main.cam_rig.focus = c.position + Vector3(0, top * 0.45, 0)
+		main.cam_rig.reset_view(1.2 + top * 1.9, -0.2, 0.45)
+		main.cam_rig.screen_shift = 0.4
 	for k in candidates.size():
-		candidates[k].player_pos = Vector3(candidates[k].position.x, 0, 1.0) if k != idx else Vector3(c.position.x, 0, 1.0)
-	c.model.emote("❤️")
-	c.voice()
-	c.play_bow()
+		candidates[k].busy = true
+		candidates[k].player_pos = Vector3(candidates[k].position.x, 0, 1.0)
+	if greet:
+		c.model.emote("❤️")
+		c.voice()
+		c.play_bow()
 
 func _clear() -> void:
 	for ch in get_children():
@@ -147,23 +164,25 @@ func _preview() -> void:
 	c.pet = GameState.sanitize_pet(p)
 	c.refresh_look()
 
-func _build_custom(refocus: bool = false) -> void:
+func _build_custom(refocus: bool = false, detail: String = "") -> void:
 	_clear()
 	step = "custom"
-	if refocus:
-		_focus()
 	_preview()
+	if refocus:
+		_focus("body", true)
+	elif detail != "":
+		_focus(detail, false)
 	var v := UiKit.vbox(10)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(v)
 	var sp := Control.new()
 	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	sp.custom_minimum_size = Vector2(0, 300)
+	sp.custom_minimum_size = Vector2(0, 480)
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(sp)
 	var pnl := UiKit.panel(20)
-	pnl.custom_minimum_size = Vector2(0, 760)
+	pnl.custom_minimum_size = Vector2(0, 540)
 	v.add_child(pnl)
 	var inner := UiKit.vbox(14)
 	pnl.add_child(UiKit.scroll(inner))
@@ -190,7 +209,7 @@ func _build_custom(refocus: bool = false) -> void:
 		var sel: bool = custom["sex"] == s[0]
 		var bt := UiKit.button(s[1], func():
 			custom["sex"] = s[0]
-			_build_custom(), UiKit.C_ACCENT if sel else UiKit.C_DISABLED, 28, 76)
+			_build_custom(false, "body"), UiKit.C_ACCENT if sel else UiKit.C_DISABLED, 28, 76)
 		sh.add_child(UiKit.expand(bt))
 	inner.add_child(sh)
 	# Pelage
@@ -201,7 +220,7 @@ func _build_custom(refocus: bool = false) -> void:
 		var ii: int = i
 		ph.add_child(UiKit.swatch(b["palettes"][i]["main"], i == custom["palette"], func():
 			custom["palette"] = ii
-			_build_custom()))
+			_build_custom(false, "body")))
 	inner.add_child(ph)
 	# Yeux
 	inner.add_child(UiKit.label(tr("Yeux : %s") % tr(GameData.EYE_NAMES[custom["eyes"]]), 26, UiKit.C_SUB))
@@ -211,7 +230,7 @@ func _build_custom(refocus: bool = false) -> void:
 		var ii: int = i
 		eh.add_child(UiKit.swatch(GameData.EYE_COLORS[i], i == custom["eyes"], func():
 			custom["eyes"] = ii
-			_build_custom(), 64))
+			_build_custom(false, "head"), 64))
 	inner.add_child(eh)
 	# Collier
 	inner.add_child(UiKit.label(tr("Collier"), 26, UiKit.C_SUB))
@@ -223,7 +242,7 @@ func _build_custom(refocus: bool = false) -> void:
 			var iid: String = id
 			ch.add_child(UiKit.swatch(it["color"], custom["collar"] == id, func():
 				custom["collar"] = iid
-				_build_custom(), 64))
+				_build_custom(false, "neck"), 64))
 	inner.add_child(ch)
 	# Accessoire
 	inner.add_child(UiKit.label(tr("Accessoire"), 26, UiKit.C_SUB))
@@ -236,7 +255,7 @@ func _build_custom(refocus: bool = false) -> void:
 			var iid: String = id
 			var bt := UiKit.icon_button(it["icon"], tr(it["name"]), func():
 				custom["accessory"] = iid
-				_build_custom(), UiKit.C_GOLD if custom["accessory"] == id else Color(1, 1, 1, 0.95), 104)
+				_build_custom(false, "neck" if iid in ["bandana", "scarf"] else "head"), UiKit.C_GOLD if custom["accessory"] == id else Color(1, 1, 1, 0.95), 104)
 			ah.add_child(bt)
 	inner.add_child(ah)
 	var bh := UiKit.hbox(12)

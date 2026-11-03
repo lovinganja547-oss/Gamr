@@ -95,7 +95,7 @@ func setup(p: Dictionary, q: int = 1) -> void:
 func rebuild(p: Dictionary) -> void:
 	for ch in get_children():
 		ch.queue_free()
-	eyes.clear(); ears.clear(); tail_segs.clear(); legs.clear(); lids.clear()
+	eyes.clear(); ears.clear(); tail_segs.clear(); legs.clear(); lids.clear(); lower_lids.clear(); shell_mats.clear()
 	setup(p, quality)
 
 # ================================================================== Couleurs par motif
@@ -228,6 +228,8 @@ func _pivot(parent: Node3D, pos: Vector3, n: String = "") -> Node3D:
 static var _res_cache := {}
 static var _meta_cache := {}
 var fur_mat: ShaderMaterial
+var shell_mats := {}
+var lower_lids: Array[Node3D] = []
 var lids: Array[Node3D] = []
 var meta := {}
 
@@ -286,7 +288,61 @@ func _fur(nm: String, parent: Node3D, pos: Vector3 = Vector3.ZERO) -> MeshInstan
 	mi.position = pos
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if quality > 0 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mi)
+	_add_shells(mi, nm)
 	return mi
+
+## Nombre de couches de poils selon la qualité graphique.
+func shell_count() -> int:
+	return [4, 7, 10][clampi(quality, 0, 2)]
+
+func _shell_mats(head: bool) -> Array:
+	var key := "head" if head else "body"
+	if shell_mats.has(key):
+		return shell_mats[key]
+	var pat: String = bd["pattern"]
+	var length := {"poodle": 0.016, "shepherd": 0.014, "shiba": 0.013, "cat": 0.009, "beagle": 0.007, "solid": 0.009}.get(pat, 0.01) as float
+	if head:
+		length *= 0.6
+	var arr: Array = []
+	var n := shell_count()
+	var sh: Shader = load("res://assets/shaders/fur_shell.gdshader")
+	for i in n:
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		for k in ["c_main", "c_second", "c_white", "c_points", "pattern_on", "points_on"]:
+			m.set_shader_parameter(k, fur_mat.get_shader_parameter(k))
+		m.set_shader_parameter("layer", float(i + 1) / float(n))
+		m.set_shader_parameter("fur_len", length)
+		m.set_shader_parameter("density", 300.0 if pat == "poodle" else 420.0)
+		m.set_shader_parameter("curl", 0.6 if pat == "poodle" else 0.0)
+		if head:
+			var e := _v3("eye", Vector3(hr * 0.4, hr * 0.12, hr * 0.76))
+			m.set_shader_parameter("hole_a", e)
+			m.set_shader_parameter("hole_b", Vector3(-e.x, e.y, e.z))
+			var sn: Vector2 = bd["snout"]
+			m.set_shader_parameter("hole_c", _v3("nose", Vector3(0, -hr * 0.28 + sn.y * 0.45, hr * 0.78 + sn.x * 1.1)))
+			m.set_shader_parameter("hole_r", float(meta.get("eye_r", hr * 0.2)) * 1.15)
+			m.set_shader_parameter("comb", Vector3(0, -0.2, -0.6))
+		m.render_priority = i
+		arr.append(m)
+	shell_mats[key] = arr
+	return arr
+
+func _add_shells(base: MeshInstance3D, nm: String) -> void:
+	if nm == "nose" or nm.begins_with("ear_inner"):
+		return
+	var mats := _shell_mats(nm == "head")
+	# les couches utilisent toujours le maillage léger (performances)
+	var q_save := quality
+	quality = 0
+	var light := _part(nm)
+	quality = q_save
+	for m in mats:
+		var s := MeshInstance3D.new()
+		s.mesh = light if light else base.mesh
+		s.material_override = m
+		s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		base.add_child(s)
 
 func _hemi(r: float) -> SphereMesh:
 	var key := "hemi_%.3f_%d" % [r, quality]
@@ -346,13 +402,14 @@ func _build() -> void:
 	held_anchor = _pivot(head_pivot, snout_c + Vector3(0, -sn.y * 0.7, sn.x * 0.75), "Mouth")
 	# Yeux : globe, iris, pupille, reflets, paupière
 	var er: float = float(meta.get("eye_r", hr * 0.2))
-	var ep0 := _v3("eye", Vector3(hr * 0.4, hr * 0.12, hr * 0.87))
+	var ep0 := _v3("eye", Vector3(hr * 0.4, hr * 0.12, hr * 0.76))
 	var lid_c := c_second if bd["pattern"] == "shiba" else c_main
 	if bd["pattern"] == "saddle":
 		lid_c = c_main.lerp(c_second, 0.5)
 	for sx in [-1.0, 1.0]:
-		var e := _pivot(head_pivot, Vector3(sx * ep0.x, ep0.y, ep0.z - er * 0.15), "Eye")
-		e.rotation = Vector3(0, sx * 0.32, 0)
+		var e := _pivot(head_pivot, Vector3(sx * ep0.x, ep0.y, ep0.z), "Eye")
+		e.rotation = Vector3(0, sx * 0.3, 0)
+		e.scale = Vector3(1, 1, 0.62)
 		_mi(_sphere(), Color(0.08, 0.06, 0.06), e, Vector3.ZERO, Vector3.ONE * er * 2.0, Vector3.ZERO, 0.12, 0.0)
 		_mi(_sphere(), c_eye, e, Vector3(0, 0, er * 0.6), Vector3(er * 1.5, er * 1.55, er * 0.85), Vector3.ZERO, 0.15, 0.0)
 		_mi(_sphere(), Color(0.02, 0.02, 0.03), e, Vector3(0, 0, er * 0.86), Vector3(er * 0.78, er * (0.95 if cat else 0.82), er * 0.4), Vector3.ZERO, 0.1, 0.0)
@@ -361,9 +418,17 @@ func _build() -> void:
 		var hl2 := _mi(_sphere(), Color.WHITE, e, Vector3(-er * 0.28, -er * 0.3, er * 0.95), Vector3.ONE * er * 0.2, Vector3.ZERO, 0.1, 0.0)
 		hl2.material_override = _glow_mat()
 		var lid := _pivot(e, Vector3.ZERO, "Lid")
-		var lm := _mi(_hemi(er * 1.03), lid_c, lid, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
+		var lm := _mi(_hemi(er * 1.06), lid_c, lid, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
 		lm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# liseré sombre au bord de la paupière (cils)
+		var rim := _mi(_torus(er * 1.0, er * 1.1), lid_c.darkened(0.55), lid, Vector3.ZERO, Vector3(1, 0.35, 1), Vector3.ZERO, 0.8, 0.0)
+		rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		lids.append(lid)
+		var low := _pivot(e, Vector3.ZERO, "LowerLid")
+		var lw := _mi(_hemi(er * 1.05), lid_c, low, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
+		lw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		low.rotation.x = PI + 0.95
+		lower_lids.append(low)
 		eyes.append(e)
 	# Oreilles
 	var es: float = bd["ear_size"]
@@ -622,14 +687,23 @@ func _apply(p: Dictionary, delta: float) -> void:
 	var open := 1.0
 	var ey := 0.0
 	match expression:
-		"happy": open = 0.42; ey = 0.012
+		"happy": open = 0.55; ey = 0.012
 		"closed": open = 0.08
 		"sad": open = 0.6; ey = -0.008
 		"focus": open = 0.85
 	if expression != "closed":
 		open *= 1.0 - _blink * 0.92
+	# paupière haute : au repos elle couvre le haut de l'œil (regard doux)
 	for lid in lids:
-		lid.rotation.x = lerpf(PI * 0.52, -1.25, clampf(open, 0.0, 1.0))
+		lid.rotation.x = lerpf(PI * 0.52, -0.42, clampf(open, 0.0, 1.0))
+	# paupière basse : remonte quand l'animal est content (yeux plissés)
+	var low_a := 0.95
+	match expression:
+		"happy": low_a = 0.42
+		"closed": low_a = 0.6
+		"sad": low_a = 1.1
+	for low in lower_lids:
+		low.rotation.x = lerp_angle(low.rotation.x, PI + low_a, minf(1.0, delta * 8.0))
 	# Oreilles
 	var perk: float = p["ears"]
 	for ep in ears:

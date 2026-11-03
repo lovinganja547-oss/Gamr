@@ -14,6 +14,9 @@ var focus_offset := Vector3(0, 0.3, 0)
 var follow := true
 var _shake := 0.0
 var fixed_transform: Variant = null   # Transform3D pour les cadrages imposés
+## Décale le sujet vers le haut de l'écran (fraction de la demi-hauteur), pour le garder visible au-dessus des panneaux.
+var screen_shift := 0.0
+var _shift := 0.0
 
 func _ready() -> void:
 	cam = Camera3D.new()
@@ -28,6 +31,7 @@ func reset_view(dist: float = 3.2, p: float = -0.32, y: float = 0.0) -> void:
 	pitch = p
 	yaw = y
 	fixed_transform = null
+	screen_shift = 0.0
 
 func orbit(dx: float, dy: float) -> void:
 	yaw -= dx * 0.006
@@ -54,6 +58,8 @@ func _process(delta: float) -> void:
 		cam.global_position += Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake
 		_shake = maxf(0.0, _shake - delta * 0.4)
 	cam.look_at(focus, Vector3.UP)
+	_shift = lerpf(_shift, screen_shift, minf(1.0, delta * 5.0))
+	cam.v_offset = -_shift * distance * tan(deg_to_rad(cam.fov * 0.5))
 
 func snap() -> void:
 	if follow and target and is_instance_valid(target):

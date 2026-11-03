@@ -221,7 +221,7 @@ def make_breed(name, B, res_scale):
     if cat:
         nose_p = np.array([0, -hr * 0.12, hr * 0.98])
 
-    def head(P):
+    def head_base(P):
         d = sd_ellipsoid(P, (0, hr * 0.06, -hr * 0.04), (hr * 0.98, hr * 0.92, hr * 0.98))
         for sx in (-1, 1):
             d = smin(d, sd_ellipsoid(P, (sx * hr * 0.42, -hr * 0.28, hr * 0.3), (hr * 0.5, hr * 0.45, hr * 0.5)), 0.05)
@@ -243,9 +243,20 @@ def make_breed(name, B, res_scale):
             d = smin(d, sd_ellipsoid(P, tip + [0, -sw * 0.9, -sl * 0.35], (sw * 0.5, sw * 0.25, sl * 0.4)), 0.03)  # menton
         if pat == "poodle":
             d = smin(d, sd_ellipsoid(P, (0, hr * 0.72, -hr * 0.05), (hr * 0.75, hr * 0.55, hr * 0.75)), 0.05)
-        # orbites
+        return d
+
+    # Profondeur de la peau devant l'œil (sans orbite) : marche le long de -Z
+    zs = np.linspace(hr * 1.4, 0.0, 600)
+    probe = np.stack([np.full_like(zs, eye_p[0]), np.full_like(zs, eye_p[1]), zs], axis=1)
+    dd = head_base(probe)
+    skin_z = float(zs[np.argmax(dd < 0)])
+    eye_c = np.array([eye_p[0], eye_p[1], skin_z - eye_r * 0.5])
+
+    def head(P):
+        d = head_base(P)
+        # orbites : l'œil est enchâssé, seul un dôme aplati dépasse
         for sx in (-1, 1):
-            d = smax(d, -sd_sphere(P, eye_p * [sx, 1, 1] + [0, 0, eye_r * 0.35], eye_r * 0.95), 0.03)
+            d = smax(d, -sd_ellipsoid(P, eye_c * [sx, 1, 1] + [0, 0, eye_r * 0.15], (eye_r * 1.02, eye_r * 1.05, eye_r * 0.75)), 0.025)
         return d + fur(P, fur_amp * 0.6, fur_f)
 
     def paint_head(P, N):
@@ -287,7 +298,8 @@ def make_breed(name, B, res_scale):
     nb = sw * 0.7 if not cat else hr * 0.15
     parts["nose"] = (nose, None, (-nb, -nb, -nb), (nb, nb, nb), H(0.0045 if not cat else 0.0032))
     meta["nose"] = nose_p.tolist()
-    meta["eye"] = (eye_p + [0, 0, eye_r * 0.35]).tolist()
+    meta["eye"] = eye_c.tolist()
+    meta["eye_skin_z"] = skin_z
     meta["eye_r"] = eye_r
 
     # ---------- oreilles (repère du pivot ; oreille gauche x<0, la droite est miroir)

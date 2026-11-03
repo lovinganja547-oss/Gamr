@@ -1,12 +1,12 @@
-# Patouille — compagnons virtuels (Android)
+# Truffe & Co — compagnons virtuels (Android)
 
 Jeu original de simulation d'animaux de compagnie, Godot 4.5.1 (GDScript, rendu GL Compatibility).
 Modèles 3D, animations, sons et musiques 100 % procéduraux et originaux (aucune ressource externe).
 
 ## Installer
-APK prêt : `dist/Patouille.apk` (release signée, arm64-v8a + armeabi-v7a, Android 7.0+).
+APK prêt : `dist/TruffeEtCo.apk` (release signée, arm64-v8a + armeabi-v7a, Android 7.0+).
 ```
-adb install -r dist/Patouille.apk
+adb install -r dist/TruffeEtCo.apk
 ```
 ou copier l'APK sur le téléphone et l'ouvrir (autoriser « sources inconnues »).
 
@@ -15,7 +15,7 @@ Prérequis : Godot 4.5.1 + modèles d'export 4.5.1, Android SDK (platform-tools,
 ```
 GODOT=/chemin/godot ANDROID_HOME=/chemin/sdk tools/build_apk.sh
 ```
-Produit `build/Patouille-debug.apk` et `build/Patouille.apk` (clés générées dans `build/`, non versionnées).
+Produit `build/TruffeEtCo-debug.apk` et `build/TruffeEtCo.apk` (clés générées dans `build/`, non versionnées).
 Régénérer sons / icône : `python3 tools/gen_audio.py` ; `python3 tools/gen_icon.py` (numpy, Pillow).
 Régénérer les modèles 3D : `python3 tools/gen_models.py` puis `godot --headless --path . -s tools/convert_models.gd` (maillages sculptés par champs de distance, 2 niveaux de détail).
 

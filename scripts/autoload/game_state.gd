@@ -11,6 +11,7 @@ signal toast(text: String)
 signal achievement_unlocked(id: String)
 signal daily_changed
 signal relation_up(level: int)
+signal pet_level_up(level: int)
 
 const SAVE_PATH := "user://save.json"
 const BACKUP_PATH := "user://save.bak.json"
@@ -21,10 +22,11 @@ const OFFLINE_FLOOR := 20.0
 const HEALTH_FLOOR := 10.0
 
 ## Décroissance des besoins en points par heure de jeu active.
-const DECAY := {"hunger": 10.0, "thirst": 12.0, "clean": 5.0, "energy": 8.0, "affection": 5.0}
+const DECAY := {"hunger": 8.0, "thirst": 10.0, "clean": 4.0, "energy": 3.5, "affection": 4.0, "outside": 5.0}
 
 var data: Dictionary = {}
 var pet_sleeping := false
+var _outdoor := false   # l'animal actif est dehors (jardin, parc, plage…)
 var load_status := "new"   # new | ok | backup | corrupt
 var offline_report := ""
 var _autosave_t := 0.0
@@ -202,6 +204,19 @@ func sanitize(src: Dictionary) -> Dictionary:
 	for k in d["stats"].keys():
 		stats[str(k)] = maxi(0, int(d["stats"][k]))
 	d["stats"] = stats
+	var src_version := int(src.get("version", 1)) if not src.is_empty() else GameData.SAVE_VERSION
+	if src_version < 2:
+		# v1 -> v2 : niveau par animal déduit de la relation, besoin « sortir » ajouté
+		for p in d["pets"]:
+			if p is Dictionary and not p.has("level"):
+				var rx := int(p.get("relation_xp", 0))
+				var lv := 1
+				for i in GameData.RELATION_XP.size():
+					if rx >= GameData.RELATION_XP[i]:
+						lv = i + 1
+				p["level"] = lv
+				p["xp"] = 0
+	d["version"] = GameData.SAVE_VERSION
 	var pets: Array = []
 	for p in d["pets"]:
 		if p is Dictionary:
@@ -244,9 +259,15 @@ func sanitize_pet(p: Dictionary) -> Dictionary:
 		"needs": {}, "skills": {}, "traits": {},
 		"train_day": str(p.get("train_day", "")), "train_reps": maxi(0, int(p.get("train_reps", 0))),
 		"wins": maxi(0, int(p.get("wins", 0))),
+		"xp": maxi(0, int(p.get("xp", 0))),
+		"level": clampi(int(p.get("level", 1)), 1, GameData.MAX_PET_LEVEL),
+		"last_bath": float(p.get("last_bath", 0.0)),
+		"records": p.get("records", {}) if p.get("records") is Dictionary else {},
+		"voice": p.get("voice", {}) if p.get("voice") is Dictionary else {},
 	}
 	if out["name"].strip_edges() == "":
 		out["name"] = b["name"]
+	out["temperament"] = GameData.TEMPERAMENT_MIGRATION.get(out["temperament"], out["temperament"])
 	if not GameData.TEMPERAMENTS.has(out["temperament"]):
 		out["temperament"] = "joueur"
 	if GameData.item(out["collar"]).get("cat", "") != "collar":
@@ -306,11 +327,16 @@ func _decay_pet(p: Dictionary, hours: float, sleeping: bool, offline: bool) -> v
 	_dec(n, "thirst", DECAY["thirst"] * hours * mult, floor_v)
 	_dec(n, "clean", DECAY["clean"] * hours * mult, floor_v)
 	_dec(n, "affection", DECAY["affection"] * (0.6 + float(tr_.get("affection", 50)) / 100.0 * 0.8) * hours * mult, floor_v)
+	var out_k := 1.4 if p.get("temperament", "") == "energique" else (0.8 if p.get("temperament", "") == "calme" else 1.0)
+	if not offline and p["id"] == data.get("active_pet", "") and _outdoor:
+		n["outside"] = minf(100.0, n["outside"] + 6.0 * hours)   # dehors : le besoin de sortir se comble doucement
+	else:
+		_dec(n, "outside", DECAY["outside"] * out_k * hours * mult, floor_v)
 	if sleeping or offline:
 		var bonus := 1.0 + float(GameData.item(data["deco"].get("bed", "")).get("bonus", 0)) / 100.0
 		n["energy"] = minf(100.0, n["energy"] + 30.0 * bonus * hours)
 	else:
-		_dec(n, "energy", DECAY["energy"] * en * hours, floor_v)
+		_dec(n, "energy", DECAY["energy"] * en * hours * (0.8 if p.get("temperament", "") == "calme" else 1.0), floor_v)
 	var low: bool = n["hunger"] < 20.0 or n["thirst"] < 20.0 or n["clean"] < 15.0
 	if low:
 		_dec(n, "health", 3.0 * hours * mult, maxf(HEALTH_FLOOR, 40.0 if offline else HEALTH_FLOOR))
@@ -328,7 +354,7 @@ func _dec(n: Dictionary, key: String, amount: float, floor_v: float) -> void:
 
 func mood_target(p: Dictionary) -> float:
 	var n: Dictionary = p["needs"]
-	return clampf((n["hunger"] + n["thirst"] + n["clean"] * 0.6 + n["energy"] * 0.7 + n["affection"] * 1.2 + n["health"]) / 5.5, 0.0, 100.0)
+	return clampf((n["hunger"] + n["thirst"] + n["clean"] * 0.6 + n["energy"] * 0.7 + n["affection"] * 1.2 + n["health"] + n.get("outside", 80.0) * 0.8) / 6.3, 0.0, 100.0)
 
 func apply_offline() -> void:
 	if data.is_empty():
@@ -490,9 +516,57 @@ func spend(n: int) -> bool:
 func level() -> int:
 	return int(data.get("level", 1))
 
+func pet_level(p: Dictionary = {}) -> int:
+	if p.is_empty():
+		p = active_pet()
+	return int(p.get("level", 1))
+
+## Expérience de l'animal (progression individuelle) ; récompense à chaque niveau.
+func add_pet_xp(n: int, p: Dictionary = {}) -> void:
+	if p.is_empty():
+		p = active_pet()
+	if p.is_empty() or n <= 0:
+		return
+	p["xp"] = int(p.get("xp", 0)) + n
+	while int(p["level"]) < GameData.MAX_PET_LEVEL and int(p["xp"]) >= GameData.pet_xp_for_level(int(p["level"])):
+		p["xp"] = int(p["xp"]) - GameData.pet_xp_for_level(int(p["level"]))
+		p["level"] = int(p["level"]) + 1
+		var lv := int(p["level"])
+		var reward := 25 * lv
+		add_coins(reward)
+		var msg := tr("%s passe au niveau %d ! +%d pièces") % [p["name"], lv, reward]
+		for a in GameData.ACTIVITY_LEVELS.keys():
+			if int(GameData.ACTIVITY_LEVELS[a]) == lv:
+				msg += "\n" + tr("Nouveau : %s") % tr(GameData.ACTIVITY_NAMES[a])
+		toast.emit(msg)
+		pet_level_up.emit(lv)
+	mark_dirty()
+
+func pet_xp_progress(p: Dictionary = {}) -> float:
+	if p.is_empty():
+		p = active_pet()
+	if p.is_empty():
+		return 0.0
+	return clampf(float(p.get("xp", 0)) / float(GameData.pet_xp_for_level(int(p.get("level", 1)))), 0.0, 1.0)
+
+## Coût d'énergie d'une activité, modulé par l'endurance, le niveau et le caractère.
+func spend_energy(kind: String, mult: float = 1.0) -> void:
+	var p := active_pet()
+	if p.is_empty():
+		return
+	var base := float(GameData.ENERGY_COST.get(kind, 1.0)) * mult
+	var stam := float(GameData.breed(p["breed"])["stats"]["stamina"]) / 100.0
+	var k := (1.25 - stam * 0.5) * (1.0 - minf(float(p.get("level", 1)), 20.0) * 0.012)
+	if p.get("temperament", "") == "energique":
+		k *= 0.8
+	elif p.get("temperament", "") == "calme":
+		k *= 0.9
+	change_need("energy", -base * k)
+
 func add_xp(n: int) -> void:
 	if n <= 0:
 		return
+	add_pet_xp(n)
 	data["xp"] = int(data["xp"]) + n
 	while level() < GameData.MAX_PLAYER_LEVEL and int(data["xp"]) >= GameData.xp_for_level(level()):
 		data["xp"] = int(data["xp"]) - GameData.xp_for_level(level())
@@ -597,14 +671,22 @@ func set_toy(id: String) -> void:
 
 # ================================================================== Soins
 func feed(id: String) -> bool:
+	var fx := feed_start(id)
+	if fx.is_empty():
+		return false
+	apply_fx(fx)
+	return true
+
+## Consomme un repas et compte la progression ; renvoie les effets à appliquer
+## progressivement pendant que l'animal mange ({} si impossible).
+func feed_start(id: String) -> Dictionary:
 	var it := GameData.item(id)
 	if it.get("cat", "") != "food" or not consume(id):
-		return false
-	apply_fx(it["fx"])
+		return {}
 	add_relation(3)
 	inc_stat("feed", 1)
 	add_xp(5)
-	return true
+	return it["fx"]
 
 func give_treat(id: String) -> bool:
 	var it := GameData.item(id)
@@ -616,8 +698,9 @@ func give_treat(id: String) -> bool:
 	add_xp(2)
 	return true
 
-func give_water() -> void:
-	change_need("thirst", 60.0)
+func give_water(apply: bool = true) -> void:
+	if apply:
+		change_need("thirst", 60.0)
 	add_relation(1)
 	add_xp(2)
 
@@ -633,7 +716,6 @@ func bath_done(quality: float) -> void:
 	change_need("mood", 4.0)
 	add_relation(4)
 	inc_stat("bath", 1)
-	add_xp(8)
 
 ## Caresse : limitée par un budget pour éviter l'abus. Retourne true si comptée.
 func stroke() -> bool:
@@ -656,7 +738,10 @@ func skill(cmd: String) -> float:
 	return float(p["skills"].get(cmd, 0.0))
 
 func command_available(cmd: String) -> bool:
-	return level() >= int(GameData.COMMANDS[cmd]["level"])
+	return pet_level() >= int(GameData.COMMANDS[cmd]["level"])
+
+func activity_unlocked(a: String) -> bool:
+	return pet_level() >= int(GameData.ACTIVITY_LEVELS.get(a, 1))
 
 ## Motivation de 0 à 1 : faim, humeur, énergie, relation, fatigue de la séance.
 func motivation(p: Dictionary) -> float:
@@ -708,7 +793,7 @@ func training_feedback(cmd: String, success: bool, rewarded: bool, treat: bool) 
 	else:
 		gain = 1.0 * learn * repeat_factor   # correction douce : il comprend un peu
 		change_need("mood", -1.0)
-	change_need("energy", -1.2)
+	spend_energy("train_rep")
 	var before := cur
 	var after := clampf(cur + gain, 0.0, 100.0)
 	p["skills"][cmd] = after
@@ -739,8 +824,8 @@ func comp_requirements(cat: String, lv: int) -> String:
 	var L: Dictionary = GameData.COMP_LEVELS[lv]
 	if lv > 0 and int(data["comp"].get(cat, -1)) < lv - 1:
 		return tr("Gagnez d'abord le niveau %s") % tr(GameData.COMP_LEVELS[lv - 1]["name"])
-	if level() < int(L["player_level"]):
-		return tr("Niveau joueur %d requis") % int(L["player_level"])
+	if pet_level() < int(L["player_level"]) + 3:
+		return tr("%s doit être niveau %d") % [p["name"], int(L["player_level"]) + 3]
 	if relation_level(p) < int(L["relation"]):
 		return tr("Relation niveau %d requise") % int(L["relation"])
 	for c in GameData.COMP_CATS[cat]["skills"]:
@@ -784,8 +869,8 @@ func comp_result(cat: String, lv: int, score: float, seed_v: int) -> Dictionary:
 	add_coins(prize)
 	add_xp(xp)
 	add_relation(10)
-	change_need("energy", -15.0)
-	change_need("hunger", -8.0)
+	spend_energy("competition")
+	change_need("hunger", -5.0)
 	if place <= 3:
 		data["trophies"].append({"cat": cat, "level": lv, "place": place, "pet": p.get("name", "?"), "day": today()})
 	if place == 1:

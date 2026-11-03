@@ -2,19 +2,19 @@ extends Node
 ## Données statiques du jeu (races, objets, commandes, compétitions, succès…).
 ## Toutes les chaînes affichées passent par tr() côté interface.
 
-const SAVE_VERSION := 1
-const NEED_KEYS: Array[String] = ["hunger", "thirst", "clean", "energy", "mood", "health", "affection"]
+const SAVE_VERSION := 2
+const NEED_KEYS: Array[String] = ["hunger", "thirst", "clean", "energy", "mood", "health", "outside", "affection"]
 const NEED_NAMES := {
 	"hunger": "Faim", "thirst": "Soif", "clean": "Propreté", "energy": "Énergie",
-	"mood": "Humeur", "health": "Santé", "affection": "Affection",
+	"mood": "Bonheur", "health": "Santé", "outside": "Sortir", "affection": "Câlins",
 }
 const NEED_ICONS := {
 	"hunger": "🍖", "thirst": "💧", "clean": "🫧", "energy": "⚡",
-	"mood": "😊", "health": "❤️", "affection": "💞",
+	"mood": "😊", "health": "❤️", "outside": "🌳", "affection": "💞",
 }
 const NEED_COLORS := {
 	"hunger": Color(0.96, 0.6, 0.3), "thirst": Color(0.35, 0.7, 0.98), "clean": Color(0.55, 0.85, 0.95),
-	"energy": Color(0.98, 0.85, 0.3), "mood": Color(0.65, 0.85, 0.4), "health": Color(0.95, 0.4, 0.45),
+	"energy": Color(0.98, 0.85, 0.3), "mood": Color(0.65, 0.85, 0.4), "health": Color(0.95, 0.4, 0.45), "outside": Color(0.45, 0.75, 0.45),
 	"affection": Color(0.95, 0.5, 0.75),
 }
 
@@ -119,13 +119,30 @@ const EYE_COLORS := [Color(0.28, 0.17, 0.1), Color(0.12, 0.1, 0.1), Color(0.35, 
 const EYE_NAMES := ["Noisette", "Ébène", "Azur", "Émeraude", "Ambre"]
 
 const TEMPERAMENTS := {
-	"joueur": {"name": "Joueur", "desc": "Toujours partant pour jouer.", "mod": {"energy": 15, "obedience": -5}},
-	"calme": {"name": "Calme", "desc": "Posé, il se fatigue moins vite.", "mod": {"energy": -15, "obedience": 10}},
-	"tetu": {"name": "Têtu", "desc": "Il faut de la patience pour le dresser.", "mod": {"obedience": -20, "independence": 15}},
-	"calin": {"name": "Câlin", "desc": "Il adore les caresses.", "mod": {"affection": 20}},
-	"curieux": {"name": "Curieux", "desc": "Il fourre sa truffe partout.", "mod": {"curiosity": 20}},
-	"gourmand": {"name": "Gourmand", "desc": "Les friandises le motivent énormément.", "mod": {"gluttony": 20}},
+	"joueur": {"name": "Joueur", "desc": "Toujours partant pour jouer : il rapporte plus volontiers.", "mod": {"energy": 10, "obedience": -5}},
+	"calme": {"name": "Calme", "desc": "Posé, il se fatigue moins vite et reste concentré.", "mod": {"energy": -15, "obedience": 10}},
+	"curieux": {"name": "Curieux", "desc": "Il fourre sa truffe partout : excellent à la recherche.", "mod": {"curiosity": 20}},
+	"energique": {"name": "Énergique", "desc": "Infatigable, mais il a souvent besoin de sortir.", "mod": {"energy": 20, "independence": 5}},
+	"affectueux": {"name": "Affectueux", "desc": "Il adore les câlins et s'attache vite.", "mod": {"affection": 20}},
+	"timide": {"name": "Timide", "desc": "Réservé au début, il faut gagner sa confiance en douceur.", "mod": {"independence": 10, "affection": 5, "obedience": 5}},
 }
+## Anciens tempéraments (sauvegarde v1) -> nouveaux
+const TEMPERAMENT_MIGRATION := {"tetu": "energique", "calin": "affectueux", "gourmand": "curieux"}
+
+# ------------------------------------------------------------------ Énergie (coût par activité, avant modificateurs)
+const ENERGY_COST := {
+	"calm": 1.0, "train_rep": 0.35, "fetch_throw": 1.2, "tug": 2.0, "search": 3.0,
+	"walk_km": 9.0, "agility": 6.0, "competition": 6.0,
+}
+
+# ------------------------------------------------------------------ Niveaux de l'animal
+const MAX_PET_LEVEL := 30
+static func pet_xp_for_level(lv: int) -> int:
+	return int(round(60.0 * pow(float(lv), 1.35)))
+
+## Activités débloquées par le niveau de l'animal.
+const ACTIVITY_LEVELS := {"fetch": 1, "walk": 1, "search": 2, "tug": 2, "agility": 3, "competition": 4, "photo": 1, "brush": 1}
+const ACTIVITY_NAMES := {"fetch": "Lancer de balle", "walk": "Promenade", "search": "Jeu de recherche", "tug": "Tir à la corde", "agility": "Parcours d'agilité", "competition": "Concours", "photo": "Mode photo", "brush": "Brossage"}
 
 # ------------------------------------------------------------------ Commandes
 # gesture : séquence de directions (U/D/L/R), "O" = cercle, "TT" = double tape.

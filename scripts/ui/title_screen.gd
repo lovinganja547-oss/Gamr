@@ -25,7 +25,7 @@ func _ready() -> void:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(v)
 	v.add_child(UiKit.spacer(60))
-	var title := UiKit.label("Patouille", 120, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var title := UiKit.label("Truffe & Co", 120, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title.add_theme_color_override("font_outline_color", Color(0.85, 0.42, 0.25))
 	title.add_theme_constant_override("outline_size", 26)
 	v.add_child(title)

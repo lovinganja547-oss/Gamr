@@ -195,7 +195,8 @@ func _finish() -> void:
 	finished = true
 	pet.stop_moving()
 	GameState.inc_stat("walk", 1)
-	GameState.change_need("energy", -15.0)
+	GameState.spend_energy("walk_km", 1.2)
+	GameState.change_need("outside", 70.0)
 	GameState.change_need("hunger", -8.0)
 	GameState.change_need("thirst", -10.0)
 	GameState.change_need("clean", -12.0 if main.env_id in ["beach", "garden"] else -6.0)

@@ -29,6 +29,13 @@ func _exit_tree() -> void:
 func _start() -> void:
 	pass
 
+## L'activité autorise-t-elle le bouton de recentrage caméra ?
+func can_recenter() -> bool:
+	return false
+
+func recenter() -> void:
+	main.recenter_camera()
+
 func handle_input(_event: InputEvent) -> bool:
 	return false
 
@@ -47,6 +54,11 @@ func make_top(title: String, show_quit: bool = true) -> VBoxContainer:
 	pv.add_child(info_label)
 	p.add_child(pv)
 	h.add_child(p)
+	if can_recenter():
+		var rc := UiKit.button("◎", func(): recenter(), UiKit.C_BLUE, 34, 90)
+		rc.custom_minimum_size = Vector2(90, 90)
+		rc.tooltip_text = tr("Recentrer la caméra")
+		h.add_child(rc)
 	if show_quit:
 		var q := UiKit.button("✕", quit, UiKit.C_DANGER, 34, 90)
 		q.custom_minimum_size = Vector2(90, 90)

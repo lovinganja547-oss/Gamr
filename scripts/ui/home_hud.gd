@@ -24,6 +24,10 @@ func _ready() -> void:
 	GameState.coins_changed.connect(func(_c): _update_top())
 	GameState.xp_changed.connect(func(_x, _l): _update_top())
 	GameState.pet_changed.connect(refresh)
+	GameState.pet_level_up.connect(func(_l):
+		Audio.play("levelup")
+		_update_top()
+		_update_cmds())
 	GameState.inventory_changed.connect(_update_top)
 	Voice.heard.connect(_on_voice)
 	refresh()
@@ -109,6 +113,7 @@ func _build() -> void:
 	side.add_child(UiKit.icon_button("📷", tr("Photo"), func(): Main.inst.take_photo(), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("🗺️", tr("Lieux"), func(): Panels.places(), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("🐾", tr("Animaux"), func(): Panels.pets(), Color(1, 1, 1, 0.92), 96))
+	side.add_child(UiKit.icon_button("◎", tr("Centrer"), func(): Main.inst.recenter_camera(0.22), Color(1, 1, 1, 0.92), 96))
 	mic_btn = UiKit.icon_button("🎤", tr("Voix"), _toggle_mic, Color(1, 1, 1, 0.92), 96)
 	side.add_child(mic_btn)
 	mid.add_child(side)
@@ -172,8 +177,8 @@ func _update_top() -> void:
 	rel_l.text = "💞 %d · %s" % [lv, tr(GameData.RELATION_NAMES[lv - 1])]
 	rel_bar.value = GameState.relation_progress(p) * 100.0
 	coins_l.text = "🪙 %d" % GameState.coins()
-	level_l.text = "⭐ %d" % GameState.level()
-	xp_bar.value = float(GameState.data["xp"]) / float(GameData.xp_for_level(GameState.level())) * 100.0
+	level_l.text = tr("Niv. %d") % GameState.pet_level(p)
+	xp_bar.value = GameState.pet_xp_progress(p) * 100.0
 
 func _update_needs() -> void:
 	var p := GameState.active_pet()
@@ -207,64 +212,81 @@ func _update_cmds() -> void:
 func _pet() -> PetController:
 	return Main.inst.pet_ctrl
 
-func _bowl_pos(kind: String) -> Vector3:
+## Gamelle du lieu (maison) ou gamelle temporaire posée sur un point libre près de l'animal.
+func _bowl_node(kind: String) -> Node3D:
 	var env := Main.inst.env_root
-	var key := "bowl_" + kind
-	if env.has_meta(key):
-		return env.get_meta(key)
+	var n: Node3D = env.get_node_or_null("Bowl_" + kind)
+	if n:
+		return n
 	if _temp_bowl and is_instance_valid(_temp_bowl):
 		_temp_bowl.queue_free()
-	var p := _pet().position + Vector3(0.4, 0, 0.5)
+	var p := _pet().position + Vector3(0.45, 0, 0.55)
+	if Main.inst.nav:
+		var f := Main.inst.nav.nearest_free(Vector2(p.x, p.z))
+		p = Vector3(f.x, 0, f.y)
 	_temp_bowl = WorldBuilder.make_bowl(Main.inst.world, p, Color(0.95, 0.45, 0.45) if kind == "food" else Color(0.45, 0.65, 0.95), kind)
-	return p
+	return _temp_bowl
 
-func _set_bowl(kind: String, full: bool) -> void:
-	var env := Main.inst.env_root
-	var n: Node = env.get_node_or_null("Bowl_" + kind)
-	if n == null and _temp_bowl and is_instance_valid(_temp_bowl):
-		n = _temp_bowl
-	if n:
-		var f: Node3D = n.get_node_or_null("Fill")
-		if f:
-			f.visible = full
-	GameState.data["bowls"][kind] = 1.0 if full else 0.0
+func _fill(bowl: Node3D, amount: float) -> void:
+	var f: Node3D = bowl.get_node_or_null("Fill")
+	if f == null:
+		return
+	f.visible = amount > 0.02
+	var k := 0.45 + 0.55 * clampf(amount, 0.0, 1.0)
+	f.scale = Vector3(k, 1.0, k)
+	f.position.y = 0.05 + 0.025 * amount
 
 func feed(item_id: String) -> void:
 	var pet := _pet()
-	if pet == null:
+	if pet == null or pet.state == "action" and pet.get_meta("action", "") == "eat":
 		return
-	var bp := _bowl_pos("food")
-	_set_bowl("food", true)
+	var fx := GameState.feed_start(item_id)
+	if fx.is_empty():
+		Main.inst.toast(tr("Plus de nourriture de ce type."))
+		return
+	var bowl := _bowl_node("food")
+	_fill(bowl, 1.0)
+	GameState.data["bowls"]["food"] = 1.0
 	Audio.play("pop")
-	pet.walk_to(bp + Vector3(0, 0, 0.32), 1.2, func():
-		pet.face(bp)
-		pet.eat("food", 2.6)
-		await get_tree().create_timer(2.6, false).timeout
-		if GameState.feed(item_id):
-			pet.model.emote("😋")
-		_set_bowl("food", false)
+	var given := {"k": 0.0}
+	pet.eat_from(bowl, "food", 3.2, func(frac: float):
+		# besoins mis à jour au fil du repas
+		for key in fx.keys():
+			if GameData.NEED_KEYS.has(key):
+				GameState.change_need(key, float(fx[key]) * (frac - given["k"]))
+		given["k"] = frac
+		_fill(bowl, 1.0 - frac), func(_ok: bool):
+		if given["k"] < 1.0:   # repas interrompu : il finira la gamelle plus tard, effets restants appliqués
+			for key in fx.keys():
+				if GameData.NEED_KEYS.has(key):
+					GameState.change_need(key, float(fx[key]) * (1.0 - given["k"]))
+		GameState.data["bowls"]["food"] = 0.0
+		_fill(bowl, 0.0)
 		_cleanup_bowl())
 
 func give_water() -> void:
 	var pet := _pet()
-	if pet == null:
+	if pet == null or pet.state == "action" and pet.get_meta("action", "") == "eat":
 		return
-	var bp := _bowl_pos("water")
-	_set_bowl("water", true)
+	var bowl := _bowl_node("water")
+	_fill(bowl, 1.0)
 	Audio.play("splash", 0.1, -6.0)
-	pet.walk_to(bp + Vector3(0, 0, 0.32), 1.2, func():
-		pet.face(bp)
-		pet.eat("water", 2.2)
-		await get_tree().create_timer(2.2, false).timeout
-		GameState.give_water()
-		_set_bowl("water", false)
+	GameState.give_water(false)
+	var given := {"k": 0.0}
+	pet.eat_from(bowl, "water", 2.6, func(frac: float):
+		GameState.change_need("thirst", 60.0 * (frac - given["k"]))
+		given["k"] = frac
+		_fill(bowl, 1.0 - frac), func(_ok: bool):
+		if given["k"] < 1.0:
+			GameState.change_need("thirst", 60.0 * (1.0 - given["k"]))
+		_fill(bowl, 0.0)
 		_cleanup_bowl())
 
 func _cleanup_bowl() -> void:
 	if _temp_bowl and is_instance_valid(_temp_bowl):
 		var b := _temp_bowl
 		_temp_bowl = null
-		await get_tree().create_timer(1.0, false).timeout
+		await get_tree().create_timer(1.5, false).timeout
 		if is_instance_valid(b):
 			b.queue_free()
 

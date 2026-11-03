@@ -29,6 +29,10 @@ var _tap_t := 0.0
 var _look_cam := true
 var held: Node3D
 var env_meta := {}
+var nav: NavGrid
+var _path := PackedVector2Array()
+var _path_target := Vector3(INF, 0, INF)
+var _stuck_t := 0.0
 
 func setup(p: Dictionary, quality: int) -> void:
 	pet = p
@@ -71,6 +75,22 @@ func walk_to(p: Vector3, spd: float = 1.0, cb: Callable = Callable()) -> void:
 	model.set_posture("stand", 5.0)
 	model.expression = "focus" if spd > 1.5 else "neutral"
 
+## Calcule un chemin contournant les obstacles vers _target (corrigé s'il est inaccessible).
+func _plan_path() -> void:
+	_path = PackedVector2Array()
+	if nav == null:
+		_path_target = _target
+		return
+	var p := nav.find_path(Vector2(position.x, position.z), Vector2(_target.x, _target.z))
+	if p.is_empty():
+		var f := nav.nearest_free(Vector2(_target.x, _target.z))
+		_target = Vector3(f.x, 0, f.y)
+	else:
+		_path = p
+		var last := p[p.size() - 1]
+		_target = Vector3(last.x, 0, last.y)
+	_path_target = _target
+
 func stop_moving() -> void:
 	if state == "moving":
 		state = "idle"
@@ -105,7 +125,15 @@ func _process(delta: float) -> void:
 			model.jump_y = sin(k * PI) * _jump_h
 	# Déplacement
 	if state == "moving":
-		var d := _target - position
+		if _target != _path_target:
+			_plan_path()
+		var goal := _target
+		if _path.size() > 1:
+			goal = Vector3(_path[0].x, 0, _path[0].y)
+			if Vector2(position.x, position.z).distance_to(_path[0]) < 0.12:
+				_path.remove_at(0)
+				goal = Vector3(_path[0].x, 0, _path[0].y) if _path.size() > 1 else _target
+		var d := goal - position
 		d.y = 0
 		var dist := d.length()
 		if dist < 0.06:
@@ -118,8 +146,19 @@ func _process(delta: float) -> void:
 				_on_arrive = Callable()
 				cb.call()
 		else:
-			speed = move_toward(speed, _move_speed * minf(1.0, dist * 2.0 + 0.3), delta * 4.0)
+			var remaining := dist if _path.size() <= 1 else 1.0
+			speed = move_toward(speed, _move_speed * minf(1.0, remaining * 2.0 + 0.3), delta * 4.0)
+			var before := position
 			position += d / dist * minf(speed * delta, dist)
+			# Sécurité : jamais à l'intérieur d'un obstacle
+			if nav and nav.is_blocked_point(Vector2(position.x, position.z), -0.08):
+				position = before
+				_stuck_t += delta
+				if _stuck_t > 0.6:
+					_stuck_t = 0.0
+					_path_target = Vector3(INF, 0, INF)
+			else:
+				_stuck_t = 0.0
 			_yaw_target = atan2(d.x, d.z)
 			model.move_speed = speed
 			model.tongue_out = 1.0 if speed > 1.6 else 0.0
@@ -143,6 +182,7 @@ func _apply_mood_look() -> void:
 	if pet.is_empty() or model == null:
 		return
 	var n: Dictionary = pet["needs"]
+	model.set_dirt((65.0 - float(n["clean"])) / 65.0 * 0.9)
 	model.wag_amp = 0.15 + n["mood"] / 100.0 * 0.45
 	model.wag_speed = 6.0 + n["mood"] / 100.0 * 8.0
 	if sleeping:
@@ -166,7 +206,7 @@ func _autonomy() -> void:
 			if randf() < 0.3:
 				model.emote("💤", 1.6)
 		return
-	if n["energy"] < 18.0:
+	if n["energy"] < 12.0:
 		go_sleep()
 		return
 	if n["hunger"] < 30.0 and randf() < 0.4:
@@ -337,6 +377,59 @@ func eat(kind: String, dur: float = 2.5) -> void:
 			model.chew = 0.0
 			model.emote("😋")
 			_end(id, "eat")
+
+## Repas complet : approche par un côté libre, tête au-dessus de la gamelle, mastication,
+## nourriture qui diminue (on_tick reçoit la part consommée 0..1), puis retour à l'état normal.
+func eat_from(bowl: Node3D, kind: String, dur: float, on_tick: Callable, on_done: Callable) -> void:
+	var bp := Vector3(bowl.global_position.x, 0, bowl.global_position.z)
+	var reach := model.head_reach() * 0.82 + 0.1
+	var spot := bp + Vector3(0, 0, reach)
+	if nav:
+		var best := Vector2(spot.x, spot.z)
+		var best_d := INF
+		for a in [0.0, -0.6, 0.6, -1.2, 1.2, PI * 0.5, -PI * 0.5, PI]:
+			var c := Vector2(bp.x, bp.z) + Vector2(sin(a), cos(a)) * reach
+			if not nav.is_blocked_point(c):
+				var d := c.distance_to(Vector2(position.x, position.z)) + absf(a) * 0.3
+				if d < best_d:
+					best_d = d
+					best = c
+		spot = Vector3(best.x, 0, best.y)
+	var id_before := _act_id + 1
+	walk_to(spot, 1.2, func(): _eat_now(bp, kind, dur, on_tick, on_done))
+	# Sécurité : chemin bloqué -> on mange là où on est arrivé, sans téléportation
+	await get_tree().create_timer(9.0, false).timeout
+	if _act_id == id_before and state == "moving":
+		stop_moving()
+		_eat_now(bp, kind, dur, on_tick, on_done)
+
+func _eat_now(bp: Vector3, kind: String, dur: float, on_tick: Callable, on_done: Callable) -> void:
+	var id := _begin("eat")
+	face(bp)
+	await get_tree().create_timer(0.25, false).timeout
+	if id != _act_id:
+		on_done.call(false)
+		return
+	model.set_posture("eat", 3.5)
+	model.chew = 1.0
+	var steps := 6
+	for i in steps:
+		Audio.play("crunch" if kind == "food" else "lap", 0.08, -4.0)
+		await get_tree().create_timer(dur / steps, false).timeout
+		if id != _act_id:
+			model.chew = 0.0
+			on_done.call(false)
+			return
+		if on_tick.is_valid():
+			on_tick.call(float(i + 1) / steps)
+	model.chew = 0.0
+	model.set_posture("stand", 3.0)
+	model.emote("😋" if kind == "food" else "💦")
+	model.tongue_out = 1.0
+	await get_tree().create_timer(0.6, false).timeout
+	model.tongue_out = 0.0
+	_end(id, "eat")
+	on_done.call(true)
 
 # ================================================================== Interactions joueur
 func on_stroke(part: String) -> void:

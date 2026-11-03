@@ -8,6 +8,7 @@ var world: Node3D
 var env_root: Node3D
 var env_id := ""
 var lighting: Node3D
+var nav: NavGrid
 var cam_rig: CameraRig
 var pet_ctrl: PetController
 var extra_pets: Array[PetController] = []
@@ -113,20 +114,24 @@ func change_env(id: String, keep_pet_pos: bool = false) -> void:
 		lighting.queue_free()
 	env_root = WorldBuilder.build(id, quality)
 	world.add_child(env_root)
+	nav = WorldBuilder.make_nav(env_root)
 	lighting = WorldBuilder.make_lighting(env_root, quality)
 	world.add_child(lighting)
 	var e: Dictionary = GameData.ENVIRONMENTS.get(id, {})
 	Audio.ambience(str(e.get("amb", "")))
+	GameState._outdoor = not env_root.get_meta("indoor", false) and id != "shelter"
 	_clear_extra_pets()
 	if id != "shelter":
 		spawn_pet(keep_pet_pos)
 	elif pet_ctrl:
 		pet_ctrl.visible = false
 	cam_rig.reset_view(3.2, -0.32, 0.0)
+	cam_rig.bounds_box = env_root.get_meta("cam_box", AABB())
 	cam_rig.follow = true
 	cam_rig.focus_offset = Vector3(0, 0.3, 0)
 	if pet_ctrl and pet_ctrl.visible:
-		cam_rig.target = pet_ctrl
+		cam_rig.frame_pet(pet_ctrl, pet_ctrl.model.top_height(), pet_ctrl.model.body_length(), 0.22, -0.3)
+		cam_rig.distance = maxf(cam_rig.distance, 2.4)
 	cam_rig.snap()
 
 func rebuild_env() -> void:
@@ -158,7 +163,10 @@ func spawn_pet(keep_pos: bool = false) -> void:
 	for k in ["bed", "bowl_food", "bowl_water", "fountain"]:
 		if env_root.has_meta(k):
 			pet_ctrl.env_meta[k] = env_root.get_meta(k)
+	pet_ctrl.nav = nav
 	pet_ctrl.position = old_pos if keep_pos else Vector3(0, 0, 0.2)
+	var fp := nav.nearest_free(Vector2(pet_ctrl.position.x, pet_ctrl.position.z))
+	pet_ctrl.position = Vector3(fp.x, 0, fp.y)
 	pet_ctrl.rotation.y = 0.0
 	pet_ctrl._yaw_target = 0.0
 	pet_ctrl.state = "idle"
@@ -176,6 +184,14 @@ func _on_pet_changed() -> void:
 		pet_ctrl.refresh_look()
 	else:
 		spawn_pet(false)
+
+## Recentre la caméra sur l'animal actif, distance adaptée à sa taille (transition douce).
+func recenter_camera(shift: float = 0.0) -> void:
+	if pet_ctrl == null or not pet_ctrl.visible:
+		return
+	var m := pet_ctrl.model
+	cam_rig.frame_pet(pet_ctrl, m.top_height(), m.body_length(), shift, clampf(cam_rig.pitch, -0.6, -0.15))
+	Audio.play("click", 0.05, -8.0)
 
 func _clear_extra_pets() -> void:
 	for c in extra_pets:

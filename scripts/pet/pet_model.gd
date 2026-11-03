@@ -782,5 +782,25 @@ func emote(txt: String, dur: float = 1.4) -> void:
 	_emote_tw.parallel().tween_property(emote_label, "position:y", base_y + 0.12, dur)
 	_emote_tw.tween_property(emote_label, "modulate:a", 0.0, 0.25)
 
+var dirt := 0.0
+## Saleté visible sur le pelage (0..1).
+func set_dirt(d: float) -> void:
+	d = clampf(d, 0.0, 1.0)
+	if absf(d - dirt) < 0.01 and fur_mat and fur_mat.get_shader_parameter("dirt") != null:
+		return
+	dirt = d
+	if fur_mat:
+		fur_mat.set_shader_parameter("dirt", d)
+	for key in shell_mats.keys():
+		for m in shell_mats[key]:
+			(m as ShaderMaterial).set_shader_parameter("dirt", d)
+
+## Distance du centre de l'animal au bout du museau.
+func head_reach() -> float:
+	return (bz * 0.46 + hr * 1.35 + (bd["snout"] as Vector2).x) * scale.x
+
+func body_length() -> float:
+	return (bz * 1.1 + hr * 1.4) * scale.x
+
 func top_height() -> float:
 	return (L + by + hr * 2.4) * scale.y

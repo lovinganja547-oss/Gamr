@@ -1,5 +1,16 @@
 class_name WorldBuilder
 extends RefCounted
+
+## Grille de navigation couvrant toutes les zones jouables du lieu.
+static func make_nav(root: Node3D, radius: float = 0.22) -> NavGrid:
+	var area: Rect2 = root.get_meta("bounds")
+	for k in ["walk_area", "throw_area", "spots_area"]:
+		if root.has_meta(k):
+			area = area.merge(root.get_meta(k))
+	area = area.grow(1.0)
+	var nav := NavGrid.new()
+	nav.build(area, root.get_meta("obstacles", []), radius)
+	return nav
 ## Construit procéduralement les 6 environnements 3D.
 ## Retourne un Node3D avec des métadonnées (points d'intérêt, limites, cachettes…).
 
@@ -153,7 +164,17 @@ static func scatter(parent: Node3D, mesh: Mesh, c: Color, count: int, area: Rect
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mmi)
 
+## Enregistre un obstacle de navigation (cercle ou rectangle au sol) sur la racine du lieu.
+static func obs_circle(root: Node, pos: Vector3, radius: float) -> void:
+	if root.has_meta("obstacles"):
+		(root.get_meta("obstacles") as Array).append({"c": Vector2(pos.x, pos.z), "r": radius})
+
+static func obs_rect(root: Node, center: Vector3, size_x: float, size_z: float) -> void:
+	if root.has_meta("obstacles"):
+		(root.get_meta("obstacles") as Array).append({"rect": Rect2(center.x - size_x * 0.5, center.z - size_z * 0.5, size_x, size_z)})
+
 static func tree(parent: Node3D, pos: Vector3, h: float, c: Color, seed_v: int) -> void:
+	obs_circle(parent, pos, 0.16 * h)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v
 	cyl(parent, 0.12 * h, 0.08 * h, h * 0.55, pos + Vector3(0, h * 0.27, 0), Color(0.5, 0.35, 0.22), 10)
@@ -162,10 +183,12 @@ static func tree(parent: Node3D, pos: Vector3, h: float, c: Color, seed_v: int) 
 		ball(parent, h * rng.randf_range(0.28, 0.38), pos + Vector3(0, h * 0.75, 0) + o, c.lightened(rng.randf_range(-0.08, 0.1)), Vector3.ONE, 12)
 
 static func bush(parent: Node3D, pos: Vector3, s: float, c: Color) -> void:
+	obs_circle(parent, pos + Vector3(0, 0, s * 0.1), s * 0.75)
 	for i in 3:
 		ball(parent, s * (0.5 - i * 0.08), pos + Vector3((i - 1) * s * 0.45, s * 0.35, (i % 2) * s * 0.2), c.lightened(i * 0.05), Vector3(1, 0.8, 1), 10)
 
 static func bench(parent: Node3D, pos: Vector3, rot_y: float) -> Node3D:
+	obs_circle(parent, pos, 0.8)
 	var n := Node3D.new()
 	n.position = pos
 	n.rotation.y = rot_y
@@ -228,6 +251,7 @@ static func build(env_id: String, quality: int) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Env_" + env_id
 	root.set_meta("bounds", Rect2(-2.5, -2.0, 5.0, 4.5))
+	root.set_meta("obstacles", [])
 	root.set_meta("sky", Color(0.62, 0.82, 0.96))
 	root.set_meta("ambient", Color(1.0, 0.95, 0.9))
 	match env_id:
@@ -270,6 +294,7 @@ static func _house(r: Node3D, q: int) -> void:
 	var sofa_c: Color = GameData.item(str(deco.get("sofa", "sofa_coral"))).get("color", Color(0.95, 0.55, 0.45))
 	var sofa := Node3D.new()
 	sofa.position = Vector3(-1.6, 0, -1.9)
+	obs_rect(r, sofa.position, 2.15, 0.85)
 	r.add_child(sofa)
 	box(sofa, Vector3(1.9, 0.4, 0.8), Vector3(0, 0.25, 0), sofa_c)
 	box(sofa, Vector3(1.9, 0.6, 0.25), Vector3(0, 0.6, -0.3), sofa_c.darkened(0.05))
@@ -302,6 +327,7 @@ static func _house(r: Node3D, q: int) -> void:
 	if plant != "":
 		var pc: Color = GameData.item(plant).get("color", Color.GREEN)
 		cyl(r, 0.18, 0.22, 0.35, Vector3(-2.55, 0.18, 0.9), Color(0.85, 0.5, 0.35), 14)
+		obs_circle(r, Vector3(-2.55, 0, 0.9), 0.3)
 		match plant:
 			"plant_cactus":
 				cyl(r, 0.1, 0.1, 0.6, Vector3(-2.55, 0.6, 0.9), pc, 10)
@@ -317,6 +343,7 @@ static func _house(r: Node3D, q: int) -> void:
 	if lamp != "":
 		var lc: Color = GameData.item(lamp).get("color", Color(1, 0.9, 0.6))
 		cyl(r, 0.18, 0.18, 0.04, Vector3(2.5, 0.02, 0.6), Color(0.3, 0.3, 0.3))
+		obs_circle(r, Vector3(2.5, 0, 0.6), 0.22)
 		cyl(r, 0.025, 0.025, 1.5, Vector3(2.5, 0.75, 0.6), Color(0.3, 0.3, 0.3), 8)
 		var shade := cyl(r, 0.32, 0.18, 0.35, Vector3(2.5, 1.55, 0.6), lc)
 		var sm := m(lc).duplicate() as StandardMaterial3D
@@ -344,6 +371,7 @@ static func _house(r: Node3D, q: int) -> void:
 			box(r, Vector3(0.78, 0.25, 0.04), Vector3(-1.4, 1.58, -2.41), fc)
 	if str(deco.get("box", "")) == "toybox":
 		box(r, Vector3(0.7, 0.45, 0.45), Vector3(-2.5, 0.23, -0.5), Color(0.55, 0.75, 0.95))
+		obs_rect(r, Vector3(-2.5, 0, -0.5), 0.75, 0.5)
 		box(r, Vector3(0.72, 0.08, 0.47), Vector3(-2.5, 0.48, -0.5), Color(0.95, 0.6, 0.4))
 		ball(r, 0.08, Vector3(-2.4, 0.6, -0.45), Color(0.9, 0.2, 0.2))
 	# Étagère à trophées
@@ -358,12 +386,13 @@ static func _house(r: Node3D, q: int) -> void:
 		cyl(r, 0.035, 0.06, 0.09, Vector3(x, 1.54, -2.4), tc, 10)
 	# Gamelles
 	var bowls: Dictionary = GameState.data.get("bowls", {})
-	var bf := make_bowl(r, Vector3(-0.8, 0, -1.9), Color(0.95, 0.45, 0.45), "food")
-	var bw := make_bowl(r, Vector3(-0.3, 0, -1.9), Color(0.45, 0.65, 0.95), "water")
+	var bf := make_bowl(r, Vector3(0.05, 0, -2.05), Color(0.95, 0.45, 0.45), "food")
+	var bw := make_bowl(r, Vector3(0.6, 0, -2.05), Color(0.45, 0.65, 0.95), "water")
 	bf.get_node("Fill").visible = float(bowls.get("food", 0.0)) > 0.0
 	bw.get_node("Fill").visible = float(bowls.get("water", 0.0)) > 0.0
-	r.set_meta("bowl_food", Vector3(-0.8, 0, -1.9))
-	r.set_meta("bowl_water", Vector3(-0.3, 0, -1.9))
+	r.set_meta("bowl_food", Vector3(0.05, 0, -2.05))
+	r.set_meta("bowl_water", Vector3(0.6, 0, -2.05))
+	r.set_meta("cam_box", AABB(Vector3(-2.75, 0.25, -2.35), Vector3(5.5, 2.75, 7.5)))
 	r.set_meta("ambient", Color(1.0, 0.92, 0.85))
 
 static func _garden(r: Node3D, q: int) -> void:
@@ -382,6 +411,7 @@ static func _garden(r: Node3D, q: int) -> void:
 	# Niche
 	var k := Node3D.new()
 	k.position = Vector3(2.6, 0, -2.4)
+	obs_circle(r, k.position, 0.62)
 	k.rotation.y = -0.4
 	r.add_child(k)
 	box(k, Vector3(1.0, 0.8, 1.0), Vector3(0, 0.4, 0), Color(0.85, 0.55, 0.35))
@@ -395,6 +425,7 @@ static func _garden(r: Node3D, q: int) -> void:
 	bush(r, Vector3(-3.6, 0, -2.8), 0.8, Color(0.35, 0.62, 0.3))
 	# Potager
 	box(r, Vector3(1.6, 0.25, 0.8), Vector3(-2.2, 0.12, -2.7), Color(0.55, 0.38, 0.25))
+	obs_rect(r, Vector3(-2.2, 0, -2.7), 1.65, 0.85)
 	for i in 5:
 		ball(r, 0.1, Vector3(-2.8 + i * 0.3, 0.32, -2.7), Color(0.95, 0.45, 0.25) if i % 2 else Color(0.4, 0.75, 0.3))
 	# Maison en arrière-plan
@@ -431,6 +462,7 @@ static func _park(r: Node3D, q: int) -> void:
 	bench(r, Vector3(5.5, 0, -2.0), -1.3)
 	# Étang
 	cyl(r, 1.8, 1.8, 0.02, Vector3(-5.5, 0.01, -1.0), Color(0.4, 0.65, 0.9), 32)
+	obs_circle(r, Vector3(-5.5, 0, -1.0), 1.85)
 	cyl(r, 1.95, 1.95, 0.015, Vector3(-5.5, 0.005, -1.0), Color(0.7, 0.62, 0.5), 32)
 	for i in 3:
 		cyl(r, 0.15, 0.15, 0.02, Vector3(-5.2 + i * 0.4, 0.025, -0.8 + (i % 2) * 0.4), Color(0.35, 0.65, 0.3), 10)
@@ -438,11 +470,13 @@ static func _park(r: Node3D, q: int) -> void:
 		bush(r, Vector3(-7 + i * 4.0, 0, -6.0 - (i % 2)), 0.9, Color(0.32, 0.58, 0.3))
 	# Lampadaires
 	for z in [-4.0, 2.0]:
+		obs_circle(r, Vector3(2.2, 0, z), 0.12)
 		cyl(r, 0.06, 0.05, 2.4, Vector3(2.2, 1.2, z), Color(0.25, 0.28, 0.3), 8)
 		ball(r, 0.16, Vector3(2.2, 2.45, z), Color(1, 0.95, 0.75))
 	# Fontaine (boire)
 	var f := Node3D.new()
 	f.position = Vector3(4.6, 0, 1.2)
+	obs_circle(r, f.position, 0.3)
 	r.add_child(f)
 	cyl(f, 0.2, 0.15, 0.9, Vector3(0, 0.45, 0), Color(0.6, 0.62, 0.66), 10)
 	cyl(f, 0.25, 0.22, 0.1, Vector3(0, 0.95, 0), Color(0.6, 0.62, 0.66), 12)
@@ -487,11 +521,13 @@ void fragment() {
 	box(r, Vector3(60, 0.02, 1.0), Vector3(0, 0.015, -4.0), Color(0.98, 0.98, 0.98), Vector3.ZERO, false)
 	# Parasol + serviette
 	cyl(r, 0.03, 0.03, 2.2, Vector3(-2.6, 1.1, -2.0), Color(0.95, 0.95, 0.95), 8, Vector3(0, 0, 0.1))
+	obs_circle(r, Vector3(-2.6, 0, -2.0), 0.12)
 	cyl(r, 1.2, 0.05, 0.45, Vector3(-2.71, 2.2, -2.0), Color(0.95, 0.4, 0.35), 12, Vector3(0, 0, 0.1))
 	box(r, Vector3(0.9, 0.02, 1.7), Vector3(-1.9, 0.01, -1.6), Color(0.3, 0.6, 0.9), Vector3(0, 0.3, 0), false)
 	box(r, Vector3(0.9, 0.022, 0.3), Vector3(-1.9, 0.012, -1.6), Color(1, 1, 1), Vector3(0, 0.3, 0), false)
 	# Palmiers
 	for p in [Vector3(4.5, 0, -2.5), Vector3(6.0, 0, 0.5), Vector3(-5.5, 0, 1.0)]:
+		obs_circle(r, p, 0.25)
 		for i in 6:
 			cyl(r, 0.12 - i * 0.01, 0.11 - i * 0.01, 0.5, p + Vector3(i * 0.05, 0.25 + i * 0.48, 0), Color(0.6, 0.45, 0.3), 8, Vector3(0, 0, -0.08))
 		for k in 6:
@@ -506,6 +542,7 @@ void fragment() {
 	scatter(r, shell, Color.WHITE, int(60 * d), Rect2(-9, -3.5, 18, 8), 31, Vector2(0.8, 1.4), Rect2(-2.5, -1.5, 5, 3.5), [Color(1, 0.85, 0.8), Color(1, 1, 0.95), Color(0.95, 0.75, 0.6)])
 	# Château de sable
 	cyl(r, 0.35, 0.3, 0.3, Vector3(2.2, 0.15, 1.8), Color(0.92, 0.82, 0.6), 10)
+	obs_circle(r, Vector3(2.2, 0, 1.8), 0.4)
 	cyl(r, 0.18, 0.15, 0.3, Vector3(2.2, 0.45, 1.8), Color(0.92, 0.82, 0.6), 10)
 	r.set_meta("sky", Color(0.55, 0.8, 0.98))
 	r.set_meta("bounds", Rect2(-3.5, -3.2, 7.0, 5.5))

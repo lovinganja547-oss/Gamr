@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère l'icône originale de Patouille (assets/icons/*.png)."""
+"""Génère l'icône originale de Truffe & Co (assets/icons/*.png)."""
 from PIL import Image, ImageDraw
 import os
 OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "icons")

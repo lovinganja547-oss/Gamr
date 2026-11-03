@@ -277,7 +277,7 @@ func _finish() -> void:
 	GameState.inc_stat("agility_run", 1)
 	if faults == 0:
 		GameState.set_stat_max("agility_clean", 1)
-	GameState.change_need("energy", -12.0)
+	GameState.spend_energy("agility")
 	GameState.change_need("thirst", -8.0)
 	GameState.change_need("hunger", -5.0)
 	GameState.add_relation(6)

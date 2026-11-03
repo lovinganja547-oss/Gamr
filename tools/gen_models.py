@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère les maillages 3D originaux des animaux de Patouille.
+"""Génère les maillages 3D originaux des animaux de Truffe & Co.
 
 Méthode : champs de distance signés (SDF) combinés par union lisse, polygonisés
 par « surface nets » (numpy), normales analytiques par gradient, puis masques de

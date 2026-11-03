@@ -408,7 +408,7 @@ static func training() -> void:
 		info.add_child(UiKit.bar(s, UiKit.C_BLUE, 16))
 		var sub := _t("Geste : %s") % _t(d["hint"])
 		if not avail:
-			sub = "🔒 " + _t("Niveau joueur %d") % int(d["level"])
+			sub = "🔒 " + _t("Niveau %d du compagnon") % int(d["level"])
 		info.add_child(UiKit.label(sub, 21, UiKit.C_SUB))
 		var btn := UiKit.button(_t("Entraîner"), func():
 			_m().close_panel()
@@ -440,6 +440,10 @@ static func activities() -> void:
 			_m().close_panel()
 			_choose_place(kind), UiKit.C_ACCENT2, 26, 80)
 		btn.custom_minimum_size = Vector2(150, 80)
+		if not GameState.activity_unlocked(kind):
+			btn.disabled = true
+			btn.text = _t("Niv. %d") % int(GameData.ACTIVITY_LEVELS[kind])
+			info.add_child(UiKit.label("🔒 " + _t("Débloqué au niveau %d de votre compagnon") % int(GameData.ACTIVITY_LEVELS[kind]), 21, UiKit.C_DANGER))
 		c.add_child(_row(info, btn))
 		v.add_child(c)
 	var p := GameState.active_pet()
@@ -695,7 +699,7 @@ static func settings() -> void:
 			_m().env_id = ""
 			_m().change_env("shelter")
 			_m().show_screen("title"), "Effacer"), UiKit.C_DANGER, 26, 80))
-	v.add_child(UiKit.label(_t("Patouille v%s — graphismes, sons et musiques originaux générés procéduralement.") % str(ProjectSettings.get_setting("application/config/version", "1.0")), 20, UiKit.C_SUB))
+	v.add_child(UiKit.label(_t("Truffe & Co v%s — graphismes, sons et musiques originaux générés procéduralement.") % str(ProjectSettings.get_setting("application/config/version", "1.0")), 20, UiKit.C_SUB))
 	_m().open_panel("⚙️ " + _t("Paramètres"), UiKit.scroll(v))
 
 static func _toggle(txt: String, key: String) -> Control:

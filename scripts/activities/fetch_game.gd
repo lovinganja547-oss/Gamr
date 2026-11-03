@@ -231,7 +231,7 @@ func _return(spd: float) -> void:
 
 func _round_done() -> void:
 	throws_done += 1
-	GameState.change_need("energy", -3.0)
+	GameState.spend_energy("fetch_throw")
 	GameState.change_need("mood", 3.0)
 	GameState.change_need("thirst", -2.0)
 	GameState.add_relation(2)

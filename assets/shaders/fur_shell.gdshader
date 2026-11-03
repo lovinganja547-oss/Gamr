@@ -9,6 +9,7 @@ uniform vec4 c_second : source_color = vec4(0.3, 0.2, 0.15, 1.0);
 uniform vec4 c_white : source_color = vec4(0.98, 0.96, 0.93, 1.0);
 uniform vec4 c_points : source_color = vec4(0.3, 0.2, 0.15, 1.0);
 uniform float pattern_on = 1.0;
+uniform float dirt = 0.0;          // 0 = propre, 1 = très sale
 uniform float points_on = 0.0;
 uniform float layer = 0.5;          // 0 = racine, 1 = pointe
 uniform float fur_len = 0.012;      // longueur des poils (m)
@@ -64,6 +65,8 @@ void fragment() {
 	col = mix(col, c_points.rgb, clamp(m.b * points_on, 0.0, 1.0));
 	col = mix(col, c_white.rgb, clamp(m.g, 0.0, 1.0));
 	col *= mix(0.82, 1.06, layer) * mix(0.75, 1.0, m.a) * (0.92 + h2 * 0.16);
+	float spots = smoothstep(0.15, 0.7, sin(lpos.x * 70.0 + sin(lpos.z * 55.0) * 2.0) * sin(lpos.y * 60.0 + sin(lpos.x * 45.0) * 2.0) + (0.4 - lpos.y * 1.2));
+	col = mix(col, col * vec3(0.55, 0.45, 0.33), clamp(dirt * spots, 0.0, 0.85));
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
 }

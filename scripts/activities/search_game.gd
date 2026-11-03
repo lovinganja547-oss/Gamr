@@ -160,7 +160,7 @@ func _nearest_hidden(p: Vector3) -> float:
 func _finish(win: bool) -> void:
 	finished = true
 	var score := float(found) / float(lvl["objects"]) * 70.0 + (float(tries) / float(lvl["tries"])) * 30.0 * (1.0 if win else 0.0)
-	GameState.change_need("energy", -6.0)
+	GameState.spend_energy("search")
 	GameState.change_need("mood", 6.0 if win else 0.0)
 	GameState.add_relation(5)
 	if on_done.is_valid():

@@ -89,8 +89,19 @@ func _run() -> void:
 	for i in 4:
 		await swipe(pp + Vector2(-60, 0), pp + Vector2(60, 0), 6)
 	print("PET STAT ", GameState.get_stat("pet"))
+	# Repas : le chien doit contourner les meubles et ne jamais être dans un obstacle
+	main.pet_ctrl.position = Vector3(-1.4, 0, -0.9)
 	hud.feed("kibble")
-	await wait(4.5)
+	var blocked_frames := 0
+	for i in 60:
+		await get_tree().process_frame
+		await get_tree().create_timer(0.1).timeout
+		var pp2 := main.pet_ctrl.position
+		if main.nav.is_blocked_point(Vector2(pp2.x, pp2.z), -0.08):
+			blocked_frames += 1
+		if i == 25:
+			await shot("eating")
+	print("MEAL blocked_frames=", blocked_frames, " pos=", main.pet_ctrl.position, " hunger=", GameState.active_pet()["needs"]["hunger"])
 	await shot("fed")
 	hud.give_water()
 	await wait(3.5)

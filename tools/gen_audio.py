@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère tous les sons originaux de Patouille (synthèse procédurale, aucune ressource externe).
+"""Génère tous les sons originaux de Truffe & Co (synthèse procédurale, aucune ressource externe).
 Usage : python3 tools/gen_audio.py  -> écrit assets/audio/*.wav"""
 import numpy as np, struct, os, wave
 SR = 22050

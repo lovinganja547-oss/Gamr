@@ -231,7 +231,7 @@ func _results(score: float) -> void:
 		h.add_child(UiKit.label("%.1f" % float(r["score"]), 26, UiKit.C_SUB))
 		p.add_child(h)
 		v.add_child(p)
-	v.add_child(UiKit.label("🪙 +%d    ⭐ +%d XP" % [int(res["prize"]), int(res["xp"])], 32, UiKit.C_ACCENT))
+	v.add_child(UiKit.label("🪙 +%d    ⭐ +%d pts d'expérience" % [int(res["prize"]), int(res["xp"])], 32, UiKit.C_ACCENT))
 	v.add_child(UiKit.button(tr("Continuer"), func(): main.close_panel(), UiKit.C_ACCENT2, 30, 92))
 	var title := tr("%de place !") % place if place > 1 else tr("Victoire !")
 	main.open_panel("🏆 " + title, UiKit.scroll(v), func():

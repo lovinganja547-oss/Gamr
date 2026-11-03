@@ -95,7 +95,7 @@ func setup(p: Dictionary, q: int = 1) -> void:
 func rebuild(p: Dictionary) -> void:
 	for ch in get_children():
 		ch.queue_free()
-	eyes.clear(); ears.clear(); tail_segs.clear(); legs.clear()
+	eyes.clear(); ears.clear(); tail_segs.clear(); legs.clear(); lids.clear()
 	setup(p, quality)
 
 # ================================================================== Couleurs par motif
@@ -225,108 +225,165 @@ func _pivot(parent: Node3D, pos: Vector3, n: String = "") -> Node3D:
 	return p
 
 # ================================================================== Construction
+static var _res_cache := {}
+static var _meta_cache := {}
+var fur_mat: ShaderMaterial
+var lids: Array[Node3D] = []
+var meta := {}
+
+## Maillage sculpté (généré par tools/gen_models.py).
+func _part(nm: String) -> Mesh:
+	var q := "hi" if quality >= 2 else "lo"
+	var path := "res://assets/models/%s/%s_%s.res" % [breed_id, nm, q]
+	if _res_cache.has(path):
+		return _res_cache[path]
+	var m: Mesh = load(path) if ResourceLoader.exists(path) else null
+	if m == null:
+		push_error("Maillage manquant : " + path)
+	_res_cache[path] = m
+	return m
+
+func _load_meta() -> Dictionary:
+	if _meta_cache.has(breed_id):
+		return _meta_cache[breed_id]
+	var d := {}
+	var path := "res://assets/models/%s/meta.json" % breed_id
+	if FileAccess.file_exists(path):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if parsed is Dictionary:
+			d = parsed
+	_meta_cache[breed_id] = d
+	return d
+
+func _v3(key: String, def: Vector3) -> Vector3:
+	var a: Variant = meta.get(key)
+	if a is Array and a.size() == 3:
+		return Vector3(a[0], a[1], a[2])
+	return def
+
+func _make_fur_mat() -> void:
+	fur_mat = ShaderMaterial.new()
+	fur_mat.shader = load("res://assets/shaders/fur.gdshader")
+	var pal: Dictionary = bd["palettes"][clampi(int(pet_data.get("palette", 0)), 0, bd["palettes"].size() - 1)]
+	var pat: String = bd["pattern"]
+	var second := c_second
+	var white := WHITE
+	if pat == "shiba":
+		white = c_second
+	var points: bool = pal.get("points", false)
+	fur_mat.set_shader_parameter("c_main", c_main)
+	fur_mat.set_shader_parameter("c_second", second)
+	fur_mat.set_shader_parameter("c_white", white)
+	fur_mat.set_shader_parameter("c_points", c_second)
+	fur_mat.set_shader_parameter("pattern_on", 0.0 if points else 1.0)
+	fur_mat.set_shader_parameter("points_on", 1.0 if points else 0.0)
+	fur_mat.set_shader_parameter("fur_strength", 0.6 if pat == "poodle" else 0.45)
+
+func _fur(nm: String, parent: Node3D, pos: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = _part(nm)
+	mi.material_override = fur_mat
+	mi.position = pos
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if quality > 0 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+	return mi
+
+func _hemi(r: float) -> SphereMesh:
+	var key := "hemi_%.3f_%d" % [r, quality]
+	if not _mesh_cache.has(key):
+		var m := SphereMesh.new()
+		m.radius = r
+		m.height = r
+		m.is_hemisphere = true
+		m.radial_segments = [12, 18, 24][quality]
+		m.rings = [4, 6, 8][quality]
+		_mesh_cache[key] = m
+	return _mesh_cache[key]
+
 func _build() -> void:
 	var cat: bool = bd["species"] == "cat"
+	meta = _load_meta()
+	_make_fur_mat()
+	lids.clear()
 	body_pivot = _pivot(self, Vector3(0, L, 0), "Body")
-	# Torse
-	_ell(col("body"), body_pivot, Vector3.ZERO, Vector3(bx, by, bz))
-	_ell(col("chest"), body_pivot, Vector3(0, by * 0.04, bz * 0.3), Vector3(bx * 0.92, by * 0.95, bz * 0.45))
-	_ell(col("body"), body_pivot, Vector3(0, by * 0.02, -bz * 0.3), Vector3(bx * 0.95, by * 0.92, bz * 0.42))
-	_ell(col("belly"), body_pivot, Vector3(0, -by * 0.16, bz * 0.02), Vector3(bx * 0.8, by * 0.72, bz * 0.82))
-	match bd["pattern"]:
-		"beagle", "saddle":
-			_ell(col("saddle"), body_pivot, Vector3(0, by * 0.12, -bz * 0.06), Vector3(bx * 1.03, by * 0.82, bz * 0.78))
-		"tabby":
-			for i in 4:
-				var z := -bz * 0.32 + i * bz * 0.2
-				_ell(col("stripe"), body_pivot, Vector3(0, by * 0.2, z), Vector3(bx * 1.0, by * 0.7, bz * 0.07))
-		"poodle":
-			_ell(col("fluff"), body_pivot, Vector3(0, by * 0.05, bz * 0.3), Vector3(bx * 1.15, by * 1.12, bz * 0.5))
-	# Cou + tête
+	_fur("torso", body_pivot)
 	var neck_base := Vector3(0, by * 0.28, bz * 0.38)
 	var head_pos := Vector3(0, by * 0.3 + hr * 1.05, bz * 0.46 + hr * 0.35)
 	if cat:
 		head_pos = Vector3(0, by * 0.3 + hr * 0.95, bz * 0.44 + hr * 0.3)
-	_ell(col("body"), body_pivot, neck_base.lerp(head_pos, 0.45), Vector3(hr * 1.15, hr * 1.5, hr * 1.1), Vector3(-0.6, 0, 0))
-	if bd["pattern"] in ["shiba", "beagle"]:
-		_ell(col("chest"), body_pivot, neck_base.lerp(head_pos, 0.35) + Vector3(0, -hr * 0.1, hr * 0.25), Vector3(hr * 0.9, hr * 1.3, hr * 0.6), Vector3(-0.6, 0, 0))
-	if bd["pattern"] == "poodle":
-		_ell(col("fluff"), body_pivot, neck_base.lerp(head_pos, 0.45), Vector3(hr * 1.45, hr * 1.6, hr * 1.35), Vector3(-0.6, 0, 0))
 	# Collier
 	var collar_it := GameData.item(str(pet_data.get("collar", "collar_red")))
 	var cc: Color = collar_it.get("color", Color.RED)
-	var collar_pos := neck_base.lerp(head_pos, 0.55)
-	var collar := _mi(_torus(hr * 0.55, hr * 0.72), cc, body_pivot, collar_pos, Vector3(1, 1, 1), Vector3(0.75, 0, 0), 0.5, 0.1, 0.6 if collar_it.get("metal", false) else 0.0)
+	var collar_pos := neck_base.lerp(head_pos, 0.5)
+	var collar := _mi(_torus(hr * 0.5, hr * 0.66), cc, body_pivot, collar_pos, Vector3(1, 1, 1), Vector3(0.75, 0, 0), 0.5, 0.1, 0.6 if collar_it.get("metal", false) else 0.0)
 	collar.name = "Collar"
-	_mi(_sphere(), Color(0.95, 0.8, 0.3), body_pivot, collar_pos + Vector3(0, -hr * 0.5, hr * 0.45), Vector3.ONE * hr * 0.22, Vector3.ZERO, 0.3, 0.1, 0.8)
+	_mi(_sphere(), Color(0.95, 0.8, 0.3), body_pivot, collar_pos + Vector3(0, -hr * 0.48, hr * 0.42), Vector3.ONE * hr * 0.22, Vector3.ZERO, 0.25, 0.1, 0.85)
 	acc_root = _pivot(body_pivot, collar_pos, "AccNeck")
-
+	# Tête sculptée
 	head_pivot = _pivot(body_pivot, head_pos, "Head")
-	_ell(col("head"), head_pivot, Vector3.ZERO, Vector3.ONE * hr * 2.0)
-	if bd["pattern"] == "poodle":
-		_ell(col("fluff"), head_pivot, Vector3(0, hr * 0.7, -hr * 0.05), Vector3(hr * 1.5, hr * 1.1, hr * 1.5))
-	if bd["pattern"] == "beagle":
-		_ell(col("blaze"), head_pivot, Vector3(0, hr * 0.25, hr * 0.78), Vector3(hr * 0.35, hr * 1.1, hr * 0.4))
-	if bd["pattern"] == "shiba":
-		for sx in [-1.0, 1.0]:
-			_ell(col("cheeks"), head_pivot, Vector3(sx * hr * 0.45, -hr * 0.3, hr * 0.55), Vector3(hr * 0.7, hr * 0.6, hr * 0.6))
-	if bd["pattern"] == "tabby":
-		for sx in [-1.0, 0.0, 1.0]:
-			_ell(col("stripe"), head_pivot, Vector3(sx * hr * 0.25, hr * 0.8, hr * 0.35), Vector3(hr * 0.12, hr * 0.5, hr * 0.5), Vector3(0.5, 0, sx * 0.25))
-	# Museau
+	_fur("head", head_pivot)
 	var sn: Vector2 = bd["snout"]
 	var snout_c := Vector3(0, -hr * 0.28, hr * 0.78 + sn.x * 0.35)
 	if cat:
-		for sx in [-1.0, 1.0]:
-			_ell(col("muzzle"), head_pivot, Vector3(sx * hr * 0.17, -hr * 0.3, hr * 0.85), Vector3(hr * 0.42, hr * 0.36, hr * 0.32))
-		_ell(PINK.darkened(0.1), head_pivot, Vector3(0, -hr * 0.12, hr * 0.98), Vector3(hr * 0.2, hr * 0.14, hr * 0.12))
+		snout_c = Vector3(0, -hr * 0.32, hr * 0.8)
+	var nose := MeshInstance3D.new()
+	nose.mesh = _part("nose")
+	nose.material_override = mat(PINK.darkened(0.15) if cat else NOSE, 0.25, 0.25)
+	nose.position = _v3("nose", snout_c + Vector3(0, sn.y * 0.45, sn.x * 0.78))
+	head_pivot.add_child(nose)
+	if cat:
 		for sx in [-1.0, 1.0]:
 			for k in 3:
-				var w := _mi(_cone(0.003, 0.002, hr * 1.2), Color(0.95, 0.95, 0.95), head_pivot,
-					Vector3(sx * hr * 0.55, -hr * 0.3 + (k - 1) * hr * 0.07, hr * 0.85), Vector3.ONE,
-					Vector3(0, 0, sx * (PI / 2 - 0.15 + (k - 1) * 0.15)), 0.5, 0.0)
+				var w := _mi(_cone(0.0025, 0.0012, hr * 1.25), Color(0.97, 0.97, 0.97), head_pivot,
+					Vector3(sx * hr * 0.55, -hr * 0.3 + (k - 1) * hr * 0.06, hr * 0.82), Vector3.ONE,
+					Vector3(0, 0, sx * (PI / 2 - 0.12 + (k - 1) * 0.13)), 0.5, 0.0)
 				w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	else:
-		_ell(col("muzzle"), head_pivot, snout_c, Vector3(sn.y * 2.1, sn.y * 1.7, sn.x * 1.6))
-		_ell(NOSE, head_pivot, snout_c + Vector3(0, sn.y * 0.45, sn.x * 0.78), Vector3(sn.y * 0.9, sn.y * 0.65, sn.y * 0.6)).material_override = mat(NOSE, 0.3, 0.2)
 	# Mâchoire + langue
-	jaw = _pivot(head_pivot, snout_c + Vector3(0, -sn.y * 0.5, -sn.x * 0.3), "Jaw")
-	tongue = _ell(PINK, jaw, Vector3(0, -sn.y * 0.25, sn.x * 0.55), Vector3(sn.y * 0.8, sn.y * 0.25, sn.x * 0.9))
+	jaw = _pivot(head_pivot, snout_c + Vector3(0, -sn.y * 0.6, -sn.x * 0.2), "Jaw")
+	tongue = _ell(PINK, jaw, Vector3(0, -sn.y * 0.15, sn.x * 0.6), Vector3(sn.y * 0.75, sn.y * 0.18, sn.x * 0.9))
+	tongue.material_override = mat(PINK, 0.35, 0.1)
 	tongue.visible = false
-	held_anchor = _pivot(head_pivot, snout_c + Vector3(0, -sn.y * 0.6, sn.x * 0.7), "Mouth")
-	# Yeux
+	held_anchor = _pivot(head_pivot, snout_c + Vector3(0, -sn.y * 0.7, sn.x * 0.75), "Mouth")
+	# Yeux : globe, iris, pupille, reflets, paupière
+	var er: float = float(meta.get("eye_r", hr * 0.2))
+	var ep0 := _v3("eye", Vector3(hr * 0.4, hr * 0.12, hr * 0.87))
+	var lid_c := c_second if bd["pattern"] == "shiba" else c_main
+	if bd["pattern"] == "saddle":
+		lid_c = c_main.lerp(c_second, 0.5)
 	for sx in [-1.0, 1.0]:
-		var e := _pivot(head_pivot, Vector3(sx * hr * 0.4, hr * 0.12, hr * 0.8), "Eye")
-		e.rotation = Vector3(0, sx * 0.35, 0)
-		_ell(c_eye.darkened(0.55), e, Vector3.ZERO, Vector3(hr * 0.34, hr * 0.38, hr * 0.2)).material_override = mat(c_eye.darkened(0.55), 0.2, 0.0)
-		_ell(c_eye, e, Vector3(0, 0, hr * 0.06), Vector3(hr * 0.24, hr * 0.28, hr * 0.12)).material_override = mat(c_eye, 0.2, 0.0)
-		_ell(Color.WHITE, e, Vector3(hr * 0.06, hr * 0.08, hr * 0.1), Vector3.ONE * hr * 0.09).material_override = mat(Color.WHITE, 0.1, 0.0)
+		var e := _pivot(head_pivot, Vector3(sx * ep0.x, ep0.y, ep0.z - er * 0.15), "Eye")
+		e.rotation = Vector3(0, sx * 0.32, 0)
+		_mi(_sphere(), Color(0.08, 0.06, 0.06), e, Vector3.ZERO, Vector3.ONE * er * 2.0, Vector3.ZERO, 0.12, 0.0)
+		_mi(_sphere(), c_eye, e, Vector3(0, 0, er * 0.6), Vector3(er * 1.5, er * 1.55, er * 0.85), Vector3.ZERO, 0.15, 0.0)
+		_mi(_sphere(), Color(0.02, 0.02, 0.03), e, Vector3(0, 0, er * 0.86), Vector3(er * 0.78, er * (0.95 if cat else 0.82), er * 0.4), Vector3.ZERO, 0.1, 0.0)
+		var hl := _mi(_sphere(), Color.WHITE, e, Vector3(er * 0.3, er * 0.38, er * 0.92), Vector3.ONE * er * 0.46, Vector3.ZERO, 0.1, 0.0)
+		hl.material_override = _glow_mat()
+		var hl2 := _mi(_sphere(), Color.WHITE, e, Vector3(-er * 0.28, -er * 0.3, er * 0.95), Vector3.ONE * er * 0.2, Vector3.ZERO, 0.1, 0.0)
+		hl2.material_override = _glow_mat()
+		var lid := _pivot(e, Vector3.ZERO, "Lid")
+		var lm := _mi(_hemi(er * 1.03), lid_c, lid, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
+		lm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		lids.append(lid)
 		eyes.append(e)
 	# Oreilles
 	var es: float = bd["ear_size"]
+	var et := str(bd["ear"])
 	for sx in [-1.0, 1.0]:
-		var ep := _pivot(head_pivot, Vector3(sx * hr * 0.58, hr * 0.62, -hr * 0.05), "Ear")
+		var ep := _pivot(head_pivot, Vector3(sx * hr * 0.8, hr * 0.5, -hr * 0.02), "Ear")
+		if et == "pointy" or et == "cat":
+			ep.position = Vector3(sx * hr * 0.46, hr * 0.66, -hr * 0.02)
 		ep.set_meta("side", sx)
-		match str(bd["ear"]):
-			"pointy", "cat":
-				var k := 1.0 if bd["ear"] == "pointy" else 0.85
-				ep.position = Vector3(sx * hr * 0.5, hr * 0.68, -hr * 0.02)
-				ep.rotation = Vector3(-0.1, 0, sx * -0.35)
-				_mi(_cone(es * 0.55 * k, 0.004, es * 1.5 * k), col("ears"), ep, Vector3(0, es * 0.6 * k, 0), Vector3(1, 1, 0.45))
-				_mi(_cone(es * 0.35 * k, 0.003, es * 1.0 * k), PINK.lightened(0.2), ep, Vector3(0, es * 0.5 * k, es * 0.1), Vector3(1, 1, 0.3))
-			"floppy", "long":
-				var ln := 1.4 if bd["ear"] == "floppy" else 2.0
-				ep.rotation = Vector3(0, 0, sx * 0.25)
-				_ell(col("ears"), ep, Vector3(sx * es * 0.15, -es * ln * 0.38, 0), Vector3(es * 0.35, es * ln, es * 0.85))
-			"fluffy":
-				ep.rotation = Vector3(0, 0, sx * 0.2)
-				for k in 3:
-					_ell(col("fluff"), ep, Vector3(sx * es * 0.1, -es * (0.2 + k * 0.45), 0), Vector3.ONE * es * (0.95 - k * 0.08))
+		var suffix := "" if sx < 0.0 else "_r"
+		_fur("ear" + suffix, ep)
+		if et == "pointy" or et == "cat":
+			var inner := MeshInstance3D.new()
+			inner.mesh = _part("ear_inner" + suffix)
+			inner.material_override = mat(PINK.lightened(0.15), 0.8, 0.1)
+			ep.add_child(inner)
 		ears.append(ep)
-	# Queue
 	_build_tail()
 	# Pattes
-	var leg_r: float = bd["leg_rad"]
+
 	var defs := [[-1.0, true], [1.0, true], [-1.0, false], [1.0, false]]
 	for dd in defs:
 		var sx: float = dd[0]
@@ -335,18 +392,11 @@ func _build() -> void:
 		var hip := _pivot(body_pivot, hip_local, "Leg")
 		var a := L * 0.52
 		var bl := L * 0.5
-		var upper_r := leg_r * (1.25 if not front else 1.1)
-		_mi(_capsule(upper_r, a + upper_r), col("legs"), hip, Vector3(0, -a * 0.5, 0))
-		if not front:
-			_ell(col("body"), hip, Vector3(0, -a * 0.15, -0.01), Vector3(upper_r * 2.6, a * 1.1, upper_r * 2.8))
+		var tag := "front" if front else "rear"
+		_fur("leg_upper_" + tag, hip)
 		var knee := _pivot(hip, Vector3(0, -a, 0), "Knee")
-		_mi(_capsule(leg_r, bl + leg_r), col("legs") if bd["pattern"] != "beagle" else col("paws"), knee, Vector3(0, -bl * 0.5, 0))
-		var paw_c := col("paws")
-		_ell(paw_c, knee, Vector3(0, -bl, leg_r * 0.4), Vector3(leg_r * 2.4, leg_r * 1.4, leg_r * 2.9))
-		if bd["pattern"] == "poodle":
-			_ell(col("fluff"), knee, Vector3(0, -bl * 0.82, 0), Vector3.ONE * leg_r * 3.2)
+		_fur("leg_lower_" + tag, knee)
 		legs.append({"hip": hip, "knee": knee, "a": a, "b": bl, "front": front, "side": sx, "local": hip_local})
-	# Accessoire
 	_build_accessory()
 	# Zones de toucher
 	hit_body = StaticBody3D.new()
@@ -369,7 +419,6 @@ func _build() -> void:
 	cs2.shape = sph
 	hit_head.add_child(cs2)
 	head_pivot.add_child(hit_head)
-	# Émoticône flottante
 	emote_label = Label3D.new()
 	emote_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	emote_label.font = UiKit.emoji_font()
@@ -381,34 +430,25 @@ func _build() -> void:
 	emote_label.modulate = Color(1, 1, 1, 0)
 	add_child(emote_label)
 
+static var _glow: StandardMaterial3D
+static func _glow_mat() -> StandardMaterial3D:
+	if _glow == null:
+		_glow = StandardMaterial3D.new()
+		_glow.albedo_color = Color.WHITE
+		_glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return _glow
+
 func _build_tail() -> void:
-	var tail_root := _pivot(body_pivot, Vector3(0, by * 0.18, -bz * 0.47), "Tail")
-	var t: String = bd["tail"]
-	var n := 3
-	var seg_len := 0.07
-	var r := 0.035
-	match t:
-		"otter": n = 3; seg_len = 0.075; r = 0.042
-		"curl": n = 4; seg_len = 0.055; r = 0.045
-		"pompom": n = 2; seg_len = 0.07; r = 0.018
-		"bushy": n = 4; seg_len = 0.08; r = 0.05
-		"whip": n = 3; seg_len = 0.07; r = 0.03
-		"cat": n = 5; seg_len = 0.07; r = 0.028
+	var tail_root := _pivot(body_pivot, Vector3(0, by * 0.18, -bz * 0.45), "Tail")
+	var n := int(meta.get("tail_segments", 3))
+	var seg_len := float(meta.get("tail_len", 0.07))
 	var parent: Node3D = tail_root
 	for i in n:
-		var seg := _pivot(parent, Vector3(0, 0, 0) if i == 0 else Vector3(0, 0, -seg_len), "TailSeg")
-		var rr := r * (1.0 - float(i) / (n + 1) * (0.5 if t != "bushy" else 0.2))
-		var c := col("tail")
-		if i == n - 1 and t in ["whip", "curl"]:
-			c = col("tail_tip")
-		if bd["pattern"] == "tabby" and i % 2 == 1 and not bd["palettes"][clampi(int(pet_data.get("palette", 0)), 0, bd["palettes"].size() - 1)].get("points", false):
-			c = col("stripe")
-		_mi(_capsule(rr, seg_len + rr * 2.0), c, seg, Vector3(0, 0, -seg_len * 0.5), Vector3.ONE, Vector3(-PI / 2, 0, 0))
+		var seg := _pivot(parent, Vector3.ZERO if i == 0 else Vector3(0, 0, -seg_len), "TailSeg")
+		_fur("tail_%d" % i, seg)
 		tail_segs.append(seg)
 		parent = seg
-	if t == "pompom":
-		_ell(col("fluff"), parent, Vector3(0, 0, -seg_len * 1.1), Vector3.ONE * 0.09)
-	tail_root.set_meta("type", t)
+	tail_root.set_meta("type", bd["tail"])
 
 func _build_accessory() -> void:
 	var id := str(pet_data.get("accessory", "acc_none"))
@@ -582,15 +622,14 @@ func _apply(p: Dictionary, delta: float) -> void:
 	var open := 1.0
 	var ey := 0.0
 	match expression:
-		"happy": open = 0.3; ey = 0.012
+		"happy": open = 0.42; ey = 0.012
 		"closed": open = 0.08
 		"sad": open = 0.6; ey = -0.008
 		"focus": open = 0.85
 	if expression != "closed":
 		open *= 1.0 - _blink * 0.92
-	for e in eyes:
-		e.scale = Vector3(1, maxf(open, 0.06), 1)
-		e.position.y = hr * 0.12 + ey
+	for lid in lids:
+		lid.rotation.x = lerpf(PI * 0.52, -1.25, clampf(open, 0.0, 1.0))
 	# Oreilles
 	var perk: float = p["ears"]
 	for ep in ears:

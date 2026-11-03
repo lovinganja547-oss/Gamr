@@ -1,0 +1,33 @@
+{
+ "head_pos": [
+  0.0,
+  0.2805,
+  0.32410000000000005
+ ],
+ "nose": [
+  0.0,
+  -0.014949999999999998,
+  0.3177
+ ],
+ "eye": [
+  0.07600000000000001,
+  0.0228,
+  0.16530000000000003
+ ],
+ "eye_r": 0.038000000000000006,
+ "tail_segments": 3,
+ "tail_len": 0.075,
+ "parts": [
+  "ear",
+  "head",
+  "leg_lower_front",
+  "leg_lower_rear",
+  "leg_upper_front",
+  "leg_upper_rear",
+  "nose",
+  "tail_0",
+  "tail_1",
+  "tail_2",
+  "torso"
+ ]
+}

@@ -106,7 +106,7 @@ func show_results(title: String, lines: Array, coins: int, xp: int) -> void:
 	for l in lines:
 		v.add_child(UiKit.label(str(l), 30))
 	if coins > 0 or xp > 0:
-		v.add_child(UiKit.label("🪙 +%d    ⭐ +%d XP" % [coins, xp], 36, UiKit.C_ACCENT))
+		v.add_child(UiKit.label("🪙 +%d    ⭐ +%d pts d'expérience" % [coins, xp], 36, UiKit.C_ACCENT))
 	v.add_child(UiKit.button(tr("Continuer"), func():
 		main.close_panel(), UiKit.C_ACCENT2, 32, 96))
 	main.open_panel(title, v, func(): main.end_activity())

@@ -11,10 +11,16 @@ func _ready() -> void:
 	var poses: Array = OS.get_cmdline_user_args()
 	var pose: String = poses[0] if poses.size() > 0 else "stand"
 	var i := 0
+	var only: String = poses[1] if poses.size() > 1 else ""
+	if only != "":
+		cam.position = Vector3(1.3, 0.85, 1.9); cam.look_at(Vector3(0, 0.32, 0))
 	for b in GameData.BREED_ORDER:
+		if only != "" and b != only:
+			i += 1
+			continue
 		var m := PetModel.new(); add_child(m)
 		m.setup({"breed": b, "palette": 0, "eyes": i % 5, "collar": "collar_red", "accessory": ["bandana", "bow", "hat", "crown", "glasses", "scarf"][i]}, 2)
-		m.position = Vector3((i % 3 - 1) * 0.75, 0, -(i / 3) * 0.9)
+		m.position = Vector3((i % 3 - 1) * 0.75, 0, -(i / 3) * 0.9) if only == "" else Vector3.ZERO
 		m.rotation.y = 0.6
 		m.set_posture(pose, 100.0)
 		if pose == "walk": m.move_speed = 0.8
@@ -26,5 +32,5 @@ func _process(_d: float) -> void:
 	if frames == 30:
 		var img := get_viewport().get_texture().get_image()
 		var args := OS.get_cmdline_user_args()
-		img.save_png("/tmp/claude-0/-home-user-Gamr/c32690a7-dff0-58d8-999f-429837758d0c/scratchpad/model_%s.png" % (args[0] if args.size() > 0 else "stand"))
+		img.save_png("/tmp/claude-0/-home-user-Gamr/c32690a7-dff0-58d8-999f-429837758d0c/scratchpad/model_%s%s.png" % [args[0] if args.size() > 0 else "stand", args[1] if args.size() > 1 else ""])
 		get_tree().quit()

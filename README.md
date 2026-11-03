@@ -17,6 +17,7 @@ GODOT=/chemin/godot ANDROID_HOME=/chemin/sdk tools/build_apk.sh
 ```
 Produit `build/Patouille-debug.apk` et `build/Patouille.apk` (clés générées dans `build/`, non versionnées).
 Régénérer sons / icône : `python3 tools/gen_audio.py` ; `python3 tools/gen_icon.py` (numpy, Pillow).
+Régénérer les modèles 3D : `python3 tools/gen_models.py` puis `godot --headless --path . -s tools/convert_models.gd` (maillages sculptés par champs de distance, 2 niveaux de détail).
 
 ## Tests
 - `tests/check.sh` : compilation de tous les scripts.
@@ -38,4 +39,4 @@ Régénérer sons / icône : `python3 tools/gen_audio.py` ; `python3 tools/gen_i
 ## Limites connues
 - Commandes vocales : reconnaissance hors ligne dépendante du locuteur (on enregistre sa voix par ordre, comparaison DTW). Pas de reconnaissance « native » Android (nécessiterait un plugin Gradle). Non testée sur micro réel ici.
 - Pas de test sur appareil/émulateur : l'environnement de build n'a pas de KVM. Tests faits sur bureau (xvfb, OpenGL logiciel).
-- Traduction : architecture `tr()` + `translations/strings.csv` prête ; seule une partie des chaînes est traduite en anglais.
+- Langue : jeu entièrement en français, forcé quelle que soit la langue du téléphone (architecture `tr()` conservée pour une future traduction).

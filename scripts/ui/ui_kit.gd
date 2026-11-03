@@ -116,7 +116,7 @@ static func label(txt: String, size: int = 30, color: Color = C_TEXT, align: int
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	l.horizontal_alignment = align
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if txt.length() > 28 else TextServer.AUTOWRAP_OFF
 	return l
 
 static func button(txt: String, cb: Callable, color: Color = C_ACCENT, size: int = 30, min_h: int = 88) -> Button:

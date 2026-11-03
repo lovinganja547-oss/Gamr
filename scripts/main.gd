@@ -36,6 +36,7 @@ func _ready() -> void:
 	inst = self
 	get_tree().set_auto_accept_quit(false)
 	get_tree().set_quit_on_go_back(false)
+	TranslationServer.set_locale(str(GameState.setting("locale")))
 	quality = int(GameState.setting("quality"))
 	world = Node3D.new()
 	world.name = "World"
@@ -122,6 +123,8 @@ func change_env(id: String, keep_pet_pos: bool = false) -> void:
 	elif pet_ctrl:
 		pet_ctrl.visible = false
 	cam_rig.reset_view(3.2, -0.32, 0.0)
+	cam_rig.follow = true
+	cam_rig.focus_offset = Vector3(0, 0.3, 0)
 	if pet_ctrl and pet_ctrl.visible:
 		cam_rig.target = pet_ctrl
 	cam_rig.snap()
@@ -183,7 +186,7 @@ func _clear_extra_pets() -> void:
 func add_extra_pet(p: Dictionary, pos: Vector3) -> PetController:
 	var c := PetController.new()
 	world.add_child(c)
-	c.setup(p, quality)
+	c.setup(p if p.has("needs") and p.has("traits") else GameState.sanitize_pet(p), quality)
 	c.position = pos
 	c.bounds = Rect2(pos.x - 0.6, pos.z - 0.5, 1.2, 1.0)
 	extra_pets.append(c)

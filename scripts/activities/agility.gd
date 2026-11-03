@@ -73,7 +73,7 @@ func _start() -> void:
 	pet.model.set_posture("stand")
 	main.cam_rig.target = pet
 	main.cam_rig.follow = true
-	main.cam_rig.reset_view(3.6, -0.45, PI)
+	main.cam_rig.reset_view(4.6, -0.6, PI)
 	Audio.music("music_play")
 	big_hint("3", 0.5)
 	Audio.play("tick")

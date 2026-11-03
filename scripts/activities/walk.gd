@@ -145,7 +145,7 @@ func _process(delta: float) -> void:
 			met.append(i)
 			_meet(c)
 	# Fontaine
-	var f: Variant = main.env_root.get_meta("fountain", null)
+	var f: Variant = main.env_root.get_meta("fountain") if main.env_root.has_meta("fountain") else null
 	if f is Vector3 and _drink_cd <= 0.0 and pet.position.distance_to(f) < 0.8:
 		_drink_cd = 30.0
 		GameState.change_need("thirst", 40.0)

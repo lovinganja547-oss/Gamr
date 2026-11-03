@@ -77,14 +77,9 @@ func handle_input(event: InputEvent) -> bool:
 func _add_bubble(p: Vector3) -> void:
 	if bubbles.size() > 70:
 		return
-	var b := WorldBuilder.ball(main.world, randf_range(0.03, 0.06), p + Vector3(randf_range(-0.03, 0.03), 0.01, randf_range(-0.03, 0.03)), Color(1, 1, 1), Vector3.ONE, 8)
+	var b := WorldBuilder.ball(main.world, randf_range(0.04, 0.08), p + Vector3(randf_range(-0.04, 0.04), 0.02, randf_range(-0.04, 0.04)), Color(1, 1, 1), Vector3.ONE, 8)
 	b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var parent := pet.model.body_pivot
-	var gp := b.global_position
-	b.get_parent().remove_child(b)
-	parent.add_child(b)
-	b.global_position = gp
-	b.scale = Vector3.ZERO
+	b.scale = Vector3.ONE * 0.2
 	b.create_tween().tween_property(b, "scale", Vector3.ONE * randf_range(0.8, 1.3), 0.15)
 	bubbles.append(b)
 

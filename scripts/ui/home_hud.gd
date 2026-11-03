@@ -197,7 +197,9 @@ func _update_cmds() -> void:
 			var b := UiKit.button(tr(GameData.COMMANDS[cmd]["name"]), func(): order(cc), UiKit.C_BLUE, 22, 60)
 			cmd_bar.add_child(b)
 	if not any:
-		cmd_bar.add_child(UiKit.label(tr("Apprenez des ordres dans « Dressage » 🎓"), 22, UiKit.C_SUB))
+		var hl := UiKit.label(tr("Apprenez des ordres dans « Dressage » 🎓"), 22, UiKit.C_SUB)
+		hl.custom_minimum_size = Vector2(640, 0)
+		cmd_bar.add_child(hl)
 	cmd_bar.add_child(UiKit.button("👍 " + tr("Bravo"), praise, UiKit.C_ACCENT2, 22, 60))
 	cmd_bar.add_child(UiKit.button("✋ " + tr("Non"), scold, UiKit.C_DANGER, 22, 60))
 

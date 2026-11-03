@@ -26,7 +26,9 @@ func _start() -> void:
 	_update_info()
 	var area: Rect2 = main.env_root.get_meta("spots_area", Rect2(-2.2, -1.9, 4.4, 3.0))
 	var n := int(lvl["spots"])
-	var cols := 4 if n <= 8 else 4
+	var cols := 2 if n <= 4 else 3
+	var c0 := area.get_center()
+	area = Rect2(c0.x - 1.9, area.position.y, 3.8, minf(area.size.y, 0.9 + ceil(float(n) / cols) * 0.9))
 	var rows := int(ceil(float(n) / cols))
 	var idxs: Array = range(n)
 	idxs.shuffle()
@@ -47,7 +49,7 @@ func _start() -> void:
 	main.cam_rig.target = null
 	main.cam_rig.follow = false
 	main.cam_rig.focus = Vector3(area.get_center().x, 0.2, area.get_center().y)
-	main.cam_rig.reset_view(maxf(area.size.x, area.size.y) * 0.9 + 2.0, -0.75, 0.0)
+	main.cam_rig.reset_view(6.5 + area.size.y * 0.4, -0.95, 0.0)
 	big_hint(tr("Touchez une cachette !"), 1.4)
 
 func _make_spot(pos: Vector3, i: int) -> Node3D:

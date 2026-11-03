@@ -248,7 +248,7 @@ func _round_done() -> void:
 			elif d < 1.8:
 				pts = float(t["pts"]) * 0.15
 			best = maxf(best, pts)
-		var time_bonus := maxf(0.0, 9.0 - _throw_t) * 6.0
+		var time_bonus := 10.0 + maxf(0.0, 14.0 - _throw_t) * 4.0
 		var mult := 1.0 + float(GameData.item(toy_id).get("bonus", 0)) / 100.0
 		var pts_total := int(round((best + time_bonus) * mult))
 		score += pts_total

@@ -198,7 +198,7 @@ func _build_custom(refocus: bool = false) -> void:
 	var ph := HFlowContainer.new()
 	ph.add_theme_constant_override("h_separation", 12)
 	for i in b["palettes"].size():
-		var ii := i
+		var ii: int = i
 		ph.add_child(UiKit.swatch(b["palettes"][i]["main"], i == custom["palette"], func():
 			custom["palette"] = ii
 			_build_custom()))
@@ -208,7 +208,7 @@ func _build_custom(refocus: bool = false) -> void:
 	var eh := HFlowContainer.new()
 	eh.add_theme_constant_override("h_separation", 12)
 	for i in GameData.EYE_COLORS.size():
-		var ii := i
+		var ii: int = i
 		eh.add_child(UiKit.swatch(GameData.EYE_COLORS[i], i == custom["eyes"], func():
 			custom["eyes"] = ii
 			_build_custom(), 64))

@@ -29,7 +29,7 @@ var load_status := "new"   # new | ok | backup | corrupt
 var offline_report := ""
 var _autosave_t := 0.0
 var _tick_t := 0.0
-var _pet_stroke_budget := 0.0
+var _pet_stroke_budget := 6.0
 var _dirty := false
 
 func _ready() -> void:
@@ -90,15 +90,17 @@ func _read_save(path: String) -> Variant:
 		return null
 	var txt := f.get_as_text()
 	f.close()
-	var parsed: Variant = JSON.parse_string(txt)
-	if not (parsed is Dictionary):
+	# Format : ligne 1 = empreinte SHA-256, reste = JSON
+	var nl := txt.find("\n")
+	if nl <= 0:
 		return null
-	var payload: Variant = parsed.get("payload")
-	var h: String = str(parsed.get("hash", ""))
-	if not (payload is Dictionary):
-		return null
-	if JSON.stringify(payload, "", true, true).sha256_text() != h:
+	var h := txt.substr(0, nl).strip_edges()
+	var body := txt.substr(nl + 1)
+	if body.sha256_text() != h:
 		push_warning("Sauvegarde altérée : %s" % path)
+		return null
+	var payload: Variant = JSON.parse_string(body)
+	if not (payload is Dictionary):
 		return null
 	return payload
 
@@ -107,7 +109,7 @@ func save_game() -> bool:
 		return false
 	data["last_time"] = Time.get_unix_time_from_system()
 	var payload := JSON.stringify(data, "", true, true)
-	var wrapped := JSON.stringify({"payload": data, "hash": payload.sha256_text()}, "", true, true)
+	var wrapped := payload.sha256_text() + "\n" + payload
 	var f := FileAccess.open(TMP_PATH, FileAccess.WRITE)
 	if f == null:
 		push_error("Impossible d'écrire la sauvegarde")
@@ -672,7 +674,7 @@ func success_chance(cmd: String) -> float:
 		return 0.0
 	var s := skill(cmd) / 100.0
 	var obed := float(p["traits"].get("obedience", 50)) / 100.0
-	var c := 0.12 + s * 0.78 + (obed - 0.5) * 0.15
+	var c := 0.25 + s * 0.68 + (obed - 0.5) * 0.15
 	c *= lerpf(0.55, 1.08, motivation(p))
 	return clampf(c, 0.05, 0.98)
 
@@ -758,6 +760,7 @@ func comp_result(cat: String, lv: int, score: float, seed_v: int) -> Dictionary:
 	var p := active_pet()
 	var ranking: Array = [{"name": p.get("name", "?"), "score": score, "player": true}]
 	var names := GameData.RIVAL_NAMES.duplicate()
+	names.erase(str(p.get("name", "")))
 	for i in 7:
 		var idx := rng.randi_range(0, names.size() - 1)
 		var nm: String = names[idx]

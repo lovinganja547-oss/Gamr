@@ -32,10 +32,10 @@ func _init(is_free: bool = true) -> void:
 func _start() -> void:
 	toy_id = str(GameState.data.get("toy", "ball"))
 	throw_area = main.env_root.get_meta("throw_area", Rect2(-3.5, -3.0, 7.0, 4.5))
-	make_top(("🎾 " + tr("Jeu de balle")) if free_mode else ("🎾 " + tr("Lancer de balle")))
+	make_top(("[i:throw] " + tr("Jeu de balle")) if free_mode else ("[i:throw] " + tr("Lancer de balle")))
 	_update_info()
 	var bb := bottom_bar()
-	call_btn = UiKit.button("📣 " + tr("Rapporte !"), _call_back, UiKit.C_BLUE, 28, 90)
+	call_btn = UiKit.button("[i:call] " + tr("Rapporte !"), _call_back, UiKit.C_BLUE, 28, 90)
 	call_btn.visible = false
 	bb.add_child(call_btn)
 	aim_line = Line2D.new()
@@ -208,7 +208,7 @@ func _decide_return(spd: float) -> void:
 		_phase = "playing"
 		pet.model.set_posture("lie")
 		pet.model.chew = 1.0
-		pet.model.emote("😜")
+		pet.model.emote("emo_playful")
 		call_btn.visible = true
 
 func _call_back() -> void:
@@ -216,7 +216,7 @@ func _call_back() -> void:
 		return
 	call_btn.visible = false
 	pet.model.chew = 0.0
-	pet.model.emote("❗")
+	pet.model.emote("emo_exclaim")
 	_return(1.4)
 
 func _return(spd: float) -> void:
@@ -277,7 +277,7 @@ func _finish() -> void:
 		finished = true
 		on_done.call(clampf(score / 7.0, 0.0, 100.0))
 		return
-	show_results("🎾 " + tr("Fin de partie"), [tr("Score : %d points") % score], coins, xp)
+	show_results("[i:throw] " + tr("Fin de partie"), [tr("Score : %d points") % score], coins, xp)
 
 func _on_quit() -> void:
 	if free_mode and throws_done > 0:

@@ -41,7 +41,7 @@ func _init(params: Dictionary = {}) -> void:
 	level = int(params.get("level", 0))
 
 func _start() -> void:
-	make_top("🏃 " + tr("Parcours d'agilité"), not comp)
+	make_top("[i:agility] " + tr("Parcours d'agilité"), not comp)
 	info_label.text = tr("Faites le geste indiqué quand l'anneau est vert !")
 	chrono_l = UiKit.label("0.0 s", 44, UiKit.C_TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	var cp := UiKit.panel(10)
@@ -199,7 +199,7 @@ func _fault(o: Dictionary, msg: String) -> void:
 	Audio.play("buzz")
 	big_hint(msg + "  +%ds" % int(PENALTY), 0.8, UiKit.C_DANGER)
 	_stall = 1.2
-	pet.model.emote("❓")
+	pet.model.emote("emo_question")
 	pet.model.set_posture("alert")
 	main.cam_rig.shake(0.04)
 
@@ -283,12 +283,12 @@ func _finish() -> void:
 	GameState.add_relation(6)
 	Audio.play("cheer")
 	pet.model.expression = "happy"
-	pet.model.emote("🏁")
+	pet.model.emote("emo_flag")
 	Audio.music("music_home")
 	if on_done.is_valid():
 		on_done.call(score)
 		return
-	show_results("🏃 " + tr("Parcours terminé"), [
+	show_results("[i:agility] " + tr("Parcours terminé"), [
 		tr("Temps : %.1f s (dont %d s de pénalités)") % [total, int(penalties)],
 		tr("Fautes : %d") % faults, tr("Note : %d / 100") % int(score)], int(score / 3.0) + 5, 30)
 

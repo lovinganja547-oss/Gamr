@@ -21,7 +21,7 @@ var clean_before := 0.0
 var shower: CPUParticles3D
 
 func _start() -> void:
-	make_top("🛁 " + tr("Bain de %s") % pet_name())
+	make_top("[i:wash] " + tr("Bain de %s") % pet_name())
 	info_label.text = tr("Frottez chaque partie du corps du bout du doigt.")
 	var bb := bottom_bar()
 	var pv := UiKit.panel(14)
@@ -44,10 +44,10 @@ func _start() -> void:
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vv.add_child(grid)
 	var h2 := UiKit.hbox(10)
-	shampoo_btn = UiKit.button("🧴 " + tr("Shampooing (×%d)") % GameState.item_count("shampoo"), _use_shampoo, UiKit.C_BLUE, 22, 76)
+	shampoo_btn = UiKit.button("[i:shampoo] " + tr("Shampooing (×%d)") % GameState.item_count("shampoo"), _use_shampoo, UiKit.C_BLUE, 22, 76)
 	shampoo_btn.disabled = GameState.item_count("shampoo") <= 0
 	h2.add_child(UiKit.expand(shampoo_btn))
-	rinse_btn = UiKit.button("🚿 " + tr("Rincer"), _rinse, UiKit.C_ACCENT2, 24, 76)
+	rinse_btn = UiKit.button("[i:shower] " + tr("Rincer"), _rinse, UiKit.C_ACCENT2, 24, 76)
 	rinse_btn.disabled = true
 	h2.add_child(UiKit.expand(rinse_btn))
 	vv.add_child(h2)
@@ -137,7 +137,7 @@ func _use_shampoo() -> void:
 		return
 	shampoo = true
 	shampoo_btn.disabled = true
-	shampoo_btn.text = "🧴 " + tr("Shampooing actif")
+	shampoo_btn.text = tr("Shampooing actif")
 	Audio.play("chime")
 
 func _rinse() -> void:
@@ -197,7 +197,7 @@ func _rinse() -> void:
 	GameState.bath_done(q)
 	if shampoo:
 		GameState.change_need("clean", 20.0)
-	pet.model.emote("✨")
+	pet.model.emote("emo_sparkle")
 	# Récompense selon le travail réel, sans abus par répétition
 	var p := GameState.active_pet()
 	var now := Time.get_unix_time_from_system()
@@ -212,7 +212,7 @@ func _rinse() -> void:
 		lines.append(tr("Déjà lavé récemment : pas de récompense cette fois."))
 	else:
 		p["last_bath"] = now
-	show_results("🛁 " + tr("Tout propre !"), lines, coins, xp)
+	show_results("[i:wash] " + tr("Tout propre !"), lines, coins, xp)
 
 func _exit_tree() -> void:
 	super._exit_tree()

@@ -42,7 +42,7 @@ var legs: Array[Dictionary] = []
 var acc_root: Node3D
 var hit_body: StaticBody3D
 var hit_head: StaticBody3D
-var emote_label: Label3D
+var emote_label: Sprite3D
 var held_anchor: Node3D
 
 # Animation
@@ -481,13 +481,12 @@ func _build() -> void:
 	cs2.shape = sph
 	hit_head.add_child(cs2)
 	head_pivot.add_child(hit_head)
-	emote_label = Label3D.new()
+	emote_label = Sprite3D.new()
 	emote_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	emote_label.font = UiKit.emoji_font()
-	emote_label.font_size = 96
-	emote_label.pixel_size = 0.0035
-	emote_label.outline_size = 0
+	emote_label.pixel_size = 0.0022
 	emote_label.no_depth_test = true
+	emote_label.render_priority = 10
+	emote_label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	emote_label.position = Vector3(0, L + by + hr * 2.6, 0)
 	emote_label.modulate = Color(1, 1, 1, 0)
 	add_child(emote_label)
@@ -768,18 +767,24 @@ func _ik(lg: Dictionary, t_local: Vector3) -> void:
 	(lg["knee"] as Node3D).rotation = Vector3(th_u - th_l, 0, 0)
 
 # ================================================================== Effets
-func emote(txt: String, dur: float = 1.4) -> void:
+## Bulle d'émotion au-dessus de l'animal (icône vectorielle emo_*).
+func emote(icon_name: String, dur: float = 1.4) -> void:
 	if emote_label == null:
+		return
+	var tex := UiKit.icon(icon_name)
+	if tex == null:
 		return
 	if _emote_tw and _emote_tw.is_valid():
 		_emote_tw.kill()
-	emote_label.text = txt
+	emote_label.texture = tex
 	var base_y := L + by + hr * 2.6
 	emote_label.position.y = base_y
 	emote_label.modulate = Color(1, 1, 1, 0)
+	emote_label.scale = Vector3.ONE * 0.6
 	_emote_tw = create_tween()
 	_emote_tw.tween_property(emote_label, "modulate:a", 1.0, 0.15)
-	_emote_tw.parallel().tween_property(emote_label, "position:y", base_y + 0.12, dur)
+	_emote_tw.parallel().tween_property(emote_label, "scale", Vector3.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_emote_tw.parallel().tween_property(emote_label, "position:y", base_y + 0.1, dur)
 	_emote_tw.tween_property(emote_label, "modulate:a", 0.0, 0.25)
 
 var dirt := 0.0

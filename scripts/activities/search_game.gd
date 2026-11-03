@@ -22,7 +22,7 @@ func _start() -> void:
 	lvl_idx = clampi(lvl_idx, 0, GameData.SEARCH_LEVELS.size() - 1)
 	lvl = GameData.SEARCH_LEVELS[lvl_idx]
 	tries = int(lvl["tries"]) + int(lvl["objects"]) - 1
-	make_top("👃 " + tr("Jeu de recherche · niveau %d") % (lvl_idx + 1), not comp)
+	make_top("[i:search] " + tr("Jeu de recherche · niveau %d") % (lvl_idx + 1), not comp)
 	_update_info()
 	var area: Rect2 = main.env_root.get_meta("spots_area", Rect2(-2.2, -1.9, 4.4, 3.0))
 	var n := int(lvl["spots"])
@@ -111,7 +111,7 @@ func _sniff(i: int) -> void:
 		GameState.inc_stat("found", 1)
 		pet.model.set_posture("bow", 6.0)
 		pet.model.expression = "happy"
-		pet.model.emote("❗")
+		pet.model.emote("emo_exclaim")
 		pet.voice()
 		Audio.play("success", 0.0, -4.0)
 		var bone := WorldBuilder.cyl(nodes[i], 0.03, 0.03, 0.26, Vector3(0, 0.3, 0), Color(0.98, 0.95, 0.88), 8, Vector3(0, 0, PI / 2))
@@ -125,20 +125,20 @@ func _sniff(i: int) -> void:
 		var nose := float(GameData.breed(GameState.active_pet()["breed"])["stats"]["nose"]) / 100.0
 		if randf() < (1.0 - nose) * 0.35:
 			d = randf_range(0.5, 4.0)   # flair trompé
-		var hint := "❄️"
+		var hint := "emo_cold"
 		var txt := tr("Froid…")
 		if d < 1.2:
-			hint = "🔥"
+			hint = "emo_hot"
 			txt = tr("Brûlant !")
 			pet.model.wag_amp = 1.0
 		elif d < 2.3:
-			hint = "♨️"
+			hint = "emo_warm"
 			txt = tr("Tiède")
 			pet.model.wag_amp = 0.5
 		else:
 			pet.model.wag_amp = 0.1
 		pet.model.emote(hint)
-		big_hint(hint + " " + txt, 0.8)
+		big_hint(txt, 0.8)
 		Audio.play("pop", 0.1, -4.0)
 		nodes[i].scale = Vector3(1, 0.6, 1)
 	_update_info()
@@ -178,7 +178,7 @@ func _finish(win: bool) -> void:
 	else:
 		coins = found * 8
 		lines.append(tr("Plus d'essais… %d objet(s) trouvé(s).") % found)
-	show_results("👃 " + tr("Recherche"), lines, coins, 15 + found * 5)
+	show_results("[i:search] " + tr("Recherche"), lines, coins, 15 + found * 5)
 
 func _exit_tree() -> void:
 	super._exit_tree()

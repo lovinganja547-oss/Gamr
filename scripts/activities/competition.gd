@@ -32,7 +32,7 @@ func _start() -> void:
 		"search":
 			_run_sub(SearchGame.new({"comp": true, "level": mini(level + 1, GameData.SEARCH_LEVELS.size() - 1)}))
 		_:
-			make_top("%s %s · %s" % [cd["icon"], tr(cd["name"]), tr(GameData.COMP_LEVELS[level]["name"])])
+			make_top("[i:%s] %s · %s" % [cd["icon"], tr(cd["name"]), tr(GameData.COMP_LEVELS[level]["name"])])
 			_setup_sequence()
 
 func _run_sub(a: Activity) -> void:
@@ -182,7 +182,7 @@ func _answer_cmd(given: String, mult: float) -> void:
 		points += pts
 		Audio.play("chime", 0.05, -4.0)
 		big_hint("+%d" % int(pts), 0.6, UiKit.C_ACCENT2)
-		pet.model.emote("⭐")
+		pet.model.emote("emo_star")
 	else:
 		combo = 0
 		Audio.play("fail", 0.0, -6.0)
@@ -197,7 +197,7 @@ func _results(score: float) -> void:
 	waiting = false
 	var res := GameState.comp_result(cat, level, snappedf(score, 0.1), randi())
 	var place: int = res["place"]
-	var medals := ["🥇", "🥈", "🥉"]
+	var medals := ["medal_gold", "medal_silver", "medal_bronze"]
 	# Podium
 	pet.busy = true
 	if place <= 3:
@@ -209,7 +209,7 @@ func _results(score: float) -> void:
 		pet.model.set_posture("sit")
 		pet.model.expression = "happy"
 		pet.model.wag_amp = 1.0
-		pet.model.emote(medals[place - 1], 3.0)
+		pet.model.emote(["emo_medal1", "emo_medal2", "emo_medal3"][place - 1], 3.0)
 		main.cam_rig.target = null
 		main.cam_rig.follow = false
 		main.cam_rig.focus = Vector3(6.0, 0.6, -6.0)
@@ -225,16 +225,16 @@ func _results(score: float) -> void:
 		var r: Dictionary = rank[i]
 		var p := UiKit.panel(8, Color(1, 0.92, 0.6) if r["player"] else Color(1, 0.97, 0.92))
 		var h := UiKit.hbox(8)
-		var l := UiKit.label("%s %d. %s" % [medals[i] if i < 3 else "  ", i + 1, r["name"]], 26)
+		var l := UiKit.label(("[i:%s] " % medals[i] if i < 3 else "") + "%d. %s" % [i + 1, r["name"]], 26)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(l)
 		h.add_child(UiKit.label("%.1f" % float(r["score"]), 26, UiKit.C_SUB))
 		p.add_child(h)
 		v.add_child(p)
-	v.add_child(UiKit.label("🪙 +%d    ⭐ +%d pts d'expérience" % [int(res["prize"]), int(res["xp"])], 32, UiKit.C_ACCENT))
+	v.add_child(UiKit.label("[i:coin] +%d " % int(res["prize"]) + tr("pièces") + "   ·   +%d " % int(res["xp"]) + tr("pts d'expérience"), 32, UiKit.C_ACCENT))
 	v.add_child(UiKit.button(tr("Continuer"), func(): main.close_panel(), UiKit.C_ACCENT2, 30, 92))
 	var title := tr("%de place !") % place if place > 1 else tr("Victoire !")
-	main.open_panel("🏆 " + title, UiKit.scroll(v), func():
+	main.open_panel("[i:trophy] " + title, UiKit.scroll(v), func():
 		Audio.music("music_home")
 		main.end_activity())
 

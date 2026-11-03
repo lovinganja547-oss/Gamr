@@ -55,12 +55,12 @@ func make_top(title: String, show_quit: bool = true) -> VBoxContainer:
 	p.add_child(pv)
 	h.add_child(p)
 	if can_recenter():
-		var rc := UiKit.button("◎", func(): recenter(), UiKit.C_BLUE, 34, 90)
+		var rc := UiKit.button("[i:recenter]", func(): recenter(), UiKit.C_BLUE, 34, 90)
 		rc.custom_minimum_size = Vector2(90, 90)
 		rc.tooltip_text = tr("Recentrer la caméra")
 		h.add_child(rc)
 	if show_quit:
-		var q := UiKit.button("✕", quit, UiKit.C_DANGER, 34, 90)
+		var q := UiKit.button("[i:close]", quit, UiKit.C_DANGER, 34, 90)
 		q.custom_minimum_size = Vector2(90, 90)
 		h.add_child(q)
 	v.add_child(h)
@@ -85,9 +85,10 @@ func big_hint(text: String, dur: float = 1.6, color: Color = Color.WHITE) -> voi
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(l)
 	l.pivot_offset = Vector2(340, 40)
-	l.scale = Vector2(0.5, 0.5)
 	var tw := l.create_tween()
-	tw.tween_property(l, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if not UiKit.reduce_motion():
+		l.scale = Vector2(0.5, 0.5)
+		tw.tween_property(l, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(dur)
 	tw.tween_property(l, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(l.queue_free)
@@ -118,7 +119,7 @@ func show_results(title: String, lines: Array, coins: int, xp: int) -> void:
 	for l in lines:
 		v.add_child(UiKit.label(str(l), 30))
 	if coins > 0 or xp > 0:
-		v.add_child(UiKit.label("🪙 +%d    ⭐ +%d pts d'expérience" % [coins, xp], 36, UiKit.C_ACCENT))
+		v.add_child(UiKit.label("[i:coin] +%d " % coins + tr("pièces") + "   ·   +%d " % xp + tr("pts d'expérience"), 36, UiKit.C_ACCENT))
 	v.add_child(UiKit.button(tr("Continuer"), func():
 		main.close_panel(), UiKit.C_ACCENT2, 32, 96))
 	main.open_panel(title, v, func(): main.end_activity())

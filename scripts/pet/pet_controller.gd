@@ -204,22 +204,22 @@ func _autonomy() -> void:
 		else:
 			_idle_t = 3.0
 			if randf() < 0.3:
-				model.emote("💤", 1.6)
+				model.emote("emo_zzz", 1.6)
 		return
 	if n["energy"] < 12.0:
 		go_sleep()
 		return
 	if n["hunger"] < 30.0 and randf() < 0.4:
-		model.emote("🍖")
+		model.emote("emo_food")
 		Audio.play("whine", 0.05, -6.0)
 		do_posture("sad", 2.0)
 		return
 	if n["thirst"] < 30.0 and randf() < 0.4:
-		model.emote("💧")
+		model.emote("emo_drop")
 		do_posture("sad", 2.0)
 		return
 	if n["clean"] < 25.0 and randf() < 0.3:
-		model.emote("🦟")
+		model.emote("emo_bug")
 		shake_off()
 		return
 	if n["mood"] < 35.0:
@@ -329,7 +329,7 @@ func head_tilt() -> void:
 	var id := _begin("tilt")
 	model.set_posture("alert")
 	model.head_extra.z = 0.45 * (1.0 if randf() < 0.5 else -1.0)
-	model.emote("❓")
+	model.emote("emo_question")
 	if await _wait(1.3, id):
 		model.head_extra.z = 0.0
 		_end(id, "tilt")
@@ -353,7 +353,7 @@ func _sleep_now() -> void:
 	model.set_posture("sleep", 1.5)
 	model.expression = "closed"
 	model.wag_amp = 0.0
-	model.emote("💤", 2.0)
+	model.emote("emo_zzz", 2.0)
 	if id != _act_id:
 		return
 
@@ -375,7 +375,7 @@ func eat(kind: String, dur: float = 2.5) -> void:
 		Audio.play("crunch" if kind == "food" else "lap", 0.05, -2.0)
 		if await _wait(dur * 0.5, id):
 			model.chew = 0.0
-			model.emote("😋")
+			model.emote("emo_yum")
 			_end(id, "eat")
 
 ## Repas complet : approche par un côté libre, tête au-dessus de la gamelle, mastication,
@@ -424,7 +424,7 @@ func _eat_now(bp: Vector3, kind: String, dur: float, on_tick: Callable, on_done:
 			on_tick.call(float(i + 1) / steps)
 	model.chew = 0.0
 	model.set_posture("stand", 3.0)
-	model.emote("😋" if kind == "food" else "💦")
+	model.emote("emo_yum" if kind == "food" else "emo_drop")
 	model.tongue_out = 1.0
 	await get_tree().create_timer(0.6, false).timeout
 	model.tongue_out = 0.0
@@ -464,12 +464,12 @@ func _petted_release(id: int) -> void:
 func on_tap(part: String) -> void:
 	if sleeping:
 		wake_up()
-		model.emote("😪")
+		model.emote("emo_sleepy")
 		return
 	_tap_count += 1
 	_tap_t = 1.5
 	if _tap_count >= 5 and float(pet["traits"].get("independence", 50)) > 50.0:
-		model.emote("💢")
+		model.emote("emo_angry")
 		_tap_count = 0
 		do_posture("sit", 1.0)
 		face(position + Vector3(randf_range(-1, 1), 0, -1))
@@ -478,13 +478,13 @@ func on_tap(part: String) -> void:
 		voice()
 		head_tilt()
 	else:
-		model.emote("❤️" if pet["needs"]["affection"] > 50.0 else "❔")
+		model.emote("emo_heart" if pet["needs"]["affection"] > 50.0 else "emo_question")
 		play_bow()
 
 func call_name() -> void:
 	if sleeping:
 		wake_up()
-	model.emote("❗")
+	model.emote("emo_exclaim")
 	voice()
 	walk_to(player_pos + Vector3(randf_range(-0.2, 0.2), 0, -0.5), 1.6, func():
 		face(player_pos)
@@ -495,7 +495,7 @@ func praise() -> void:
 	model.expression = "happy"
 	model.wag_amp = 1.0
 	model.wag_speed = 18.0
-	model.emote("💖")
+	model.emote("emo_heart")
 	happy_sound()
 	model.set_posture("bow", 6.0)
 	if await _wait(1.2, id):
@@ -506,7 +506,7 @@ func scold() -> void:
 	model.expression = "sad"
 	model.set_posture("sad")
 	model.wag_amp = 0.05
-	model.emote("😔")
+	model.emote("emo_sad")
 	Audio.play("whine", 0.05, -6.0)
 	if await _wait(1.5, id):
 		_end(id, "scold")

@@ -61,7 +61,7 @@ func default_data() -> Dictionary:
 		"search_level": 0,
 		"bowls": {"food": 0.0, "water": 0.0},
 		"tutorial": {"done": false},
-		"settings": {"master": 0.9, "music": 0.6, "sfx": 0.9, "quality": 1, "voice": false, "vibration": true, "locale": "fr"},
+		"settings": {"master": 0.9, "music": 0.6, "sfx": 0.9, "quality": 1, "voice": false, "vibration": true, "locale": "fr", "text_scale": 0, "reduce_motion": false, "sensitivity": 1.0},
 	}
 
 func has_save() -> bool:
@@ -170,6 +170,8 @@ func sanitize(src: Dictionary) -> Dictionary:
 	for sk in ["master", "music", "sfx"]:
 		d["settings"][sk] = clampf(float(d["settings"][sk]), 0.0, 1.0)
 	d["settings"]["quality"] = clampi(int(d["settings"]["quality"]), 0, 2)
+	d["settings"]["text_scale"] = clampi(int(d["settings"]["text_scale"]), 0, 2)
+	d["settings"]["sensitivity"] = clampf(float(d["settings"]["sensitivity"]), 0.4, 2.0)
 	for sk in defs["deco"].keys():
 		if not d["deco"].has(sk) or typeof(d["deco"][sk]) != TYPE_STRING:
 			d["deco"][sk] = defs["deco"][sk]
@@ -384,7 +386,7 @@ func apply_offline() -> void:
 
 func lowest_need(p: Dictionary) -> String:
 	var worst := "hunger"
-	for k in ["hunger", "thirst", "clean", "energy", "affection", "health"]:
+	for k in ["hunger", "thirst", "clean", "energy", "affection", "health", "outside"]:
 		if p["needs"][k] < p["needs"][worst]:
 			worst = k
 	return worst
@@ -905,7 +907,7 @@ func _check_achievements(key: String) -> void:
 		if get_stat(key) >= int(a["value"]):
 			data["achievements"].append(id)
 			achievement_unlocked.emit(id)
-			toast.emit(tr("🏆 Succès : %s (+%d)") % [tr(a["name"]), int(a["reward"])])
+			toast.emit(tr("[i:trophy] Succès : %s (+%d)") % [tr(a["name"]), int(a["reward"])])
 			add_coins(int(a["reward"]))
 
 func ensure_daily() -> void:

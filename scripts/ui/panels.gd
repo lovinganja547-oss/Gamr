@@ -29,25 +29,21 @@ static func needs() -> void:
 	var v := UiKit.vbox(14)
 	for k in GameData.NEED_KEYS:
 		var val: float = p["needs"][k]
-		var h := UiKit.hbox(10)
-		var l := UiKit.label("%s %s" % [GameData.NEED_ICONS[k], _t(GameData.NEED_NAMES[k])], 28)
-		l.custom_minimum_size = Vector2(230, 0)
-		h.add_child(l)
-		h.add_child(UiKit.expand(UiKit.bar(val, GameData.NEED_COLORS[k], 28)))
-		var n := UiKit.label("%d" % int(val), 26, UiKit.C_SUB)
-		n.custom_minimum_size = Vector2(56, 0)
-		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		h.add_child(n)
-		v.add_child(h)
+		var row := UiKit.need_row(k, val, 44, 26, 26)
+		var name_l := UiKit.label(_t(GameData.NEED_NAMES[k]), 26)
+		name_l.custom_minimum_size = Vector2(170, 0)
+		(row[0] as HBoxContainer).add_child(name_l)
+		(row[0] as HBoxContainer).move_child(name_l, 1)
+		v.add_child(row[0])
 	var worst := GameState.lowest_need(p)
 	var tips := {
-		"hunger": "Il a faim : donnez-lui un repas 🍖.", "thirst": "Il a soif : remplissez sa gamelle d'eau 💧.",
-		"clean": "Un bon bain lui ferait du bien 🛁.", "energy": "Il est fatigué : laissez-le dormir dans son panier.",
-		"affection": "Il a besoin de câlins : caressez-le !", "health": "Prenez soin de ses besoins et offrez-lui des vitamines 💊.",
+		"hunger": "Il a faim : donnez-lui un repas.", "thirst": "Il a soif : remplissez sa gamelle d'eau.",
+		"clean": "Un bon bain lui ferait du bien.", "energy": "Il est fatigué : laissez-le dormir dans son panier.",
+		"affection": "Il a besoin de câlins : caressez-le !", "outside": "Il a besoin de sortir : allez au jardin ou en promenade.", "mood": "Jouez avec lui pour lui remonter le moral.", "health": "Prenez soin de ses besoins et offrez-lui des vitamines.",
 	}
 	v.add_child(UiKit.spacer(8))
 	var tip := _card()
-	tip.add_child(UiKit.label("💡 " + (_t(tips[worst]) if p["needs"][worst] < 60.0 else _t("%s est en pleine forme !") % p["name"]), 26))
+	tip.add_child(UiKit.label("[i:tip] " + (_t(tips[worst]) if p["needs"][worst] < 60.0 else _t("%s est en pleine forme !") % p["name"]), 26))
 	v.add_child(tip)
 	v.add_child(UiKit.label(_t("Les besoins évoluent même quand le jeu est fermé, mais doucement : votre compagnon ne peut jamais disparaître."), 22, UiKit.C_SUB))
 	_m().open_panel(_t("Besoins de %s") % p["name"], UiKit.scroll(v))
@@ -61,7 +57,7 @@ static func pet_info() -> void:
 	var v := UiKit.vbox(12)
 	v.add_child(UiKit.label("%s · %s · %s" % [_t(b["name"]), _t("Mâle") if p["sex"] == "m" else _t("Femelle"), _t(GameData.TEMPERAMENTS[p["temperament"]]["name"])], 28))
 	var rl := GameState.relation_level(p)
-	v.add_child(UiKit.label("💞 " + _t("Relation : niveau %d (%s)") % [rl, _t(GameData.RELATION_NAMES[rl - 1])], 26))
+	v.add_child(UiKit.label("[i:relation] " + _t("Relation : niveau %d (%s)") % [rl, _t(GameData.RELATION_NAMES[rl - 1])], 26))
 	v.add_child(UiKit.bar(GameState.relation_progress(p) * 100.0, Color(0.95, 0.5, 0.7), 20))
 	var days := int((Time.get_unix_time_from_system() - float(p["adopted"])) / 86400.0)
 	v.add_child(UiKit.label(_t("Adopté depuis %d jour(s) · %d victoire(s)") % [days, int(p.get("wins", 0))], 24, UiKit.C_SUB))
@@ -160,7 +156,7 @@ static func shop(tab: String = "food") -> void:
 			shop(tt), UiKit.C_ACCENT if t == tab else UiKit.C_DISABLED, 22, 60)
 		tabs.add_child(b)
 	v.add_child(tabs)
-	var coins := UiKit.label(_t("Vos pièces : 🪙 %d") % GameState.coins(), 26, UiKit.C_SUB)
+	var coins := UiKit.label("[i:coin] " + _t("Vos pièces : %d") % GameState.coins(), 26, UiKit.C_SUB)
 	v.add_child(coins)
 	var list := UiKit.vbox(10)
 	if tab == "env":
@@ -172,9 +168,9 @@ static func shop(tab: String = "food") -> void:
 			var owned := GameState.env_unlocked(id)
 			var c := _card()
 			var info := UiKit.vbox(2)
-			info.add_child(UiKit.label("%s %s" % [e["icon"], _t(e["name"])], 30))
+			info.add_child(UiKit.label("[i:%s] %s" % [e["icon"], _t(e["name"])], 30))
 			info.add_child(UiKit.label(_t("Nouveau lieu de promenade et de jeu · niveau %d") % int(e["level"]), 22, UiKit.C_SUB))
-			var btn := UiKit.button(_t("Débloqué") if owned else "🪙 %d" % int(e["price"]), func():
+			var btn := UiKit.button(_t("Débloqué") if owned else "[i:coin] %d" % int(e["price"]), func():
 				var err := GameState.buy_env(iid)
 				if err == "":
 					Audio.play("coin")
@@ -198,7 +194,7 @@ static func shop(tab: String = "food") -> void:
 			var owned: bool = not consumable and GameState.data["owned"].has(id)
 			var c := _card()
 			var info := UiKit.vbox(2)
-			var title: String = "%s %s" % [it["icon"], _t(it["name"])]
+			var title: String = "[i:%s] %s" % [it["icon"], _t(it["name"])]
 			if consumable:
 				title += "  (×%d)" % GameState.item_count(id)
 			info.add_child(UiKit.label(title, 28))
@@ -209,9 +205,9 @@ static func shop(tab: String = "food") -> void:
 					parts.append("%s+%d" % [GameData.NEED_ICONS.get(k, ""), int(it["fx"][k])])
 				desc += "  " + " ".join(parts)
 			if int(it.get("level", 1)) > GameState.level():
-				desc += "  🔒 " + _t("niveau %d") % int(it["level"])
+				desc += "  · " + _t("verrouillé, niveau %d") % int(it["level"])
 			info.add_child(UiKit.label(desc, 21, UiKit.C_SUB))
-			var btn := UiKit.button(_t("Possédé") if owned else "🪙 %d" % int(it["price"]), func():
+			var btn := UiKit.button(_t("Possédé") if owned else "[i:coin] %d" % int(it["price"]), func():
 				var err := GameState.buy(iid)
 				if err == "":
 					Audio.play("coin")
@@ -226,7 +222,7 @@ static func shop(tab: String = "food") -> void:
 			c.add_child(_row(info, btn))
 			list.add_child(c)
 	v.add_child(list)
-	_m().open_panel("🛍️ " + _t("Boutique"), UiKit.scroll(v))
+	_m().open_panel("[i:shop] " + _t("Boutique"), UiKit.scroll(v))
 
 # ================================================================== Sac
 static func inventory() -> void:
@@ -269,7 +265,7 @@ static func inventory() -> void:
 		for k in keys:
 			txt += "%s ×%d   " % [k, int(fd[k])]
 		v.add_child(UiKit.label(txt, 24, UiKit.C_SUB))
-	_m().open_panel("🎒 " + _t("Sac"), UiKit.scroll(v))
+	_m().open_panel("[i:inventory] " + _t("Sac"), UiKit.scroll(v))
 
 static func _use_item(iid: String) -> void:
 	_m().close_panel()
@@ -287,7 +283,7 @@ static func _use_item(iid: String) -> void:
 				Audio.play("chime")
 				_m().toast(_t("%s utilisé !") % _t(it["name"]))
 				if _m().pet_ctrl:
-					_m().pet_ctrl.model.emote("✨")
+					_m().pet_ctrl.model.emote("emo_sparkle")
 
 # ================================================================== Déco
 static func deco() -> void:
@@ -300,7 +296,7 @@ static func deco() -> void:
 		var cur: String = GameState.data["deco"].get(slot, "")
 		var sl: String = slot
 		if slot in ["plant", "lamp", "frame", "box"]:
-			g.add_child(UiKit.icon_button("✖️", _t("Aucun"), func():
+			g.add_child(UiKit.icon_button("acc_none", _t("Aucun"), func():
 				GameState.set_deco(sl, "")
 				_after_deco(), UiKit.C_GOLD if cur == "" else Color(1, 1, 1, 0.95), 140))
 		var count := 0
@@ -317,7 +313,7 @@ static func deco() -> void:
 	v.add_child(UiKit.button(_t("Acheter des décorations"), func():
 		_m().close_panel()
 		shop("deco"), UiKit.C_ACCENT, 26, 80))
-	_m().open_panel("🏠 " + _t("Décorer"), UiKit.scroll(v))
+	_m().open_panel("[i:house] " + _t("Décorer"), UiKit.scroll(v))
 
 static func _after_deco() -> void:
 	Audio.play("pop")
@@ -337,7 +333,7 @@ static func places() -> void:
 		var unlocked := GameState.env_unlocked(id)
 		var c := _card(Color(1, 0.97, 0.9) if _m().env_id != id else Color(0.9, 0.97, 0.9))
 		var info := UiKit.vbox(2)
-		info.add_child(UiKit.label("%s %s" % [e["icon"], _t(e["name"])], 30))
+		info.add_child(UiKit.label("[i:%s] %s" % [e["icon"], _t(e["name"])], 30))
 		var sub := ""
 		match id:
 			"house": sub = _t("Repos, repas, décoration")
@@ -347,7 +343,7 @@ static func places() -> void:
 			"center": sub = _t("Agilité et concours")
 			"shelter": sub = _t("Adopter un nouveau compagnon")
 		if not unlocked:
-			sub += "  🔒 " + _t("Boutique › Lieux")
+			sub += "  · " + _t("à débloquer : Boutique › Lieux")
 		info.add_child(UiKit.label(sub, 21, UiKit.C_SUB))
 		var btn := UiKit.button(_t("Ici") if _m().env_id == id else _t("Y aller"), func():
 			_m().close_panel()
@@ -356,7 +352,7 @@ static func places() -> void:
 		btn.custom_minimum_size = Vector2(160, 80)
 		c.add_child(_row(info, btn))
 		v.add_child(c)
-	_m().open_panel("🗺️ " + _t("Lieux"), UiKit.scroll(v))
+	_m().open_panel("[i:map] " + _t("Lieux"), UiKit.scroll(v))
 
 static func go_to(id: String) -> void:
 	if id == "shelter":
@@ -376,7 +372,7 @@ static func pets() -> void:
 		var c := _card(Color(0.9, 0.97, 0.9) if active else Color(1, 0.97, 0.9))
 		var info := UiKit.vbox(2)
 		info.add_child(UiKit.label("%s  (%s)" % [p["name"], _t(b["name"])], 28))
-		info.add_child(UiKit.label("💞 %d   🍖 %d   😊 %d" % [GameState.relation_level(p), int(p["needs"]["hunger"]), int(p["needs"]["mood"])], 22, UiKit.C_SUB))
+		info.add_child(UiKit.label("[i:relation] " + _t("Relation %d · Niv. %d · Faim %d %% · Bonheur %d %%") % [GameState.relation_level(p), int(p.get("level", 1)), int(p["needs"]["hunger"]), int(p["needs"]["mood"])], 22, UiKit.C_SUB))
 		var btn := UiKit.button(_t("Actif") if active else _t("Choisir"), func():
 			GameState.set_active_pet(pid)
 			_m().close_panel()
@@ -387,10 +383,10 @@ static func pets() -> void:
 		c.add_child(_row(info, btn))
 		v.add_child(c)
 	v.add_child(UiKit.label(_t("Adoption : %d pièces, niveau 2 minimum, 6 animaux maximum.") % GameData.ADOPT_PRICE, 22, UiKit.C_SUB))
-	v.add_child(UiKit.button("🏡 " + _t("Aller au refuge"), func():
+	v.add_child(UiKit.button("[i:shelter] " + _t("Aller au refuge"), func():
 		_m().close_panel()
 		go_to("shelter"), UiKit.C_ACCENT))
-	_m().open_panel("🐾 " + _t("Mes animaux"), UiKit.scroll(v))
+	_m().open_panel("[i:paw] " + _t("Mes animaux"), UiKit.scroll(v))
 
 # ================================================================== Dressage
 static func training() -> void:
@@ -408,7 +404,7 @@ static func training() -> void:
 		info.add_child(UiKit.bar(s, UiKit.C_BLUE, 16))
 		var sub := _t("Geste : %s") % _t(d["hint"])
 		if not avail:
-			sub = "🔒 " + _t("Niveau %d du compagnon") % int(d["level"])
+			sub = "[i:lock] " + _t("Niveau %d du compagnon") % int(d["level"])
 		info.add_child(UiKit.label(sub, 21, UiKit.C_SUB))
 		var btn := UiKit.button(_t("Entraîner"), func():
 			_m().close_panel()
@@ -418,17 +414,17 @@ static func training() -> void:
 		c.add_child(_row(info, btn))
 		v.add_child(c)
 	v.add_child(UiKit.label(_t("Astuce : de courtes séances régulières sont plus efficaces. Récompensez uniquement les réussites !"), 22, UiKit.C_SUB))
-	_m().open_panel("🎓 " + _t("Dressage"), UiKit.scroll(v))
+	_m().open_panel("[i:training] " + _t("Dressage"), UiKit.scroll(v))
 
 # ================================================================== Activités
 static func activities() -> void:
 	var v := UiKit.vbox(12)
 	var lvl: Dictionary = GameData.SEARCH_LEVELS[int(GameState.data["search_level"])]
 	var entries := [
-		["🎾", "Lancer de balle", "Visez avec le doigt : la distance du geste règle la puissance.", "fetch"],
-		["🏃", "Parcours d'agilité", "Sauts, slalom, tunnel : faites le bon geste au bon moment !", "agility"],
-		["👃", "Jeu de recherche", _t("Niveau %d : %d cachettes, %d essais.") % [int(GameState.data["search_level"]) + 1, int(lvl["spots"]), int(lvl["tries"])], "search"],
-		["🚶", "Promenade", "Explorez, ramassez des trouvailles et faites des rencontres.", "walk"],
+		["throw", "Lancer de balle", "Visez avec le doigt : la distance du geste règle la puissance.", "fetch"],
+		["agility", "Parcours d'agilité", "Sauts, slalom, tunnel : faites le bon geste au bon moment !", "agility"],
+		["search", "Jeu de recherche", _t("Niveau %d : %d cachettes, %d essais.") % [int(GameState.data["search_level"]) + 1, int(lvl["spots"]), int(lvl["tries"])], "search"],
+		["walk", "Promenade", "Explorez, ramassez des trouvailles et faites des rencontres.", "walk"],
 	]
 	for e in entries:
 		var kind: String = e[3]
@@ -443,13 +439,13 @@ static func activities() -> void:
 		if not GameState.activity_unlocked(kind):
 			btn.disabled = true
 			btn.text = _t("Niv. %d") % int(GameData.ACTIVITY_LEVELS[kind])
-			info.add_child(UiKit.label("🔒 " + _t("Débloqué au niveau %d de votre compagnon") % int(GameData.ACTIVITY_LEVELS[kind]), 21, UiKit.C_DANGER))
+			info.add_child(UiKit.label("[i:lock] " + _t("Débloqué au niveau %d de votre compagnon") % int(GameData.ACTIVITY_LEVELS[kind]), 21, UiKit.C_DANGER))
 		c.add_child(_row(info, btn))
 		v.add_child(c)
 	var p := GameState.active_pet()
 	if p["needs"]["energy"] < 20.0:
-		v.add_child(UiKit.label("⚠️ " + _t("%s est fatigué : il jouera moins bien.") % p["name"], 24, UiKit.C_DANGER))
-	_m().open_panel("🎯 " + _t("Activités"), UiKit.scroll(v))
+		v.add_child(UiKit.label("[i:warning] " + _t("%s est fatigué : il jouera moins bien.") % p["name"], 24, UiKit.C_DANGER))
+	_m().open_panel("[i:activities] " + _t("Activités"), UiKit.scroll(v))
 
 static func _choose_place(kind: String) -> void:
 	var allowed: Array = []
@@ -466,13 +462,13 @@ static func _choose_place(kind: String) -> void:
 	for e in unlocked:
 		var ee: String = e
 		var d: Dictionary = GameData.ENVIRONMENTS[e]
-		v.add_child(UiKit.button("%s %s" % [d["icon"], _t(d["name"])], func():
+		v.add_child(UiKit.button("[i:%s] %s" % [d["icon"], _t(d["name"])], func():
 			_m().close_panel()
 			_launch(kind, ee), UiKit.C_BLUE, 30, 96))
 	for e in allowed:
 		if not unlocked.has(e):
 			var d2: Dictionary = GameData.ENVIRONMENTS[e]
-			var b := UiKit.button("🔒 %s %s" % [d2["icon"], _t(d2["name"])], Callable(), UiKit.C_DISABLED, 28, 88)
+			var b := UiKit.button("[i:lock] %s" % _t(d2["name"]), Callable(), UiKit.C_DISABLED, 28, 88)
 			b.disabled = true
 			v.add_child(b)
 	_m().open_panel(_t("Où jouer ?"), UiKit.scroll(v))
@@ -496,7 +492,7 @@ static func competitions() -> void:
 		var cd: Dictionary = GameData.COMP_CATS[cat]
 		var c := _card()
 		var inner := UiKit.vbox(8)
-		inner.add_child(UiKit.label("%s %s" % [cd["icon"], _t(cd["name"])], 32))
+		inner.add_child(UiKit.label("[i:%s] %s" % [cd["icon"], _t(cd["name"])], 32))
 		inner.add_child(UiKit.label(_t(cd["desc"]), 21, UiKit.C_SUB))
 		var best := int(GameState.data["comp"].get(cat, -1))
 		var g := GridContainer.new()
@@ -507,7 +503,7 @@ static func competitions() -> void:
 			var won := best >= lv
 			var cc: String = cat
 			var ll: int = lv
-			var txt := ("🥇 " if won else "") + _t(L["name"])
+			var txt := ("[i:medal_gold] " if won else "") + _t(L["name"])
 			var b := UiKit.button(txt, func():
 				var r := GameState.comp_requirements(cc, ll)
 				if r != "":
@@ -525,22 +521,22 @@ static func competitions() -> void:
 		inner.add_child(g)
 		c.add_child(inner)
 		v.add_child(c)
-	_m().open_panel("🏆 " + _t("Concours"), UiKit.scroll(v))
+	_m().open_panel("[i:trophy] " + _t("Concours"), UiKit.scroll(v))
 
 # ================================================================== Plus
 static func more() -> void:
 	var g := GridContainer.new()
 	g.columns = 3
 	var items := [
-		["📅", "Objectifs", func(): daily()],
-		["🏅", "Succès", func(): achievements()],
-		["🖼️", "Album", func(): album()],
-		["🏠", "Décorer", func(): deco()],
-		["🎀", "Style", func(): customize()],
-		["🐾", "Animaux", func(): pets()],
-		["🗺️", "Lieux", func(): places()],
-		["⚙️", "Réglages", func(): settings()],
-		["💾", "Sauver", func(): _save_now()],
+		["calendar", "Objectifs", func(): daily()],
+		["medal", "Succès", func(): achievements()],
+		["album", "Album", func(): album()],
+		["house", "Décorer", func(): deco()],
+		["style", "Style", func(): customize()],
+		["paw", "Animaux", func(): pets()],
+		["map", "Lieux", func(): places()],
+		["gear", "Réglages", func(): settings()],
+		["save", "Sauver", func(): _save_now()],
 	]
 	for it in items:
 		var cb: Callable = it[2]
@@ -564,7 +560,7 @@ static func daily() -> void:
 		var info := UiKit.vbox(4)
 		info.add_child(UiKit.label(_t(d["text"]), 26))
 		info.add_child(UiKit.bar(float(e["progress"]) / float(d["target"]) * 100.0, UiKit.C_ACCENT2, 16))
-		info.add_child(UiKit.label("%d / %d   ·   🪙 %d" % [int(e["progress"]), int(d["target"]), int(d["reward"])], 21, UiKit.C_SUB))
+		info.add_child(UiKit.label("[i:coin] " + "%d / %d   ·   +%d" % [int(e["progress"]), int(d["target"]), int(d["reward"])], 21, UiKit.C_SUB))
 		var ii := i
 		var done := int(e["progress"]) >= int(d["target"])
 		var btn := UiKit.button(_t("Reçu") if e["claimed"] else _t("Récupérer"), func():
@@ -577,7 +573,7 @@ static func daily() -> void:
 		c.add_child(_row(info, btn))
 		v.add_child(c)
 	v.add_child(UiKit.label(_t("Nouveaux objectifs chaque jour."), 22, UiKit.C_SUB))
-	_m().open_panel("📅 " + _t("Objectifs du jour"), UiKit.scroll(v))
+	_m().open_panel("[i:calendar] " + _t("Objectifs du jour"), UiKit.scroll(v))
 
 static func achievements() -> void:
 	var v := UiKit.vbox(10)
@@ -588,12 +584,12 @@ static func achievements() -> void:
 		var ok := got.has(id)
 		var c := _card(Color(1, 0.95, 0.75) if ok else Color(0.95, 0.94, 0.92))
 		var info := UiKit.vbox(2)
-		info.add_child(UiKit.label(("🏅 " if ok else "🔒 ") + _t(a["name"]), 26))
+		info.add_child(UiKit.label(("[i:medal] " if ok else "[i:lock] ") + _t(a["name"]), 26))
 		var prog := mini(GameState.get_stat(a["stat"]), int(a["value"]))
-		info.add_child(UiKit.label("%s  (%d/%d)  ·  🪙 %d" % [_t(a["desc"]), prog, int(a["value"]), int(a["reward"])], 20, UiKit.C_SUB))
+		info.add_child(UiKit.label("%s  (%d/%d)  ·  +%d " % [_t(a["desc"]), prog, int(a["value"]), int(a["reward"])] + _t("pièces"), 20, UiKit.C_SUB))
 		c.add_child(info)
 		v.add_child(c)
-	_m().open_panel("🏅 " + _t("Succès"), UiKit.scroll(v))
+	_m().open_panel("[i:medal] " + _t("Succès"), UiKit.scroll(v))
 
 # ================================================================== Album
 static func _thumb(nm: String) -> Texture2D:
@@ -612,7 +608,7 @@ static func album() -> void:
 	var v := UiKit.vbox(12)
 	var photos: Array = GameState.data["photos"]
 	if photos.is_empty():
-		v.add_child(UiKit.label(_t("Aucune photo. Touchez 📷 pour immortaliser votre compagnon !"), 28))
+		v.add_child(UiKit.label(_t("Aucune photo. Touchez « Photo » pour immortaliser votre compagnon !"), 28))
 	var g := GridContainer.new()
 	g.columns = 3
 	for i in range(photos.size() - 1, -1, -1):
@@ -628,7 +624,7 @@ static func album() -> void:
 		b.pressed.connect(func(): _photo_view(nm))
 		g.add_child(b)
 	v.add_child(g)
-	_m().open_panel("🖼️ " + _t("Album photo"), UiKit.scroll(v))
+	_m().open_panel("[i:album] " + _t("Album photo"), UiKit.scroll(v))
 
 static func _photo_view(nm: String) -> void:
 	var v := UiKit.vbox(12)
@@ -641,7 +637,7 @@ static func _photo_view(nm: String) -> void:
 		tr_.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		tr_.custom_minimum_size = Vector2(0, 700)
 		v.add_child(tr_)
-	v.add_child(UiKit.button("🗑️ " + _t("Supprimer"), func():
+	v.add_child(UiKit.button("[i:trash] " + _t("Supprimer"), func():
 		GameState.data["photos"].erase(nm)
 		DirAccess.remove_absolute("user://photos/" + nm)
 		_thumb_cache.erase(nm)
@@ -679,19 +675,40 @@ static func settings() -> void:
 			settings(), UiKit.C_ACCENT if cur == i else UiKit.C_DISABLED, 26, 76)))
 	v.add_child(qh)
 	v.add_child(_toggle(_t("Vibrations"), "vibration"))
+	v.add_child(UiKit.label("[i:text_size] " + _t("Taille du texte"), 26))
+	var th := UiKit.hbox(10)
+	var cur_t := int(GameState.setting("text_scale"))
+	for i in 3:
+		var ti := i
+		th.add_child(UiKit.expand(UiKit.button([_t("Normal"), _t("Grand"), _t("Très grand")][i], func():
+			GameState.set_setting("text_scale", ti)
+			_m().close_all_panels()
+			_m().show_screen(_m().screen_name if _m().screen_name != "" else "title")
+			settings(), UiKit.C_ACCENT if cur_t == i else UiKit.C_DISABLED, 24, 72)))
+	v.add_child(th)
+	v.add_child(_toggle(_t("Réduire les animations"), "reduce_motion"))
+	v.add_child(UiKit.label("[i:speed] " + _t("Sensibilité de la caméra"), 26))
+	var sens := HSlider.new()
+	sens.min_value = 0.4
+	sens.max_value = 2.0
+	sens.step = 0.1
+	sens.value = float(GameState.setting("sensitivity"))
+	sens.custom_minimum_size = Vector2(0, 56)
+	sens.value_changed.connect(func(val): GameState.set_setting("sensitivity", float(val)))
+	v.add_child(sens)
 	v.add_child(_toggle(_t("Commandes vocales (hors ligne)"), "voice"))
 	if GameState.setting("voice"):
-		v.add_child(UiKit.button("🎤 " + _t("Enregistrer ma voix"), func(): voice_setup(), UiKit.C_BLUE, 26, 80))
+		v.add_child(UiKit.button("[i:mic] " + _t("Enregistrer ma voix"), func(): voice_setup(), UiKit.C_BLUE, 26, 80))
 	v.add_child(UiKit.label(_t("La reconnaissance vocale fonctionne sans Internet : vous enregistrez votre voix pour chaque ordre, puis le jeu compare ce que vous dites à vos enregistrements. Tous les ordres restent disponibles au toucher."), 20, UiKit.C_SUB))
 	v.add_child(UiKit.label(_t("Langue : Français"), 24, UiKit.C_SUB))
-	v.add_child(UiKit.button("💾 " + _t("Sauvegarder maintenant"), func():
+	v.add_child(UiKit.button("[i:save] " + _t("Sauvegarder maintenant"), func():
 		if GameState.save_game():
 			_m().toast(_t("Partie sauvegardée.")), UiKit.C_ACCENT2, 26, 80))
-	v.add_child(UiKit.button("🔄 " + _t("Recharger la sauvegarde"), func():
+	v.add_child(UiKit.button("[i:reload] " + _t("Recharger la sauvegarde"), func():
 		GameState.load_game()
 		_m().close_all_panels()
 		_m().show_screen("title"), UiKit.C_BLUE, 26, 80))
-	v.add_child(UiKit.button("⚠️ " + _t("Recommencer une partie"), func():
+	v.add_child(UiKit.button("[i:warning] " + _t("Recommencer une partie"), func():
 		_m().confirm(_t("Tout effacer et recommencer ? Vos animaux, pièces et objets seront perdus."), func():
 			GameState.reset_game()
 			Voice.clear_templates()
@@ -700,11 +717,11 @@ static func settings() -> void:
 			_m().change_env("shelter")
 			_m().show_screen("title"), "Effacer"), UiKit.C_DANGER, 26, 80))
 	v.add_child(UiKit.label(_t("Truffe & Co v%s — graphismes, sons et musiques originaux générés procéduralement.") % str(ProjectSettings.get_setting("application/config/version", "1.0")), 20, UiKit.C_SUB))
-	_m().open_panel("⚙️ " + _t("Paramètres"), UiKit.scroll(v))
+	_m().open_panel("[i:gear] " + _t("Paramètres"), UiKit.scroll(v))
 
 static func _toggle(txt: String, key: String) -> Control:
 	var on := bool(GameState.setting(key))
-	var b := UiKit.button(("✅ " if on else "⬜ ") + txt, func():
+	var b := UiKit.button(("[i:check] " if on else "[i:acc_none] ") + txt, func():
 		GameState.set_setting(key, not bool(GameState.setting(key)))
 		if key == "voice":
 			if GameState.setting("voice"):
@@ -731,7 +748,7 @@ static func voice_setup() -> void:
 		var n: int = Voice.templates.get(cmd, []).size()
 		var c := _card()
 		var info := UiKit.label("%s  (%d/3)" % [_t(GameData.COMMANDS[cmd]["name"]), n], 26)
-		var btn := UiKit.button("🎙️ " + _t("Enregistrer"), func():
+		var btn := UiKit.button("[i:record] " + _t("Enregistrer"), func():
 			if Voice.record_template(cc):
 				status.text = _t("Parlez maintenant : « %s »") % _t(GameData.COMMANDS[cc]["name"])
 			else:
@@ -740,11 +757,11 @@ static func voice_setup() -> void:
 		c.add_child(_row(info, btn))
 		v.add_child(c)
 	var done_cb := func(cmd: String, _ok: bool):
-		status.text = _t("Enregistré pour « %s » ✔") % _t(GameData.COMMANDS[cmd]["name"])
+		status.text = _t("Enregistré pour « %s »") % _t(GameData.COMMANDS[cmd]["name"])
 		Voice.stop_listening()
 		Audio.play("chime")
 	Voice.template_recorded.connect(done_cb)
-	var test := UiKit.button("🧪 " + _t("Tester"), func():
+	var test := UiKit.button("[i:play] " + _t("Tester"), func():
 		status.text = _t("Dites un ordre…")
 		Voice.start_listening(), UiKit.C_ACCENT2, 24, 76)
 	v.add_child(test)
@@ -754,7 +771,7 @@ static func voice_setup() -> void:
 	v.add_child(UiKit.button(_t("Effacer mes enregistrements"), func():
 		Voice.clear_templates()
 		status.text = _t("Enregistrements effacés."), UiKit.C_DANGER, 22, 70))
-	_m().open_panel("🎤 " + _t("Commandes vocales"), UiKit.scroll(v), func():
+	_m().open_panel("[i:mic] " + _t("Commandes vocales"), UiKit.scroll(v), func():
 		Voice.level.disconnect(on_lvl)
 		Voice.template_recorded.disconnect(done_cb)
 		Voice.heard.disconnect(heard_cb)

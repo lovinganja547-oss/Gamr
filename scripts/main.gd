@@ -250,7 +250,7 @@ func open_panel(title: String, content: Control, on_close: Callable = Callable()
 	var t := UiKit.label(title, 40, UiKit.C_TEXT)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
-	var close := UiKit.button("✕", func(): close_panel(), UiKit.C_DANGER, 34, 80)
+	var close := UiKit.button("[i:close]", func(): close_panel(), UiKit.C_DANGER, 34, 80)
 	close.custom_minimum_size = Vector2(80, 80)
 	head.add_child(close)
 	v.add_child(head)
@@ -258,12 +258,13 @@ func open_panel(title: String, content: Control, on_close: Callable = Callable()
 	v.add_child(content)
 	overlay.set_meta("on_close", on_close)
 	panel_stack.append(overlay)
-	pnl.pivot_offset = Vector2(330, 600)
-	pnl.scale = Vector2(0.92, 0.92)
-	pnl.modulate.a = 0.0
-	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(pnl, "scale", Vector2.ONE, 0.22)
-	tw.tween_property(pnl, "modulate:a", 1.0, 0.15)
+	if not UiKit.reduce_motion():
+		pnl.pivot_offset = Vector2(330, 600)
+		pnl.scale = Vector2(0.92, 0.92)
+		pnl.modulate.a = 0.0
+		var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(pnl, "scale", Vector2.ONE, 0.22)
+		tw.tween_property(pnl, "modulate:a", 1.0, 0.15)
 	return overlay
 
 func close_panel() -> void:
@@ -440,7 +441,7 @@ func _home_input(event: InputEvent) -> void:
 					if GameState.stroke():
 						pet_ctrl.on_stroke(part)
 						if randf() < 0.35:
-							pet_ctrl.model.emote("❤️", 0.9)
+							pet_ctrl.model.emote("emo_heart", 0.9)
 							Audio.play("heart", 0.1, -10.0)
 					else:
 						pet_ctrl.on_stroke(part)

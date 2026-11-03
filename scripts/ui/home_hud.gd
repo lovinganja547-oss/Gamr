@@ -85,18 +85,11 @@ func _build() -> void:
 	var np := UiKit.panel(10, Color(1, 0.99, 0.96, 0.85))
 	np.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var nv := UiKit.vbox(4)
+	nv.add_theme_constant_override("separation", 2)
 	for k in GameData.NEED_KEYS:
-		var h := UiKit.hbox(4)
-		var il := UiKit.label(GameData.NEED_ICONS[k], 22, UiKit.C_TEXT)
-		il.autowrap_mode = TextServer.AUTOWRAP_OFF
-		il.custom_minimum_size = Vector2(32, 0)
-		h.add_child(il)
-		var b := UiKit.bar(50, GameData.NEED_COLORS[k], 16)
-		b.custom_minimum_size = Vector2(110, 16)
-		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(b)
-		need_bars[k] = b
-		nv.add_child(h)
+		var row := UiKit.need_row(k, 50.0, 30, 14, 19, 92)
+		need_bars[k] = [row[1], row[2]]
+		nv.add_child(row[0])
 	np.add_child(nv)
 	np.gui_input.connect(_on_needs_input)
 	mid.add_child(np)
@@ -110,11 +103,11 @@ func _build() -> void:
 	mid.add_child(place_l)
 	var side := UiKit.vbox(10)
 	side.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	side.add_child(UiKit.icon_button("📷", tr("Photo"), func(): Main.inst.take_photo(), Color(1, 1, 1, 0.92), 96))
-	side.add_child(UiKit.icon_button("🗺️", tr("Lieux"), func(): Panels.places(), Color(1, 1, 1, 0.92), 96))
-	side.add_child(UiKit.icon_button("🐾", tr("Animaux"), func(): Panels.pets(), Color(1, 1, 1, 0.92), 96))
-	side.add_child(UiKit.icon_button("◎", tr("Centrer"), func(): Main.inst.recenter_camera(0.22), Color(1, 1, 1, 0.92), 96))
-	mic_btn = UiKit.icon_button("🎤", tr("Voix"), _toggle_mic, Color(1, 1, 1, 0.92), 96)
+	side.add_child(UiKit.icon_button("camera", tr("Photo"), func(): Main.inst.take_photo(), Color(1, 1, 1, 0.92), 96))
+	side.add_child(UiKit.icon_button("map", tr("Lieux"), func(): Panels.places(), Color(1, 1, 1, 0.92), 96))
+	side.add_child(UiKit.icon_button("paw", tr("Animaux"), func(): Panels.pets(), Color(1, 1, 1, 0.92), 96))
+	side.add_child(UiKit.icon_button("recenter", tr("Centrer"), func(): Main.inst.recenter_camera(0.22), Color(1, 1, 1, 0.92), 96))
+	mic_btn = UiKit.icon_button("mic", tr("Voix"), _toggle_mic, Color(1, 1, 1, 0.92), 96)
 	side.add_child(mic_btn)
 	mid.add_child(side)
 	root.add_child(mid)
@@ -130,21 +123,21 @@ func _build() -> void:
 	# --- Actions
 	var row1 := UiKit.hbox(8)
 	row1.alignment = BoxContainer.ALIGNMENT_CENTER
-	row1.add_child(UiKit.icon_button("🍖", tr("Nourrir"), func(): Panels.food_picker("food", feed), Color(1, 0.93, 0.85), 108))
-	row1.add_child(UiKit.icon_button("💧", tr("Eau"), give_water, Color(0.88, 0.95, 1), 108))
-	row1.add_child(UiKit.icon_button("🛁", tr("Laver"), func(): Main.inst.start_activity(BathActivity.new()), Color(0.88, 0.97, 1), 108))
-	row1.add_child(UiKit.icon_button("🦴", tr("Friandise"), func(): Panels.food_picker("treat", give_treat), Color(1, 0.95, 0.88), 108))
-	row1.add_child(UiKit.icon_button("🎾", tr("Lancer"), _throw, Color(0.95, 1, 0.88), 108))
-	row1.add_child(UiKit.icon_button("📣", tr("Appeler"), _call, Color(1, 0.92, 0.95), 108))
+	row1.add_child(UiKit.icon_button("feed", tr("Nourrir"), func(): Panels.food_picker("food", feed), Color(1, 0.93, 0.85), 108))
+	row1.add_child(UiKit.icon_button("water", tr("Eau"), give_water, Color(0.88, 0.95, 1), 108))
+	row1.add_child(UiKit.icon_button("wash", tr("Laver"), func(): Main.inst.start_activity(BathActivity.new()), Color(0.88, 0.97, 1), 108))
+	row1.add_child(UiKit.icon_button("treat", tr("Friandise"), func(): Panels.food_picker("treat", give_treat), Color(1, 0.95, 0.88), 108))
+	row1.add_child(UiKit.icon_button("throw", tr("Lancer"), _throw, Color(0.95, 1, 0.88), 108))
+	row1.add_child(UiKit.icon_button("call", tr("Appeler"), _call, Color(1, 0.92, 0.95), 108))
 	root.add_child(row1)
 	var row2 := UiKit.hbox(8)
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
-	row2.add_child(UiKit.icon_button("🎓", tr("Dressage"), func(): Panels.training(), Color(0.98, 0.85, 0.75), 108))
-	row2.add_child(UiKit.icon_button("🎯", tr("Activités"), func(): Panels.activities(), Color(0.85, 0.95, 0.85), 108))
-	row2.add_child(UiKit.icon_button("🏆", tr("Concours"), func(): Panels.competitions(), Color(1, 0.93, 0.7), 108))
-	row2.add_child(UiKit.icon_button("🛍️", tr("Boutique"), func(): Panels.shop(), Color(0.9, 0.88, 1), 108))
-	row2.add_child(UiKit.icon_button("🎒", tr("Sac"), func(): Panels.inventory(), Color(0.95, 0.9, 0.85), 108))
-	row2.add_child(UiKit.icon_button("☰", tr("Plus"), func(): Panels.more(), Color(0.92, 0.92, 0.92), 108))
+	row2.add_child(UiKit.icon_button("training", tr("Dressage"), func(): Panels.training(), Color(0.98, 0.85, 0.75), 108))
+	row2.add_child(UiKit.icon_button("activities", tr("Activités"), func(): Panels.activities(), Color(0.85, 0.95, 0.85), 108))
+	row2.add_child(UiKit.icon_button("trophy", tr("Concours"), func(): Panels.competitions(), Color(1, 0.93, 0.7), 108))
+	row2.add_child(UiKit.icon_button("shop", tr("Boutique"), func(): Panels.shop(), Color(0.9, 0.88, 1), 108))
+	row2.add_child(UiKit.icon_button("inventory", tr("Sac"), func(): Panels.inventory(), Color(0.95, 0.9, 0.85), 108))
+	row2.add_child(UiKit.icon_button("menu", tr("Plus"), func(): Panels.more(), Color(0.92, 0.92, 0.92), 108))
 	root.add_child(row2)
 
 func _on_pet_panel_input(e: InputEvent) -> void:
@@ -163,7 +156,7 @@ func refresh() -> void:
 	_update_needs()
 	_update_cmds()
 	var e: Dictionary = GameData.ENVIRONMENTS.get(Main.inst.env_id, {})
-	place_l.text = "%s %s" % [e.get("icon", ""), tr(e.get("name", ""))]
+	UiKit.set_label(place_l, "[i:%s] %s" % [e.get("icon", "house"), tr(e.get("name", ""))])
 	mic_btn.visible = bool(GameState.setting("voice"))
 	mic_btn.modulate = Color(1, 0.6, 0.6) if Voice.listening else Color.WHITE
 
@@ -171,12 +164,11 @@ func _update_top() -> void:
 	var p := GameState.active_pet()
 	if p.is_empty():
 		return
-	var sex := "♂" if p["sex"] == "m" else "♀"
-	name_l.text = "%s %s" % [p["name"], sex]
+	UiKit.set_label(name_l, "[i:%s] %s" % ["male" if p["sex"] == "m" else "female", p["name"]])
 	var lv := GameState.relation_level(p)
-	rel_l.text = "💞 %d · %s" % [lv, tr(GameData.RELATION_NAMES[lv - 1])]
+	UiKit.set_label(rel_l, "[i:relation] %d · %s" % [lv, tr(GameData.RELATION_NAMES[lv - 1])])
 	rel_bar.value = GameState.relation_progress(p) * 100.0
-	coins_l.text = "🪙 %d" % GameState.coins()
+	UiKit.set_label(coins_l, "[i:coin] %d" % GameState.coins())
 	level_l.text = tr("Niv. %d") % GameState.pet_level(p)
 	xp_bar.value = GameState.pet_xp_progress(p) * 100.0
 
@@ -185,9 +177,7 @@ func _update_needs() -> void:
 	if p.is_empty():
 		return
 	for k in need_bars.keys():
-		var b: ProgressBar = need_bars[k]
-		b.value = p["needs"][k]
-		b.modulate = Color(1, 0.75, 0.75) if p["needs"][k] < 25.0 else Color.WHITE
+		UiKit.set_need(need_bars[k][0], need_bars[k][1], float(p["needs"][k]))
 	if Main.inst.pet_ctrl:
 		Main.inst.pet_ctrl._apply_mood_look()
 
@@ -202,11 +192,11 @@ func _update_cmds() -> void:
 			var b := UiKit.button(tr(GameData.COMMANDS[cmd]["name"]), func(): order(cc), UiKit.C_BLUE, 22, 60)
 			cmd_bar.add_child(b)
 	if not any:
-		var hl := UiKit.label(tr("Apprenez des ordres dans « Dressage » 🎓"), 22, UiKit.C_SUB)
+		var hl := UiKit.label("[i:training] " + tr("Apprenez des ordres dans « Dressage »"), 22, UiKit.C_SUB)
 		hl.custom_minimum_size = Vector2(640, 0)
 		cmd_bar.add_child(hl)
-	cmd_bar.add_child(UiKit.button("👍 " + tr("Bravo"), praise, UiKit.C_ACCENT2, 22, 60))
-	cmd_bar.add_child(UiKit.button("✋ " + tr("Non"), scold, UiKit.C_DANGER, 22, 60))
+	cmd_bar.add_child(UiKit.button("[i:check] " + tr("Bravo"), praise, UiKit.C_ACCENT2, 22, 60))
+	cmd_bar.add_child(UiKit.button("[i:stop] " + tr("Non"), scold, UiKit.C_DANGER, 22, 60))
 
 # ================================================================== Soins
 func _pet() -> PetController:
@@ -300,7 +290,7 @@ func give_treat(item_id: String) -> void:
 		await get_tree().create_timer(0.6, false).timeout
 		if GameState.give_treat(item_id):
 			pet.eat("food", 1.2)
-			pet.model.emote("💖"))
+			pet.model.emote("emo_heart"))
 
 func _call() -> void:
 	if _pet():
@@ -387,11 +377,11 @@ func _tutorial() -> void:
 	var p := GameState.active_pet()
 	for t in [
 		tr("Bienvenue à la maison, %s !") % p.get("name", ""),
-		"👆 " + tr("Glissez le doigt sur votre compagnon pour le caresser, tapotez-le pour jouer."),
-		"🍖 " + tr("Surveillez ses besoins à gauche : nourrissez-le, donnez-lui à boire et lavez-le."),
-		"🎓 " + tr("Apprenez-lui des ordres dans « Dressage » puis récompensez-le avec 👍 Bravo."),
-		"🎯 " + tr("Gagnez des pièces avec les activités, les concours et les objectifs du jour."),
-		"🗺️ " + tr("Touchez le sol pour l'appeler, faites glisser pour tourner la caméra."),
+		"[i:finger] " + tr("Glissez le doigt sur votre compagnon pour le caresser, tapotez-le pour jouer."),
+		"[i:feed] " + tr("Surveillez ses besoins à gauche : nourrissez-le, donnez-lui à boire et lavez-le."),
+		"[i:training] " + tr("Apprenez-lui des ordres dans « Dressage » puis récompensez-le avec « Bravo »."),
+		"[i:activities] " + tr("Gagnez des pièces avec les activités, les concours et les objectifs du jour."),
+		"[i:map] " + tr("Touchez le sol pour l'appeler, faites glisser pour tourner la caméra."),
 	]:
 		v.add_child(UiKit.label(t, 28))
 	v.add_child(UiKit.button(tr("Compris !"), func(): Main.inst.close_panel(), UiKit.C_ACCENT2))

@@ -36,8 +36,9 @@ func reset_view(dist: float = 3.2, p: float = -0.32, y: float = 0.0) -> void:
 	screen_shift = 0.0
 
 func orbit(dx: float, dy: float) -> void:
-	yaw -= dx * 0.006
-	pitch = clampf(pitch - dy * 0.004, -1.1, -0.08)
+	var k := float(GameState.setting("sensitivity")) if GameState.data.has("settings") else 1.0
+	yaw -= dx * 0.006 * k
+	pitch = clampf(pitch - dy * 0.004 * k, -1.1, -0.08)
 
 func zoom(f: float) -> void:
 	distance = clampf(distance * f, min_dist, max_dist)
@@ -56,6 +57,8 @@ func _process(delta: float) -> void:
 	var dir := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
 	var want := _clamp_box(focus + dir * distance)
 	cam.global_position = cam.global_position.lerp(want, minf(1.0, delta * 6.0))
+	if _shake > 0.0 and UiKit.reduce_motion():
+		_shake = 0.0
 	if _shake > 0.0:
 		cam.global_position += Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake
 		_shake = maxf(0.0, _shake - delta * 0.4)

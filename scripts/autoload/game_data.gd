@@ -9,8 +9,8 @@ const NEED_NAMES := {
 	"mood": "Bonheur", "health": "Santé", "outside": "Sortir", "affection": "Câlins",
 }
 const NEED_ICONS := {
-	"hunger": "🍖", "thirst": "💧", "clean": "🫧", "energy": "⚡",
-	"mood": "😊", "health": "❤️", "outside": "🌳", "affection": "💞",
+	"hunger": "hunger", "thirst": "thirst", "clean": "clean", "energy": "energy",
+	"mood": "mood", "health": "health", "outside": "outside", "affection": "affection",
 }
 const NEED_COLORS := {
 	"hunger": Color(0.96, 0.6, 0.3), "thirst": Color(0.35, 0.7, 0.98), "clean": Color(0.55, 0.85, 0.95),
@@ -171,61 +171,61 @@ static func skill_label(v: float) -> String:
 # cat : food, treat, toy, collar, accessory, deco, care
 const ITEMS := {
 	# Nourriture
-	"kibble": {"name": "Croquettes", "cat": "food", "icon": "🥣", "price": 10, "fx": {"hunger": 45, "mood": 3}, "desc": "Repas équilibré."},
-	"pate": {"name": "Pâtée du chef", "cat": "food", "icon": "🍲", "price": 22, "fx": {"hunger": 60, "mood": 10, "health": 4}, "desc": "Un vrai régal."},
-	"fish": {"name": "Poisson vapeur", "cat": "food", "icon": "🐟", "price": 28, "fx": {"hunger": 55, "mood": 12, "health": 6}, "desc": "Riche en oméga 3."},
-	"veggie": {"name": "Bol de légumes", "cat": "food", "icon": "🥕", "price": 16, "fx": {"hunger": 35, "health": 10}, "desc": "Léger et sain."},
+	"kibble": {"name": "Croquettes", "cat": "food", "icon": "kibble", "price": 10, "fx": {"hunger": 45, "mood": 3}, "desc": "Repas équilibré."},
+	"pate": {"name": "Pâtée du chef", "cat": "food", "icon": "pate", "price": 22, "fx": {"hunger": 60, "mood": 10, "health": 4}, "desc": "Un vrai régal."},
+	"fish": {"name": "Poisson vapeur", "cat": "food", "icon": "fish", "price": 28, "fx": {"hunger": 55, "mood": 12, "health": 6}, "desc": "Riche en oméga 3."},
+	"veggie": {"name": "Bol de légumes", "cat": "food", "icon": "veggie", "price": 16, "fx": {"hunger": 35, "health": 10}, "desc": "Léger et sain."},
 	# Friandises
-	"biscuit": {"name": "Biscuit os", "cat": "treat", "icon": "🦴", "price": 5, "fx": {"hunger": 6, "mood": 8, "affection": 4}, "desc": "Parfait pour le dressage."},
-	"chew": {"name": "Bâton à mâcher", "cat": "treat", "icon": "🥢", "price": 9, "fx": {"hunger": 8, "mood": 12, "clean": 2}, "desc": "Bon pour les dents."},
-	"cheese": {"name": "Dés de fromage", "cat": "treat", "icon": "🧀", "price": 8, "fx": {"hunger": 5, "mood": 14, "affection": 3}, "desc": "Irrésistible."},
-	"cookie": {"name": "Cookie au potiron", "cat": "treat", "icon": "🍪", "price": 12, "fx": {"hunger": 10, "mood": 18, "affection": 6}, "desc": "La friandise de luxe."},
+	"biscuit": {"name": "Biscuit os", "cat": "treat", "icon": "biscuit", "price": 5, "fx": {"hunger": 6, "mood": 8, "affection": 4}, "desc": "Parfait pour le dressage."},
+	"chew": {"name": "Bâton à mâcher", "cat": "treat", "icon": "chew", "price": 9, "fx": {"hunger": 8, "mood": 12, "clean": 2}, "desc": "Bon pour les dents."},
+	"cheese": {"name": "Dés de fromage", "cat": "treat", "icon": "cheese", "price": 8, "fx": {"hunger": 5, "mood": 14, "affection": 3}, "desc": "Irrésistible."},
+	"cookie": {"name": "Cookie au potiron", "cat": "treat", "icon": "cookie", "price": 12, "fx": {"hunger": 10, "mood": 18, "affection": 6}, "desc": "La friandise de luxe."},
 	# Soins
-	"shampoo": {"name": "Shampooing doux", "cat": "care", "icon": "🧴", "price": 15, "fx": {"clean": 20}, "desc": "Bain plus efficace (+20 propreté)."},
-	"vitamins": {"name": "Vitamines", "cat": "care", "icon": "💊", "price": 30, "fx": {"health": 30}, "desc": "Redonne de la santé."},
+	"shampoo": {"name": "Shampooing doux", "cat": "care", "icon": "shampoo", "price": 15, "fx": {"clean": 20}, "desc": "Bain plus efficace (+20 propreté)."},
+	"vitamins": {"name": "Vitamines", "cat": "care", "icon": "vitamins", "price": 30, "fx": {"health": 30}, "desc": "Redonne de la santé."},
 	# Jouets
-	"ball": {"name": "Balle rouge", "cat": "toy", "icon": "🔴", "price": 0, "color": Color(0.9, 0.2, 0.2), "toy": "ball", "desc": "La balle classique.", "bonus": 0},
-	"tennis": {"name": "Balle fluo", "cat": "toy", "icon": "🎾", "price": 40, "color": Color(0.8, 0.95, 0.2), "toy": "ball", "desc": "Rebondit mieux (+10 % de score).", "bonus": 10},
-	"disc": {"name": "Disque volant", "cat": "toy", "icon": "🥏", "price": 90, "color": Color(0.2, 0.6, 0.95), "toy": "disc", "desc": "Plane plus loin (+20 % de score).", "bonus": 20},
-	"rope": {"name": "Corde nouée", "cat": "toy", "icon": "🪢", "price": 55, "color": Color(0.85, 0.75, 0.5), "toy": "rope", "desc": "Facile à attraper (+15 % de score).", "bonus": 15},
-	"plush": {"name": "Peluche canard", "cat": "toy", "icon": "🦆", "price": 75, "color": Color(1.0, 0.85, 0.2), "toy": "plush", "desc": "Le doudou préféré (+humeur au jeu).", "bonus": 12},
+	"ball": {"name": "Balle rouge", "cat": "toy", "icon": "ball", "price": 0, "color": Color(0.9, 0.2, 0.2), "toy": "ball", "desc": "La balle classique.", "bonus": 0},
+	"tennis": {"name": "Balle fluo", "cat": "toy", "icon": "tennis", "price": 40, "color": Color(0.8, 0.95, 0.2), "toy": "ball", "desc": "Rebondit mieux (+10 % de score).", "bonus": 10},
+	"disc": {"name": "Disque volant", "cat": "toy", "icon": "disc", "price": 90, "color": Color(0.2, 0.6, 0.95), "toy": "disc", "desc": "Plane plus loin (+20 % de score).", "bonus": 20},
+	"rope": {"name": "Corde nouée", "cat": "toy", "icon": "rope", "price": 55, "color": Color(0.85, 0.75, 0.5), "toy": "rope", "desc": "Facile à attraper (+15 % de score).", "bonus": 15},
+	"plush": {"name": "Peluche canard", "cat": "toy", "icon": "plush", "price": 75, "color": Color(1.0, 0.85, 0.2), "toy": "plush", "desc": "Le doudou préféré (+humeur au jeu).", "bonus": 12},
 	# Colliers
-	"collar_red": {"name": "Collier rouge", "cat": "collar", "icon": "🔴", "price": 0, "color": Color(0.85, 0.2, 0.2), "desc": "Simple et chic."},
-	"collar_blue": {"name": "Collier bleu", "cat": "collar", "icon": "🔵", "price": 0, "color": Color(0.2, 0.45, 0.9), "desc": "Bleu océan."},
-	"collar_green": {"name": "Collier vert", "cat": "collar", "icon": "🟢", "price": 0, "color": Color(0.3, 0.75, 0.35), "desc": "Vert prairie."},
-	"collar_pink": {"name": "Collier rose", "cat": "collar", "icon": "🩷", "price": 35, "color": Color(0.95, 0.5, 0.7), "desc": "Rose bonbon."},
-	"collar_gold": {"name": "Collier doré", "cat": "collar", "icon": "🟡", "price": 150, "color": Color(0.95, 0.78, 0.25), "desc": "Pour les champions.", "metal": true},
-	"collar_purple": {"name": "Collier violet", "cat": "collar", "icon": "🟣", "price": 60, "color": Color(0.55, 0.3, 0.8), "desc": "Majestueux."},
+	"collar_red": {"name": "Collier rouge", "cat": "collar", "icon": "collar_red", "price": 0, "color": Color(0.85, 0.2, 0.2), "desc": "Simple et chic."},
+	"collar_blue": {"name": "Collier bleu", "cat": "collar", "icon": "collar_blue", "price": 0, "color": Color(0.2, 0.45, 0.9), "desc": "Bleu océan."},
+	"collar_green": {"name": "Collier vert", "cat": "collar", "icon": "collar_green", "price": 0, "color": Color(0.3, 0.75, 0.35), "desc": "Vert prairie."},
+	"collar_pink": {"name": "Collier rose", "cat": "collar", "icon": "collar_pink", "price": 35, "color": Color(0.95, 0.5, 0.7), "desc": "Rose bonbon."},
+	"collar_gold": {"name": "Collier doré", "cat": "collar", "icon": "collar_gold", "price": 150, "color": Color(0.95, 0.78, 0.25), "desc": "Pour les champions.", "metal": true},
+	"collar_purple": {"name": "Collier violet", "cat": "collar", "icon": "collar_purple", "price": 60, "color": Color(0.55, 0.3, 0.8), "desc": "Majestueux."},
 	# Accessoires
-	"acc_none": {"name": "Aucun", "cat": "accessory", "icon": "✖️", "price": 0, "desc": "Rien du tout."},
-	"bandana": {"name": "Bandana", "cat": "accessory", "icon": "🧣", "price": 0, "color": Color(0.9, 0.3, 0.3), "desc": "Style aventurier."},
-	"bow": {"name": "Nœud", "cat": "accessory", "icon": "🎀", "price": 0, "color": Color(0.95, 0.45, 0.65), "desc": "Adorable."},
-	"hat": {"name": "Chapeau de paille", "cat": "accessory", "icon": "👒", "price": 80, "color": Color(0.92, 0.8, 0.5), "desc": "Idéal pour la plage."},
-	"crown": {"name": "Couronne", "cat": "accessory", "icon": "👑", "price": 300, "color": Color(1.0, 0.82, 0.2), "desc": "Réservée aux stars.", "level": 6},
-	"glasses": {"name": "Lunettes de soleil", "cat": "accessory", "icon": "🕶️", "price": 120, "color": Color(0.1, 0.1, 0.12), "desc": "Trop cool."},
-	"scarf": {"name": "Écharpe", "cat": "accessory", "icon": "🧶", "price": 70, "color": Color(0.3, 0.55, 0.85), "desc": "Toute douce."},
+	"acc_none": {"name": "Aucun", "cat": "accessory", "icon": "acc_none", "price": 0, "desc": "Rien du tout."},
+	"bandana": {"name": "Bandana", "cat": "accessory", "icon": "bandana", "price": 0, "color": Color(0.9, 0.3, 0.3), "desc": "Style aventurier."},
+	"bow": {"name": "Nœud", "cat": "accessory", "icon": "bow", "price": 0, "color": Color(0.95, 0.45, 0.65), "desc": "Adorable."},
+	"hat": {"name": "Chapeau de paille", "cat": "accessory", "icon": "hat", "price": 80, "color": Color(0.92, 0.8, 0.5), "desc": "Idéal pour la plage."},
+	"crown": {"name": "Couronne", "cat": "accessory", "icon": "crown", "price": 300, "color": Color(1.0, 0.82, 0.2), "desc": "Réservée aux stars.", "level": 6},
+	"glasses": {"name": "Lunettes de soleil", "cat": "accessory", "icon": "glasses", "price": 120, "color": Color(0.1, 0.1, 0.12), "desc": "Trop cool."},
+	"scarf": {"name": "Écharpe", "cat": "accessory", "icon": "scarf", "price": 70, "color": Color(0.3, 0.55, 0.85), "desc": "Toute douce."},
 	# Décorations (maison)
-	"rug_round": {"name": "Tapis rond", "cat": "deco", "slot": "rug", "icon": "⭕", "price": 0, "color": Color(0.85, 0.55, 0.45), "desc": "Tapis de base."},
-	"rug_blue": {"name": "Tapis océan", "cat": "deco", "slot": "rug", "icon": "🟦", "price": 60, "color": Color(0.35, 0.55, 0.85), "desc": "Fraîcheur garantie."},
-	"rug_green": {"name": "Tapis mousse", "cat": "deco", "slot": "rug", "icon": "🟩", "price": 60, "color": Color(0.45, 0.72, 0.45), "desc": "Doux comme l'herbe."},
-	"bed_basic": {"name": "Panier simple", "cat": "deco", "slot": "bed", "icon": "🧺", "price": 0, "color": Color(0.7, 0.45, 0.3), "desc": "Confortable."},
-	"bed_cloud": {"name": "Coussin nuage", "cat": "deco", "slot": "bed", "icon": "☁️", "price": 120, "color": Color(0.85, 0.88, 0.98), "desc": "Récupère l'énergie 30 % plus vite.", "bonus": 30},
-	"bed_royal": {"name": "Lit royal", "cat": "deco", "slot": "bed", "icon": "🛏️", "price": 260, "color": Color(0.6, 0.25, 0.45), "desc": "Récupère l'énergie 60 % plus vite.", "bonus": 60, "level": 5},
-	"plant_fern": {"name": "Fougère", "cat": "deco", "slot": "plant", "icon": "🌿", "price": 40, "color": Color(0.3, 0.65, 0.3), "desc": "Un coin de verdure."},
-	"plant_cactus": {"name": "Cactus", "cat": "deco", "slot": "plant", "icon": "🌵", "price": 45, "color": Color(0.35, 0.6, 0.35), "desc": "Ne pas toucher !"},
-	"plant_flowers": {"name": "Bouquet", "cat": "deco", "slot": "plant", "icon": "💐", "price": 55, "color": Color(0.95, 0.5, 0.6), "desc": "Des couleurs !"},
-	"lamp_warm": {"name": "Lampe douce", "cat": "deco", "slot": "lamp", "icon": "💡", "price": 50, "color": Color(1.0, 0.85, 0.6), "desc": "Lumière chaleureuse."},
-	"lamp_star": {"name": "Lampe étoile", "cat": "deco", "slot": "lamp", "icon": "⭐", "price": 90, "color": Color(1.0, 0.95, 0.5), "desc": "Magique."},
-	"sofa_coral": {"name": "Canapé corail", "cat": "deco", "slot": "sofa", "icon": "🛋️", "price": 0, "color": Color(0.95, 0.55, 0.45), "desc": "Le canapé de base."},
-	"sofa_teal": {"name": "Canapé lagon", "cat": "deco", "slot": "sofa", "icon": "🛋️", "price": 140, "color": Color(0.25, 0.6, 0.6), "desc": "Très tendance."},
-	"sofa_mustard": {"name": "Canapé moutarde", "cat": "deco", "slot": "sofa", "icon": "🛋️", "price": 140, "color": Color(0.88, 0.7, 0.25), "desc": "Vintage."},
-	"wall_cream": {"name": "Murs crème", "cat": "deco", "slot": "wall", "icon": "🟨", "price": 0, "color": Color(0.98, 0.93, 0.84), "desc": "Classique."},
-	"wall_mint": {"name": "Murs menthe", "cat": "deco", "slot": "wall", "icon": "🟩", "price": 80, "color": Color(0.78, 0.92, 0.84), "desc": "Frais."},
-	"wall_lilac": {"name": "Murs lilas", "cat": "deco", "slot": "wall", "icon": "🟪", "price": 80, "color": Color(0.88, 0.82, 0.95), "desc": "Doux."},
-	"wall_peach": {"name": "Murs pêche", "cat": "deco", "slot": "wall", "icon": "🟧", "price": 80, "color": Color(0.99, 0.84, 0.74), "desc": "Chaleureux."},
-	"frame_sun": {"name": "Tableau soleil", "cat": "deco", "slot": "frame", "icon": "🖼️", "price": 35, "color": Color(0.98, 0.75, 0.3), "desc": "Plein d'énergie."},
-	"frame_sea": {"name": "Tableau mer", "cat": "deco", "slot": "frame", "icon": "🖼️", "price": 35, "color": Color(0.3, 0.6, 0.9), "desc": "Apaisant."},
-	"toybox": {"name": "Coffre à jouets", "cat": "deco", "slot": "box", "icon": "🧰", "price": 70, "color": Color(0.55, 0.75, 0.95), "desc": "+5 humeur par jour au réveil."},
+	"rug_round": {"name": "Tapis rond", "cat": "deco", "slot": "rug", "icon": "rug_round", "price": 0, "color": Color(0.85, 0.55, 0.45), "desc": "Tapis de base."},
+	"rug_blue": {"name": "Tapis océan", "cat": "deco", "slot": "rug", "icon": "rug_blue", "price": 60, "color": Color(0.35, 0.55, 0.85), "desc": "Fraîcheur garantie."},
+	"rug_green": {"name": "Tapis mousse", "cat": "deco", "slot": "rug", "icon": "rug_green", "price": 60, "color": Color(0.45, 0.72, 0.45), "desc": "Doux comme l'herbe."},
+	"bed_basic": {"name": "Panier simple", "cat": "deco", "slot": "bed", "icon": "bed", "price": 0, "color": Color(0.7, 0.45, 0.3), "desc": "Confortable."},
+	"bed_cloud": {"name": "Coussin nuage", "cat": "deco", "slot": "bed", "icon": "cloud_bed", "price": 120, "color": Color(0.85, 0.88, 0.98), "desc": "Récupère l'énergie 30 % plus vite.", "bonus": 30},
+	"bed_royal": {"name": "Lit royal", "cat": "deco", "slot": "bed", "icon": "royal_bed", "price": 260, "color": Color(0.6, 0.25, 0.45), "desc": "Récupère l'énergie 60 % plus vite.", "bonus": 60, "level": 5},
+	"plant_fern": {"name": "Fougère", "cat": "deco", "slot": "plant", "icon": "fern", "price": 40, "color": Color(0.3, 0.65, 0.3), "desc": "Un coin de verdure."},
+	"plant_cactus": {"name": "Cactus", "cat": "deco", "slot": "plant", "icon": "cactus", "price": 45, "color": Color(0.35, 0.6, 0.35), "desc": "Ne pas toucher !"},
+	"plant_flowers": {"name": "Bouquet", "cat": "deco", "slot": "plant", "icon": "flowers", "price": 55, "color": Color(0.95, 0.5, 0.6), "desc": "Des couleurs !"},
+	"lamp_warm": {"name": "Lampe douce", "cat": "deco", "slot": "lamp", "icon": "lamp", "price": 50, "color": Color(1.0, 0.85, 0.6), "desc": "Lumière chaleureuse."},
+	"lamp_star": {"name": "Lampe étoile", "cat": "deco", "slot": "lamp", "icon": "star_lamp", "price": 90, "color": Color(1.0, 0.95, 0.5), "desc": "Magique."},
+	"sofa_coral": {"name": "Canapé corail", "cat": "deco", "slot": "sofa", "icon": "sofa_coral", "price": 0, "color": Color(0.95, 0.55, 0.45), "desc": "Le canapé de base."},
+	"sofa_teal": {"name": "Canapé lagon", "cat": "deco", "slot": "sofa", "icon": "sofa_teal", "price": 140, "color": Color(0.25, 0.6, 0.6), "desc": "Très tendance."},
+	"sofa_mustard": {"name": "Canapé moutarde", "cat": "deco", "slot": "sofa", "icon": "sofa_mustard", "price": 140, "color": Color(0.88, 0.7, 0.25), "desc": "Vintage."},
+	"wall_cream": {"name": "Murs crème", "cat": "deco", "slot": "wall", "icon": "wall_cream", "price": 0, "color": Color(0.98, 0.93, 0.84), "desc": "Classique."},
+	"wall_mint": {"name": "Murs menthe", "cat": "deco", "slot": "wall", "icon": "wall_mint", "price": 80, "color": Color(0.78, 0.92, 0.84), "desc": "Frais."},
+	"wall_lilac": {"name": "Murs lilas", "cat": "deco", "slot": "wall", "icon": "wall_lilac", "price": 80, "color": Color(0.88, 0.82, 0.95), "desc": "Doux."},
+	"wall_peach": {"name": "Murs pêche", "cat": "deco", "slot": "wall", "icon": "wall_peach", "price": 80, "color": Color(0.99, 0.84, 0.74), "desc": "Chaleureux."},
+	"frame_sun": {"name": "Tableau soleil", "cat": "deco", "slot": "frame", "icon": "frame_sun", "price": 35, "color": Color(0.98, 0.75, 0.3), "desc": "Plein d'énergie."},
+	"frame_sea": {"name": "Tableau mer", "cat": "deco", "slot": "frame", "icon": "frame_sea", "price": 35, "color": Color(0.3, 0.6, 0.9), "desc": "Apaisant."},
+	"toybox": {"name": "Coffre à jouets", "cat": "deco", "slot": "box", "icon": "toybox", "price": 70, "color": Color(0.55, 0.75, 0.95), "desc": "+5 humeur par jour au réveil."},
 }
 const SHOP_TABS: Array[String] = ["food", "treat", "care", "toy", "collar", "accessory", "deco", "env"]
 const SHOP_TAB_NAMES := {
@@ -241,21 +241,21 @@ const DECO_SLOT_NAMES := {
 
 # ------------------------------------------------------------------ Lieux
 const ENVIRONMENTS := {
-	"house": {"name": "Maison", "icon": "🏠", "price": 0, "level": 1, "amb": "amb_house", "walk": false},
-	"garden": {"name": "Jardin", "icon": "🌻", "price": 0, "level": 1, "amb": "amb_garden", "walk": true},
-	"park": {"name": "Parc", "icon": "🌳", "price": 150, "level": 2, "amb": "amb_park", "walk": true},
-	"beach": {"name": "Plage", "icon": "🏖️", "price": 400, "level": 4, "amb": "amb_beach", "walk": true},
-	"center": {"name": "Centre de dressage", "icon": "🏟️", "price": 0, "level": 1, "amb": "amb_center", "walk": false},
-	"shelter": {"name": "Refuge", "icon": "🏡", "price": 0, "level": 1, "amb": "amb_shelter", "walk": false},
+	"house": {"name": "Maison", "icon": "house", "price": 0, "level": 1, "amb": "amb_house", "walk": false},
+	"garden": {"name": "Jardin", "icon": "garden", "price": 0, "level": 1, "amb": "amb_garden", "walk": true},
+	"park": {"name": "Parc", "icon": "park", "price": 150, "level": 2, "amb": "amb_park", "walk": true},
+	"beach": {"name": "Plage", "icon": "beach", "price": 400, "level": 4, "amb": "amb_beach", "walk": true},
+	"center": {"name": "Centre de dressage", "icon": "center", "price": 0, "level": 1, "amb": "amb_center", "walk": false},
+	"shelter": {"name": "Refuge", "icon": "shelter", "price": 0, "level": 1, "amb": "amb_shelter", "walk": false},
 }
 const ENV_ORDER: Array[String] = ["house", "garden", "park", "beach", "center", "shelter"]
 
 # ------------------------------------------------------------------ Compétitions
 const COMP_CATS := {
-	"obedience": {"name": "Obéissance", "icon": "🎓", "desc": "Exécutez une série d'ordres le plus vite possible.", "skills": ["sit", "down", "stand", "come"]},
-	"agility": {"name": "Agilité", "icon": "🏃", "desc": "Franchissez les obstacles avec le meilleur chrono.", "skills": ["jump"]},
-	"search": {"name": "Recherche", "icon": "👃", "desc": "Retrouvez les objets cachés avec un minimum d'essais.", "skills": []},
-	"tricks": {"name": "Dressage avancé", "icon": "⭐", "desc": "Enchaînez les tours avec style.", "skills": ["paw", "spin", "jump", "beg"]},
+	"obedience": {"name": "Obéissance", "icon": "obedience", "desc": "Exécutez une série d'ordres le plus vite possible.", "skills": ["sit", "down", "stand", "come"]},
+	"agility": {"name": "Agilité", "icon": "agility", "desc": "Franchissez les obstacles avec le meilleur chrono.", "skills": ["jump"]},
+	"search": {"name": "Recherche", "icon": "search", "desc": "Retrouvez les objets cachés avec un minimum d'essais.", "skills": []},
+	"tricks": {"name": "Dressage avancé", "icon": "tricks", "desc": "Enchaînez les tours avec style.", "skills": ["paw", "spin", "jump", "beg"]},
 }
 const COMP_ORDER: Array[String] = ["obedience", "agility", "search", "tricks"]
 const COMP_LEVELS := [
@@ -323,9 +323,9 @@ const SEARCH_LEVELS := [
 ]
 
 const WALK_FINDS := {
-	"garden": [["🌼", "Pâquerette"], ["🐌", "Escargot"], ["🍂", "Feuille d'automne"], ["🪱", "Ver de terre"], ["🍓", "Fraise des bois"]],
-	"park": [["🌰", "Gland"], ["🪶", "Plume"], ["🍄", "Champignon"], ["🦋", "Papillon"], ["🪵", "Joli bâton"], ["🍁", "Feuille d'érable"]],
-	"beach": [["🐚", "Coquillage"], ["⭐", "Étoile de mer"], ["🦀", "Petit crabe"], ["🪸", "Corail"], ["🫧", "Galet rond"], ["🌊", "Bois flotté"]],
+	"garden": [["daisy", "Pâquerette"], ["snail", "Escargot"], ["leaf", "Feuille d'automne"], ["worm", "Ver de terre"], ["strawberry", "Fraise des bois"]],
+	"park": [["acorn", "Gland"], ["feather", "Plume"], ["mushroom", "Champignon"], ["butterfly", "Papillon"], ["stick", "Joli bâton"], ["maple", "Feuille d'érable"]],
+	"beach": [["shell", "Coquillage"], ["starfish", "Étoile de mer"], ["crab", "Petit crabe"], ["coral", "Corail"], ["pebble", "Galet rond"], ["driftwood", "Bois flotté"]],
 }
 
 static func item(id: String) -> Dictionary:

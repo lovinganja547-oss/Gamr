@@ -65,7 +65,7 @@ func _focus(detail: String = "body", greet: bool = true) -> void:
 		candidates[k].busy = true
 		candidates[k].player_pos = Vector3(candidates[k].position.x, 0, 1.0)
 	if greet:
-		c.model.emote("❤️")
+		c.model.emote("emo_heart")
 		c.voice()
 		c.play_bow()
 
@@ -89,12 +89,12 @@ func _build_choose() -> void:
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(sp)
 	var nav := UiKit.hbox(12)
-	nav.add_child(UiKit.button("◀", func(): _move(-1), UiKit.C_BLUE, 40, 96))
+	nav.add_child(UiKit.button("[i:left]", func(): _move(-1), UiKit.C_BLUE, 40, 96))
 	var sp2 := Control.new()
 	sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sp2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	nav.add_child(sp2)
-	nav.add_child(UiKit.button("▶", func(): _move(1), UiKit.C_BLUE, 40, 96))
+	nav.add_child(UiKit.button("[i:right]", func(): _move(1), UiKit.C_BLUE, 40, 96))
 	for b in nav.get_children():
 		if b is Button:
 			b.custom_minimum_size = Vector2(110, 96)
@@ -126,7 +126,7 @@ func _fill_info() -> void:
 		g.add_child(h)
 	info_box.add_child(g)
 	var price := 0 if first else GameData.ADOPT_PRICE
-	var txt := tr("Adopter") if price == 0 else tr("Adopter (%d 🪙)") % price
+	var txt := tr("Adopter") if price == 0 else "[i:coin] " + tr("Adopter (%d pièces)") % price
 	var btn := UiKit.button(txt, _adopt, UiKit.C_ACCENT, 34, 96)
 	info_box.add_child(btn)
 	if not first:
@@ -197,7 +197,7 @@ func _build_custom(refocus: bool = false, detail: String = "") -> void:
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	le.text_changed.connect(func(t): custom["name"] = t)
 	nh.add_child(le)
-	var dice := UiKit.button("🎲", func():
+	var dice := UiKit.button("[i:dice]", func():
 		custom["name"] = (NAMES_M if custom["sex"] == "m" else NAMES_F)[randi() % 10]
 		le.text = custom["name"], UiKit.C_BLUE, 34, 84)
 	dice.custom_minimum_size = Vector2(90, 84)
@@ -205,7 +205,7 @@ func _build_custom(refocus: bool = false, detail: String = "") -> void:
 	inner.add_child(nh)
 	# Sexe
 	var sh := UiKit.hbox(10)
-	for s in [["m", "♂ " + tr("Mâle")], ["f", "♀ " + tr("Femelle")]]:
+	for s in [["m", "[i:male] " + tr("Mâle")], ["f", "[i:female] " + tr("Femelle")]]:
 		var sel: bool = custom["sex"] == s[0]
 		var bt := UiKit.button(s[1], func():
 			custom["sex"] = s[0]

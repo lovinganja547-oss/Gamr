@@ -27,7 +27,7 @@ func _init(c: String = "sit") -> void:
 func _start() -> void:
 	data = GameData.COMMANDS[cmd]
 	start_skill = GameState.skill(cmd)
-	make_top("🎓 " + tr("Dressage : « %s »") % tr(data["name"]))
+	make_top("[i:training] " + tr("Dressage : « %s »") % tr(data["name"]))
 	var bb := bottom_bar()
 	var pnl := UiKit.panel(16)
 	pnl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -45,9 +45,9 @@ func _start() -> void:
 	v.add_child(sh)
 	fb_box = UiKit.hbox(8)
 	var treats := GameState.item_count("biscuit") + GameState.item_count("cheese") + GameState.item_count("cookie") + GameState.item_count("chew")
-	fb_box.add_child(UiKit.expand(UiKit.button("🦴 " + tr("Friandise"), func(): _feedback(true, true), UiKit.C_GOLD, 24, 84)))
-	fb_box.add_child(UiKit.expand(UiKit.button("👍 " + tr("Bravo"), func(): _feedback(true, false), UiKit.C_ACCENT2, 24, 84)))
-	fb_box.add_child(UiKit.expand(UiKit.button("✋ " + tr("Non"), func(): _feedback(false, false), UiKit.C_DANGER, 24, 84)))
+	fb_box.add_child(UiKit.expand(UiKit.button("[i:treat] " + tr("Friandise"), func(): _feedback(true, true), UiKit.C_GOLD, 24, 84)))
+	fb_box.add_child(UiKit.expand(UiKit.button("[i:check] " + tr("Bravo"), func(): _feedback(true, false), UiKit.C_ACCENT2, 24, 84)))
+	fb_box.add_child(UiKit.expand(UiKit.button("[i:stop] " + tr("Non"), func(): _feedback(false, false), UiKit.C_DANGER, 24, 84)))
 	fb_box.visible = false
 	v.add_child(fb_box)
 	order_btn = UiKit.button(tr("Donner l'ordre (bouton)"), _order_button, UiKit.C_BLUE, 24, 76)
@@ -100,7 +100,7 @@ func _demo() -> void:
 	instructor.busy = true
 	instructor.player_pos = pet.player_pos
 	instructor.face(pet.player_pos)
-	instructor.model.emote("🎓")
+	instructor.model.emote("emo_paw")
 	await get_tree().create_timer(0.8, false).timeout
 	if finished or not is_instance_valid(instructor):
 		return
@@ -110,7 +110,7 @@ func _demo() -> void:
 	if finished:
 		return
 	if is_instance_valid(instructor):
-		instructor.model.emote("✨")
+		instructor.model.emote("emo_sparkle")
 		var tw := instructor.create_tween()
 		tw.tween_property(instructor, "scale", Vector3(0.01, 0.01, 0.01), 0.3)
 		tw.tween_callback(instructor.queue_free)
@@ -280,7 +280,7 @@ func _end_session() -> void:
 		tr("« %s » : %d %% (%s%.1f)") % [tr(data["name"]), int(GameState.skill(cmd)), "+" if gained >= 0.0 else "", gained],
 		tr("Niveau : %s") % tr(GameData.skill_label(GameState.skill(cmd))),
 	]
-	show_results("🎓 " + tr("Fin de séance"), lines, successes * 2, 5 + successes * 2)
+	show_results("[i:training] " + tr("Fin de séance"), lines, successes * 2, 5 + successes * 2)
 
 func quit() -> void:
 	if not finished and reps > 0:

@@ -103,10 +103,12 @@ func _build() -> void:
 	mid.add_child(place_l)
 	var side := UiKit.vbox(10)
 	side.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	side.add_child(UiKit.icon_button("camera", tr("Photo"), func(): Main.inst.take_photo(), Color(1, 1, 1, 0.92), 96))
+	side.add_child(UiKit.icon_button("menu", tr("Menu"), func(): Panels.more(), Color(1, 1, 1, 0.92), 96))
+	side.add_child(UiKit.icon_button("camera", tr("Photo"), func(): Main.inst.start_activity(PhotoMode.new()), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("map", tr("Lieux"), func(): Panels.places(), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("paw", tr("Animaux"), func(): Panels.pets(), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("recenter", tr("Centrer"), func(): Main.inst.recenter_camera(0.22), Color(1, 1, 1, 0.92), 96))
+	side.add_child(UiKit.icon_button("call", tr("Appeler"), _call, Color(1, 1, 1, 0.92), 96))
 	mic_btn = UiKit.icon_button("mic", tr("Voix"), _toggle_mic, Color(1, 1, 1, 0.92), 96)
 	side.add_child(mic_btn)
 	mid.add_child(side)
@@ -126,18 +128,18 @@ func _build() -> void:
 	row1.add_child(UiKit.icon_button("feed", tr("Nourrir"), func(): Panels.food_picker("food", feed), Color(1, 0.93, 0.85), 108))
 	row1.add_child(UiKit.icon_button("water", tr("Eau"), give_water, Color(0.88, 0.95, 1), 108))
 	row1.add_child(UiKit.icon_button("wash", tr("Laver"), func(): Main.inst.start_activity(BathActivity.new()), Color(0.88, 0.97, 1), 108))
+	row1.add_child(UiKit.icon_button("brush", tr("Brosser"), func(): Main.inst.start_activity(BrushActivity.new()), Color(0.98, 0.93, 0.85), 108))
 	row1.add_child(UiKit.icon_button("treat", tr("Friandise"), func(): Panels.food_picker("treat", give_treat), Color(1, 0.95, 0.88), 108))
-	row1.add_child(UiKit.icon_button("throw", tr("Lancer"), _throw, Color(0.95, 1, 0.88), 108))
-	row1.add_child(UiKit.icon_button("call", tr("Appeler"), _call, Color(1, 0.92, 0.95), 108))
+	row1.add_child(UiKit.icon_button("cuddle", tr("Câlin"), func(): Main.inst.start_activity(CuddleActivity.new()), Color(1, 0.92, 0.95), 108))
 	root.add_child(row1)
 	var row2 := UiKit.hbox(8)
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
+	row2.add_child(UiKit.icon_button("throw", tr("Jouer"), func(): Panels.play(self), Color(0.95, 1, 0.88), 108))
 	row2.add_child(UiKit.icon_button("training", tr("Dressage"), func(): Panels.training(), Color(0.98, 0.85, 0.75), 108))
 	row2.add_child(UiKit.icon_button("activities", tr("Activités"), func(): Panels.activities(), Color(0.85, 0.95, 0.85), 108))
 	row2.add_child(UiKit.icon_button("trophy", tr("Concours"), func(): Panels.competitions(), Color(1, 0.93, 0.7), 108))
 	row2.add_child(UiKit.icon_button("shop", tr("Boutique"), func(): Panels.shop(), Color(0.9, 0.88, 1), 108))
 	row2.add_child(UiKit.icon_button("inventory", tr("Sac"), func(): Panels.inventory(), Color(0.95, 0.9, 0.85), 108))
-	row2.add_child(UiKit.icon_button("menu", tr("Plus"), func(): Panels.more(), Color(0.92, 0.92, 0.92), 108))
 	root.add_child(row2)
 
 func _on_pet_panel_input(e: InputEvent) -> void:
@@ -297,7 +299,7 @@ func _call() -> void:
 		_pet().call_name()
 		GameState.add_relation(1)
 
-func _throw() -> void:
+func throw_free() -> void:
 	if Main.inst.env_root.get_meta("indoor", false):
 		Main.inst.toast(tr("Pas de lancer à l'intérieur ! Allez au jardin ou au parc."))
 		return

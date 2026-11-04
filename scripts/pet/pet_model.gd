@@ -787,6 +787,42 @@ func emote(icon_name: String, dur: float = 1.4) -> void:
 	_emote_tw.parallel().tween_property(emote_label, "position:y", base_y + 0.1, dur)
 	_emote_tw.tween_property(emote_label, "modulate:a", 0.0, 0.25)
 
+var _hearts: Array[Sprite3D] = []
+
+## Petits cœurs animés autour de la tête (au plus 4 simultanés, discrets).
+func hearts(n: int = 1) -> void:
+	for i in n:
+		var alive := 0
+		for h in _hearts:
+			if is_instance_valid(h) and h.visible:
+				alive += 1
+		if alive >= 4:
+			return
+		var s: Sprite3D = null
+		for h in _hearts:
+			if is_instance_valid(h) and not h.visible:
+				s = h
+				break
+		if s == null:
+			s = Sprite3D.new()
+			s.texture = UiKit.icon("heart")
+			s.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			s.pixel_size = 0.0011
+			s.no_depth_test = true
+			s.render_priority = 9
+			add_child(s)
+			_hearts.append(s)
+		var base := head_pivot.position + body_pivot.position + Vector3(randf_range(-hr, hr), hr * 0.9, randf_range(-hr * 0.4, hr * 0.6))
+		s.position = base
+		s.visible = true
+		s.modulate = Color(1, 1, 1, 0)
+		s.scale = Vector3.ONE * randf_range(0.7, 1.0)
+		var tw := s.create_tween()
+		tw.tween_property(s, "modulate:a", 1.0, 0.15)
+		tw.parallel().tween_property(s, "position", base + Vector3(randf_range(-0.05, 0.05), 0.16, 0), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tw.tween_property(s, "modulate:a", 0.0, 0.25)
+		tw.tween_callback(func(): s.visible = false)
+
 var dirt := 0.0
 ## Saleté visible sur le pelage (0..1).
 func set_dirt(d: float) -> void:

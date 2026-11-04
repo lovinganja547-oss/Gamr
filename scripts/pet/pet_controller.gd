@@ -431,6 +431,80 @@ func _eat_now(bp: Vector3, kind: String, dur: float, on_tick: Callable, on_done:
 	_end(id, "eat")
 	on_done.call(true)
 
+## Jeu spontané avec le jouet actif : bond, attrape, secoue, lance et rattrape.
+func play_with_toy() -> void:
+	var id := _begin("toy")
+	var toy := make_toy(GameState.data.get("toy", "ball"))
+	get_parent().add_child(toy)
+	var p := position + Vector3(sin(rotation.y), 0, cos(rotation.y)) * 0.7
+	if nav:
+		var f := nav.nearest_free(Vector2(p.x, p.z))
+		p = Vector3(f.x, 0, f.y)
+	toy.position = p + Vector3(0, 0.06, 0)
+	Audio.play("bounce")
+	model.set_posture("bow", 6.0)
+	model.expression = "happy"
+	model.wag_amp = 1.0
+	model.wag_speed = 18.0
+	model.emote("emo_playful")
+	if not await _wait(0.9, id):
+		toy.queue_free()
+		return
+	for round_i in 2:
+		state = "moving"
+		_target = Vector3(toy.position.x, 0, toy.position.z)
+		_move_speed = 1.6
+		var arrived_ok := false
+		var t := 0.0
+		while t < 4.0 and id == _act_id:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+			if state != "moving":
+				arrived_ok = true
+				break
+		if id != _act_id:
+			if is_instance_valid(toy):
+				toy.queue_free()
+			return
+		state = "action"
+		grab(toy)
+		model.shake = 0.6
+		Audio.play("crunch", 0.2, -8.0)
+		if not await _wait(0.8, id):
+			drop_held()
+			return
+		model.shake = 0.0
+		# lance le jouet un peu plus loin
+		var thrown := drop_held()
+		if thrown:
+			var dest := position + Vector3(randf_range(-0.8, 0.8), 0, randf_range(-0.8, 0.8))
+			if nav:
+				var f2 := nav.nearest_free(Vector2(dest.x, dest.z))
+				dest = Vector3(f2.x, 0.06, f2.y)
+			var tw := thrown.create_tween()
+			tw.tween_property(thrown, "position", Vector3(dest.x, 0.35, dest.z), 0.25).set_ease(Tween.EASE_OUT)
+			tw.tween_property(thrown, "position", Vector3(dest.x, 0.06, dest.z), 0.25).set_ease(Tween.EASE_IN)
+			toy = thrown
+			Audio.play("bounce", 0.1, -6.0)
+		if not await _wait(0.6, id):
+			return
+	model.set_posture("lie", 3.0)
+	grab(toy)
+	model.chew = 1.0
+	GameState.change_need("mood", 8.0)
+	GameState.spend_energy("calm")
+	if not await _wait(2.0, id):
+		model.chew = 0.0
+		drop_held()
+		return
+	model.chew = 0.0
+	var last := drop_held()
+	if last:
+		last.queue_free()
+	if GameState.reward_ok("toy_play", 0.5):
+		GameState.add_xp(3)
+	_end(id, "toy")
+
 # ================================================================== Interactions joueur
 func on_stroke(part: String) -> void:
 	if state == "moving":
@@ -442,12 +516,26 @@ func on_stroke(part: String) -> void:
 	if state != "action" or get_meta("action", "") != "petted":
 		_begin("petted")
 		state = "action"
-	model.expression = "happy"
-	model.wag_amp = 0.9
-	model.wag_speed = 15.0
-	model.head_extra.z = 0.25 if part == "head" else 0.0
-	if part == "body" and pet["needs"]["energy"] < 50.0 and randf() < 0.01:
-		model.set_posture("lie")
+	var temper: String = pet.get("temperament", "joueur")
+	var mood: float = pet["needs"]["mood"]
+	var shy := temper == "timide" and GameState.relation_level(pet) < 3
+	if shy and randf() < 0.35:
+		# timide : se laisse caresser, mais reste un peu sur la réserve
+		model.expression = "focus"
+		model.wag_amp = 0.25
+		model.head_extra.z = 0.0
+		model.set_posture("sit", 3.0)
+	else:
+		model.expression = "happy" if mood > 35.0 else "closed"
+		model.wag_amp = lerpf(0.3, 1.0, mood / 100.0)
+		model.wag_speed = lerpf(8.0, 16.0, mood / 100.0)
+		model.head_extra.z = 0.25 if part == "head" else 0.0
+		if part == "body" and (temper == "calme" or pet["needs"]["energy"] < 45.0) and randf() < 0.04:
+			model.set_posture("lie", 2.0)   # se détend sous la main
+		elif temper == "affectueux" and randf() < 0.05:
+			model.set_posture("lie", 2.0)
+			model.head_extra.z = 0.45
+	model.hearts(1)
 	set_meta("petted_until", Time.get_ticks_msec() + 900)
 	_petted_release(_act_id)
 
@@ -474,12 +562,33 @@ func on_tap(part: String) -> void:
 		do_posture("sit", 1.0)
 		face(position + Vector3(randf_range(-1, 1), 0, -1))
 		return
+	var temper: String = pet.get("temperament", "joueur")
+	if temper == "timide" and GameState.relation_level(pet) < 3 and _tap_count >= 2:
+		# timide : recule doucement si on insiste
+		model.emote("emo_question")
+		walk_to(position + (position - player_pos).normalized() * 0.4, 0.8, func(): do_posture("sit", 1.5))
+		return
+	if pet["needs"]["mood"] < 30.0:
+		model.emote("emo_sad")
+		do_posture("sad", 1.5)
+		return
 	if part == "head":
 		voice()
 		head_tilt()
 	else:
-		model.emote("emo_heart" if pet["needs"]["affection"] > 50.0 else "emo_question")
-		play_bow()
+		match temper:
+			"energique":
+				model.emote("emo_star")
+				perform("spin")
+			"curieux":
+				face(player_pos)
+				sniff_ground()
+			"calme":
+				model.emote("emo_heart")
+				do_posture("sit", 1.5)
+			_:
+				model.emote("emo_heart" if pet["needs"]["affection"] > 50.0 else "emo_playful")
+				play_bow()
 
 func call_name() -> void:
 	if sleeping:
@@ -495,8 +604,9 @@ func praise() -> void:
 	model.expression = "happy"
 	model.wag_amp = 1.0
 	model.wag_speed = 18.0
-	model.emote("emo_heart")
+	model.hearts(3)
 	happy_sound()
+	Audio.play("heart", 0.1, -12.0)
 	model.set_posture("bow", 6.0)
 	if await _wait(1.2, id):
 		_end(id, "praise")

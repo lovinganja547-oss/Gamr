@@ -127,6 +127,52 @@ func _run() -> void:
 	await shot("bath_done")
 	main.close_all_panels()
 	await wait(0.3)
+	# Phase 3 : brossage, câlin, corde, jouet, mode photo
+	main.start_activity(BrushActivity.new())
+	await wait(0.8)
+	pp = main.cam_rig.cam.unproject_position(main.pet_ctrl.model.body_pivot.global_position)
+	for i in 20:
+		await swipe(pp + Vector2(-60, -20), pp + Vector2(60, 0), 4)
+	await shot("brush")
+	(main.activity as BrushActivity)._finish()
+	await wait(0.6)
+	main.close_all_panels()
+	await wait(0.3)
+	main.start_activity(CuddleActivity.new())
+	await wait(2.5)
+	var cu := main.activity as CuddleActivity
+	cu._touching = true
+	cu._arrived = true
+	await wait(3.0)
+	await shot("cuddle")
+	await wait(3.5)
+	main.close_all_panels()
+	await wait(0.3)
+	GameState.active_pet()["level"] = 3
+	main.start_activity(TugActivity.new())
+	await wait(1.0)
+	for i in 30:
+		await swipe(vp * Vector2(0.5, 0.4), vp * Vector2(0.5, 0.7), 3)
+	await shot("tug")
+	await wait(26.0)
+	print("TUG finished=", (main.activity as TugActivity).finished if main.activity else true)
+	main.close_all_panels()
+	await wait(0.3)
+	main.pet_ctrl.play_with_toy()
+	await wait(2.5)
+	await shot("toy_play")
+	await wait(6.0)
+	main.start_activity(PhotoMode.new())
+	await wait(0.8)
+	var pm := main.activity as PhotoMode
+	pm._pose("beg")
+	pm._deco("hearts")
+	await wait(1.0)
+	await shot("photo_mode")
+	pm._shoot()
+	await wait(1.0)
+	pm.quit()
+	await wait(0.5)
 	# Dressage
 	GameState.data["level"] = 6
 	main.start_activity(TrainingActivity.new("sit"))

@@ -388,6 +388,36 @@ static func pets() -> void:
 		go_to("shelter"), UiKit.C_ACCENT))
 	_m().open_panel("[i:paw] " + _t("Mes animaux"), UiKit.scroll(v))
 
+# ================================================================== Jouer
+static func play(hud: Node) -> void:
+	var v := UiKit.vbox(12)
+	var entries := [
+		["throw", "Lancer la balle", "Glissez vers le haut pour lancer, il vous la rapporte.", "fetch", func(): hud.throw_free()],
+		["tug", "Tir à la corde", "Tirez par petits coups, il tire aussi !", "tug", func(): _m().start_activity(TugActivity.new())],
+		["ball", "Jouer avec son jouet", "Il s'amuse tout seul avec son jouet préféré.", "fetch", func():
+			if _m().pet_ctrl:
+				_m().pet_ctrl.play_with_toy()],
+		["search", "Cache-cache", "Cachez des objets et laissez parler son flair.", "search", func(): _choose_place("search")],
+		["training", "Jeux d'obéissance", "Révisez ses ordres et faites-le progresser.", "fetch", func(): training()],
+	]
+	for e in entries:
+		var cb: Callable = e[4]
+		var key: String = e[3]
+		var c := _card()
+		var info := UiKit.vbox(2)
+		info.add_child(UiKit.label("[i:%s] %s" % [e[0], _t(e[1])], 28))
+		info.add_child(UiKit.label(_t(e[2]), 21, UiKit.C_SUB))
+		var btn := UiKit.button(_t("Jouer"), func():
+			_m().close_panel()
+			cb.call(), UiKit.C_ACCENT2, 26, 80)
+		btn.custom_minimum_size = Vector2(150, 80)
+		if not GameState.activity_unlocked(key):
+			btn.disabled = true
+			btn.text = _t("Niv. %d") % int(GameData.ACTIVITY_LEVELS[key])
+		c.add_child(_row(info, btn))
+		v.add_child(c)
+	_m().open_panel("[i:throw] " + _t("Jouer"), UiKit.scroll(v))
+
 # ================================================================== Dressage
 static func training() -> void:
 	var v := UiKit.vbox(10)

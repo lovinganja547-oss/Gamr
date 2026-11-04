@@ -438,13 +438,11 @@ func _home_input(event: InputEvent) -> void:
 				_stroke_acc += d.relative.length()
 				if _stroke_acc > 70.0:
 					_stroke_acc = 0.0
-					if GameState.stroke():
-						pet_ctrl.on_stroke(part)
-						if randf() < 0.35:
-							pet_ctrl.model.emote("emo_heart", 0.9)
-							Audio.play("heart", 0.1, -10.0)
-					else:
-						pet_ctrl.on_stroke(part)
+					var counted := GameState.stroke()
+					pet_ctrl.on_stroke(part)
+					if counted and randf() < 0.3:
+						Audio.play("heart", 0.12, -14.0)
+					Audio.vibrate(8)
 		elif _drag_kind == "cam":
 			cam_rig.orbit(d.relative.x, d.relative.y)
 

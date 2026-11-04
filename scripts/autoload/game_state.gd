@@ -266,6 +266,7 @@ func sanitize_pet(p: Dictionary) -> Dictionary:
 		"last_bath": float(p.get("last_bath", 0.0)),
 		"records": p.get("records", {}) if p.get("records") is Dictionary else {},
 		"voice": p.get("voice", {}) if p.get("voice") is Dictionary else {},
+		"cooldowns": p.get("cooldowns", {}) if p.get("cooldowns") is Dictionary else {},
 	}
 	if out["name"].strip_edges() == "":
 		out["name"] = b["name"]
@@ -495,6 +496,21 @@ func apply_fx(fx: Dictionary) -> void:
 			change_need(k, float(fx[k]))
 
 # ================================================================== Économie
+## Anti-abus : true si la récompense « key » peut être donnée (une fois par période), et la consomme.
+func reward_ok(key: String, hours: float, p: Dictionary = {}) -> bool:
+	if p.is_empty():
+		p = active_pet()
+	if p.is_empty():
+		return false
+	var cd: Dictionary = p.get("cooldowns", {})
+	var now := Time.get_unix_time_from_system()
+	if now - float(cd.get(key, 0.0)) < hours * 3600.0:
+		return false
+	cd[key] = now
+	p["cooldowns"] = cd
+	mark_dirty()
+	return true
+
 func coins() -> int:
 	return int(data.get("coins", 0))
 
@@ -724,7 +740,13 @@ func stroke() -> bool:
 	if _pet_stroke_budget < 1.0:
 		return false
 	_pet_stroke_budget -= 1.0
-	change_need("affection", 2.5)
+	var p := active_pet()
+	var k := 1.0
+	if p.get("temperament", "") == "affectueux":
+		k = 1.4
+	elif p.get("temperament", "") == "timide" and relation_level(p) < 3:
+		k = 0.6
+	change_need("affection", 2.5 * k)
 	change_need("mood", 1.0)
 	add_relation(1)
 	inc_stat("pet", 1)

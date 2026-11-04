@@ -30,6 +30,9 @@ func _ready() -> void:
 		_update_cmds())
 	GameState.inventory_changed.connect(_update_top)
 	Voice.heard.connect(_on_voice)
+	Voice.unrecognized.connect(_on_voice_miss)
+	Voice.level.connect(_on_voice_level)
+	Voice.state_changed.connect(func(_on): refresh())
 	refresh()
 	var args: Dictionary = get_meta("args", {})
 	if args.get("welcome", false) and not GameState.data["tutorial"].get("done", false):
@@ -159,7 +162,7 @@ func refresh() -> void:
 	_update_cmds()
 	var e: Dictionary = GameData.ENVIRONMENTS.get(Main.inst.env_id, {})
 	UiKit.set_label(place_l, "[i:%s] %s" % [e.get("icon", "house"), tr(e.get("name", ""))])
-	mic_btn.visible = bool(GameState.setting("voice"))
+	mic_btn.visible = bool(GameState.setting("voice")) or Voice.trained_count() > 0
 	mic_btn.modulate = Color(1, 0.6, 0.6) if Voice.listening else Color.WHITE
 
 func _update_top() -> void:
@@ -359,19 +362,32 @@ func _toggle_mic() -> void:
 		Voice.stop_listening()
 	else:
 		if Voice.trained_count() == 0:
-			Main.inst.toast(tr("Enregistrez d'abord votre voix dans Paramètres › Commandes vocales."))
+			Main.inst.toast(tr("Associez d'abord un mot à un ordre dans « Dressage »."))
 			return
 		if not Voice.start_listening():
-			Main.inst.toast(tr("Autorisez le micro puis réessayez."))
+			Main.inst.toast(tr("Autorisez le micro puis réessayez.") if not Voice.has_permission() else tr("Aucun micro disponible."))
 	refresh()
 
+func _on_voice_level(v: float) -> void:
+	if mic_btn and Voice.listening:
+		mic_btn.modulate = Color(1, 0.6 + 0.4 * v, 0.6 + 0.4 * v)
+
 func _on_voice(cmd: String, _conf: float) -> void:
-	if not is_visible_in_tree() or Main.inst.activity:
+	if not is_visible_in_tree() or Main.inst.activity or Main.inst.has_panel():
 		return
-	if GameState.skill(cmd) < 20.0:
+	var p := GameState.active_pet()
+	Voice.record_use(p, cmd, true)
+	Main.inst.toast("[i:mic] " + tr("Entendu : « %s »") % Voice.word(p, cmd))
+	if GameState.skill(cmd) < 20.0 or not GameState.command_available(cmd):
 		_pet().head_tilt()
 		return
 	order(cmd)
+
+func _on_voice_miss(_best: String, _d: float) -> void:
+	if not is_visible_in_tree() or Main.inst.activity or Main.inst.has_panel():
+		return
+	if _pet() and not _pet().sleeping:
+		_pet().head_tilt()
 
 func _tutorial() -> void:
 	GameState.data["tutorial"]["done"] = true

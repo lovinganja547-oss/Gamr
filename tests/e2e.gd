@@ -15,6 +15,43 @@ func _ready() -> void:
 	main = Main.inst
 	_run()
 
+const WORD_A := [[[220.0, 1100.0, 2600.0], 0.18], [[300.0, 700.0, 2300.0], 0.22]]
+const WORD_D := [[[140.0, 500.0, 900.0], 0.15], [[240.0, 1300.0, 2800.0], 0.15], [[400.0, 2000.0, 2500.0], 0.15]]
+
+## Signal vocal synthétique (voir tests/unit_tests.gd).
+func _syn(segs: Array, amp: float = 0.3, stretch: float = 1.0, noise: float = 0.0, pad: float = 0.4, seed_v: int = 1) -> PackedFloat32Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var sr := Voice.SR
+	var out := PackedFloat32Array()
+	var npad := int(pad * sr)
+	for i in npad:
+		out.append(rng.randfn(0.0, 0.0015 + noise))
+	for seg in segs:
+		var freqs: Array = seg[0]
+		var n := int(float(seg[1]) * stretch * sr)
+		for i in n:
+			var tt := float(i) / sr
+			var env := minf(1.0, minf(float(i) / (0.02 * sr), float(n - i) / (0.02 * sr)))
+			var v := 0.0
+			var k := 1.0
+			for f in freqs:
+				v += sin(TAU * float(f) * tt) * k
+				k *= 0.6
+			out.append(v * amp * env + rng.randfn(0.0, noise))
+	for i in npad + int(0.1 * sr):
+		out.append(rng.randfn(0.0, 0.0015 + noise))
+	return out
+
+func _find_voice_panel(n: Node) -> VoicePanel:
+	if n is VoicePanel:
+		return n
+	for c in n.get_children():
+		var r := _find_voice_panel(c)
+		if r:
+			return r
+	return null
+
 func shot(nm: String) -> void:
 	await get_tree().create_timer(0.6).timeout
 	await RenderingServer.frame_post_draw
@@ -45,6 +82,24 @@ func swipe(a: Vector2, b: Vector2, steps: int = 10) -> void:
 		Input.parse_input_event(d)
 		await get_tree().process_frame
 	var r := InputEventScreenTouch.new(); r.index = 0; r.position = b; r.pressed = false
+	Input.parse_input_event(r)
+	await get_tree().process_frame
+
+## Geste en un seul trait passant par plusieurs points.
+func swipe_path(pts: Array, steps: int = 8) -> void:
+	var e := InputEventScreenTouch.new(); e.index = 0; e.position = pts[0]; e.pressed = true
+	Input.parse_input_event(e)
+	await get_tree().process_frame
+	for k in range(1, pts.size()):
+		var a: Vector2 = pts[k - 1]
+		var b: Vector2 = pts[k]
+		for i in range(1, steps + 1):
+			var d := InputEventScreenDrag.new(); d.index = 0
+			d.position = a.lerp(b, float(i) / steps)
+			d.relative = (b - a) / steps
+			Input.parse_input_event(d)
+			await get_tree().process_frame
+	var r := InputEventScreenTouch.new(); r.index = 0; r.position = pts[pts.size() - 1]; r.pressed = false
 	Input.parse_input_event(r)
 	await get_tree().process_frame
 
@@ -151,9 +206,12 @@ func _run() -> void:
 	GameState.active_pet()["level"] = 3
 	main.start_activity(TugActivity.new())
 	await wait(1.0)
-	for i in 30:
+	for i in 2:
 		await swipe(vp * Vector2(0.5, 0.4), vp * Vector2(0.5, 0.7), 3)
 	await shot("tug")
+	for i in 40:
+		await swipe(vp * Vector2(0.5, 0.4), vp * Vector2(0.5, 0.7), 3)
+	await shot("tug_result")
 	await wait(26.0)
 	print("TUG finished=", (main.activity as TugActivity).finished if main.activity else true)
 	main.close_all_panels()
@@ -189,7 +247,56 @@ func _run() -> void:
 				await wait(1.6)
 	await shot("training")
 	print("SIT SKILL ", GameState.skill("sit"))
+	# Phase 4 : mot vocal associé pendant la séance (micro simulé)
+	Voice.test_mode = true
+	t._open_voice()
+	await wait(0.6)
+	var vpan: VoicePanel = _find_voice_panel(main.panel_stack[main.panel_stack.size() - 1])
+	print("VOICE panel=", vpan != null)
+	if vpan:
+		vpan._record()
+		await wait(0.3)
+		await shot("voice_recording")
+		Voice.feed(_syn(WORD_A, 0.3, 1.0, 0.004, 0.4, 11))
+		await wait(0.3)
+		print("VOICE state=", vpan.state, " reason=", vpan.result.get("reason", "ok"))
+		await shot("voice_review")
+		vpan._validate()
+		await wait(0.3)
+		print("VOICE templates=", Voice.template_count(GameState.active_pet(), "sit"), " word=", Voice.word(GameState.active_pet(), "sit"))
+		await shot("voice_done")
+	main.close_all_panels()
+	await wait(0.5)
+	if t.step != "wait_order":
+		await wait(3.0)
+	print("VOICE listening=", Voice.listening, " step=", t.step)
+	Voice.feed(_syn(WORD_A, 0.32, 1.1, 0.005, 0.4, 12))
+	await wait(0.5)
+	print("VOICE heard -> step=", t.step, " reps=", t.reps)
+	await shot("training_voice")
+	await wait(2.5)
+	if t.step == "feedback":
+		t._feedback(t.last_ok, false)
+	await wait(1.0)
+	Voice.feed(_syn(WORD_D, 0.3, 1.0, 0.005, 0.4, 13))
+	await wait(0.4)
+	print("VOICE unknown word -> step=", t.step, " reps=", t.reps)
 	t.quit()
+	await wait(0.5)
+	main.close_all_panels()
+	await wait(0.3)
+	Voice.test_mode = false
+	# Ordre « Reste » : la caméra s'éloigne pendant que l'animal reste en place
+	main.start_activity(TrainingActivity.new("stay"))
+	await wait(4.5)
+	var ts := main.activity as TrainingActivity
+	if ts.step == "wait_order":
+		await swipe_path([vp * Vector2(0.5, 0.55), vp * Vector2(0.5, 0.3), vp * Vector2(0.5, 0.55)], 8)
+	await wait(1.2)
+	print("STAY step=", ts.step, " reps=", ts.reps)
+	await shot("training_stay")
+	await wait(2.0)
+	ts.quit()
 	await wait(0.5)
 	main.close_all_panels()
 	await wait(0.3)
@@ -247,21 +354,34 @@ func _run() -> void:
 	Panels.go_to("center")
 	await wait(1.0)
 	await shot("center")
-	main.start_activity(AgilityGame.new({}))
+	Panels.agility_levels()
+	await shot("agility_levels")
+	main.close_all_panels()
+	GameState.active_pet()["level"] = 9
+	GameState.active_pet()["skills"]["jump"] = 60.0
+	GameState.active_pet()["skills"]["stay"] = 50.0
+	GameState.active_pet()["skills"]["sit"] = 50.0
+	GameState.active_pet()["needs"]["energy"] = 90.0
+	print("AGILITY req L4 '", GameState.agility_requirements(3), "' L5 '", GameState.agility_requirements(4), "'")
+	main.start_activity(AgilityGame.new({"level": 3, "seed": 4242}))
 	var ag := main.activity as AgilityGame
 	var guard2 := 0
-	while not ag.finished and guard2 < 600:
+	var shots_ag := 0
+	while not ag.finished and guard2 < 900:
 		if ag.running and ag.next_obs < ag.obstacles.size():
 			var o: Dictionary = ag.obstacles[ag.next_obs]
 			var win := ag._window(o)
-			if ag.s >= win.x + 0.1:
-				var gs: String = AgilityGame.TYPES[o["type"]]["gesture"]
-				ag._on_gesture("R" if gs == "H" else gs)
-		if guard2 == 120:
+			if ag.s >= win.x + (win.y - win.x) * 0.62:
+				ag.action()
+				if shots_ag < 3 and o["type"] in ["walkway", "platform", "stop", "weave"]:
+					shots_ag += 1
+					await wait(0.35)
+					await shot("agility_" + str(o["type"]))
+		if guard2 == 100:
 			await shot("agility")
 		await wait(0.05)
 		guard2 += 1
-	print("AGILITY faults ", ag.faults, " time ", ag.elapsed)
+	print("AGILITY faults ", ag.faults, " perfects ", ag.perfects, " time ", ag.elapsed, " layout ", ag.layout, " record ", GameState.record("agility_3"))
 	await shot("agility_result")
 	main.close_all_panels()
 	await wait(0.3)

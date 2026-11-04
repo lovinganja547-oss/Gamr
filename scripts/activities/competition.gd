@@ -28,7 +28,7 @@ func _start() -> void:
 	Audio.play("cheer", 0.0, -6.0)
 	match cat:
 		"agility":
-			_run_sub(AgilityGame.new({"comp": true, "level": level}))
+			_run_sub(AgilityGame.new({"comp": true, "level": mini(level + 1, GameData.AGILITY_LEVELS.size() - 1)}))
 		"search":
 			_run_sub(SearchGame.new({"comp": true, "level": mini(level + 1, GameData.SEARCH_LEVELS.size() - 1)}))
 		_:

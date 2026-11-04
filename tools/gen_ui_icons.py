@@ -265,6 +265,16 @@ ICONS["emo_medal1"] = lambda: bubble(C(32, 28, 12, "#ffd24d", sw=2.5) + P("M30,2
 ICONS["emo_medal2"] = lambda: bubble(C(32, 28, 12, "#d6dbe3", sw=2.5) + P("M28,24 Q32,18 36,24 L28,34 L37,34", "none", 2.5))
 ICONS["emo_medal3"] = lambda: bubble(C(32, 28, 12, "#e0a066", sw=2.5) + P("M28,22 L36,22 L31,27 Q37,27 36,31 Q33,36 28,33", "none", 2.5))
 
+# ------------------------------------------------------------------ agilité (obstacles)
+ICONS["hurdle"] = ICONS["agility"]
+ICONS["tunnel"] = lambda: P("M8,54 L8,36 A24,24 0 0 1 56,36 L56,54 Z", "#6a8fd0") + P("M18,54 L18,38 A14,14 0 0 1 46,38 L46,54 Z", "#2c2c35") + L(4, 54, 60, 54)
+ICONS["weave"] = lambda: "".join(L(12 + i * 13, 14, 12 + i * 13, 54, 5, "#ff6b81" if i % 2 else None) for i in range(4)) + P("M6,34 Q18,22 32,34 Q46,46 58,34", "none", 3, "#7fb2f0")
+ICONS["hoop"] = lambda: L(32, 44, 32, 58, 5) + L(20, 58, 44, 58, 4) + E(32, 28, 18, 18, "none", 0, 7) + E(32, 28, 18, 18, "none", 0, 3.5, "#ff6b81")
+ICONS["platform"] = lambda: R(8, 30, 48, 14, "#e8a56a", 3) + R(8, 24, 48, 8, "#f3c08f", 3) + L(14, 44, 14, 56, 4) + L(50, 44, 50, 56, 4)
+ICONS["walkway"] = lambda: P("M4,50 L20,22 L44,22 L60,50", "none", 5) + R(18, 18, 28, 8, "#e8a56a", 2) + L(26, 26, 26, 50, 3) + L(38, 26, 38, 50, 3)
+ICONS["stop_zone"] = lambda: P("M22,8 L42,8 L56,22 L56,42 L42,56 L22,56 L8,42 L8,22 Z", "#ff5a5a") + R(16, 28, 32, 8, "#fff", 2, sw=0)
+ICONS["combo"] = lambda: L(8, 24, 8, 56, 4) + L(28, 24, 28, 56, 4) + R(6, 34, 24, 5, "#ff6b81", 2) + E(46, 36, 11, 11, "none", 0, 5, "#7fb2f0") + L(46, 47, 46, 58, 4)
+
 # Variantes teintées (une icône par objet)
 TINTS = {
     "collar": ("#ff5a5a", {"collar_red": "#e04848", "collar_blue": "#3a73e0", "collar_green": "#4cbf5a", "collar_pink": "#f07fb0", "collar_gold": "#f2c640", "collar_purple": "#8c50cc"}),

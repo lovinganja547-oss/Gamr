@@ -55,7 +55,14 @@ func _process(delta: float) -> void:
 	if follow and target and is_instance_valid(target):
 		focus = focus.lerp(target.global_position + focus_offset, minf(1.0, delta * 3.0))
 	var dir := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
-	var want := _clamp_box(focus + dir * distance)
+	var raw := focus + dir * distance
+	var want := _clamp_box(raw)
+	if follow and raw.distance_to(want) > 0.35:
+		# bloquée par un mur : la caméra tourne doucement vers l'intérieur de la pièce
+		var c := bounds_box.get_center()
+		var to_c := Vector3(c.x - focus.x, 0, c.z - focus.z)
+		if to_c.length() > 0.2:
+			yaw = lerp_angle(yaw, atan2(to_c.x, to_c.z), minf(1.0, delta * 1.5))
 	cam.global_position = cam.global_position.lerp(want, minf(1.0, delta * 6.0))
 	if _shake > 0.0 and UiKit.reduce_motion():
 		_shake = 0.0
@@ -90,6 +97,15 @@ func frame_pet(pet: Node3D, top: float, length: float, shift: float = 0.0, p: fl
 	pitch = p
 	screen_shift = shift
 	fixed_transform = null
+	# si le cadrage demandé traverse un mur, on se place côté pièce
+	var f := pet.global_position + focus_offset
+	var dir := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
+	var raw := f + dir * distance
+	if raw.distance_to(_clamp_box(raw)) > 0.35:
+		var c := bounds_box.get_center()
+		var to_c := Vector3(c.x - f.x, 0, c.z - f.z)
+		if to_c.length() > 0.2:
+			yaw = atan2(to_c.x, to_c.z)
 
 func snap() -> void:
 	if follow and target and is_instance_valid(target):

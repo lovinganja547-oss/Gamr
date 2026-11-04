@@ -97,6 +97,29 @@ func stop_moving() -> void:
 	speed = 0.0
 	model.move_speed = 0.0
 
+## Interrompt toute action ou coroutine en cours (début d'activité) sans téléporter l'animal.
+func interrupt() -> void:
+	_act_id += 1
+	_on_arrive = Callable()
+	_path = PackedVector2Array()
+	state = "idle"
+	speed = 0.0
+	_spin = 0.0
+	model.move_speed = 0.0
+	model.sniff = 0.0
+	model.chew = 0.0
+	model.shake = 0.0
+	model.tongue_out = 0.0
+	model.head_extra = Vector3.ZERO
+	var h := drop_held()
+	if h and h.name == "Toy":
+		h.queue_free()
+	if sleeping:
+		sleeping = false
+		GameState.pet_sleeping = false
+	model.set_posture("stand", 4.0)
+	_apply_mood_look()
+
 func face(p: Vector3) -> void:
 	var d := p - position
 	if d.length() > 0.01:
@@ -662,6 +685,12 @@ func perform(cmd: String) -> float:
 			_jump_h = 0.4
 			_finish_after(0.9, id, cmd)
 			return 0.9
+		"stay":
+			# reste en place et garde le contact visuel pendant que le joueur s'éloigne
+			model.set_posture("sit", 5.0)
+			model.wag_amp = 0.2
+			_finish_after(2.6, id, cmd)
+			return 2.6
 		"come":
 			var start := position
 			var dest := player_pos + Vector3(0, 0, -0.55)
@@ -714,6 +743,11 @@ func _fetch_demo(id: int) -> void:
 ## Mauvaise réaction quand la commande échoue.
 func fail_behaviour(cmd: String) -> float:
 	var r := randi() % 4
+	if cmd == "stay" and r < 3:
+		# ne reste pas : suit le joueur
+		model.emote("emo_question")
+		walk_to(player_pos + Vector3(randf_range(-0.3, 0.3), 0, -0.5), 0.9, func(): do_posture("sit", 1.0))
+		return 2.6
 	match r:
 		0:
 			head_tilt()

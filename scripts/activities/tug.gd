@@ -95,10 +95,10 @@ func _process(delta: float) -> void:
 	_burst_t -= delta
 	if _burst_t <= 0.0:
 		_burst_t = randf_range(0.5, 1.2)
-		_dog_force = randf_range(0.6, 1.5) * strength
+		_dog_force = randf_range(0.35, 1.1) * strength
 		if randf() < 0.25:
 			pet.voice()
-	balance = clampf(balance + (player_force - _dog_force) * 38.0 * delta, -100.0, 100.0)
+	balance = clampf(balance + (player_force - _dog_force) * 24.0 * delta, -100.0, 100.0)
 	meter.value = (balance + 100.0) * 0.5
 	# Animation : l'animal recule ou avance, secoue la tête
 	var dir := (pet.player_pos - start_pos).normalized()

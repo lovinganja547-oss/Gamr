@@ -49,6 +49,7 @@ func _start() -> void:
 	pet.model.set_posture("lie" if pet.pet.get("temperament", "") == "calme" else "stand", 3.0)
 	pet.state = "action"
 	main.recenter_camera(0.28)
+	main.cam_rig.yaw = pet._yaw_target + PI * 0.5 + 0.35   # vue de trois quarts : le dos est accessible
 
 func can_recenter() -> bool:
 	return true

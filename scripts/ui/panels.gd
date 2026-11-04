@@ -433,6 +433,9 @@ static func training() -> void:
 		info.add_child(UiKit.label("%s  ·  %s" % [_t(d["name"]), _t(GameData.skill_label(s))], 28))
 		info.add_child(UiKit.bar(s, UiKit.C_BLUE, 16))
 		var sub := _t("Geste : %s") % _t(d["hint"])
+		var nv := Voice.template_count(p, cmd)
+		if nv > 0:
+			sub += "  ·  " + _t("voix « %s » (%s)") % [Voice.word(p, cmd), Voice.reliability_label(Voice.reliability(p, cmd))]
 		if not avail:
 			sub = "[i:lock] " + _t("Niveau %d du compagnon") % int(d["level"])
 		info.add_child(UiKit.label(sub, 21, UiKit.C_SUB))
@@ -443,7 +446,7 @@ static func training() -> void:
 		btn.custom_minimum_size = Vector2(170, 80)
 		c.add_child(_row(info, btn))
 		v.add_child(c)
-	v.add_child(UiKit.label(_t("Astuce : de courtes séances régulières sont plus efficaces. Récompensez uniquement les réussites !"), 22, UiKit.C_SUB))
+	v.add_child(UiKit.label(_t("Astuce : de courtes séances régulières sont plus efficaces. Récompensez uniquement les réussites ! Pendant une séance, associez votre propre mot à chaque ordre (micro)."), 22, UiKit.C_SUB))
 	_m().open_panel("[i:training] " + _t("Dressage"), UiKit.scroll(v))
 
 # ================================================================== Activités
@@ -452,7 +455,7 @@ static func activities() -> void:
 	var lvl: Dictionary = GameData.SEARCH_LEVELS[int(GameState.data["search_level"])]
 	var entries := [
 		["throw", "Lancer de balle", "Visez avec le doigt : la distance du geste règle la puissance.", "fetch"],
-		["agility", "Parcours d'agilité", "Sauts, slalom, tunnel : faites le bon geste au bon moment !", "agility"],
+		["agility", "Parcours d'agilité", "Haies, tunnels, slaloms, passerelles : touchez le gros bouton au bon moment ! 5 niveaux, médailles et records.", "agility"],
 		["search", "Jeu de recherche", _t("Niveau %d : %d cachettes, %d essais.") % [int(GameState.data["search_level"]) + 1, int(lvl["spots"]), int(lvl["tries"])], "search"],
 		["walk", "Promenade", "Explorez, ramassez des trouvailles et faites des rencontres.", "walk"],
 	]
@@ -464,7 +467,10 @@ static func activities() -> void:
 		info.add_child(UiKit.label(_t(e[2]), 21, UiKit.C_SUB))
 		var btn := UiKit.button(_t("Jouer"), func():
 			_m().close_panel()
-			_choose_place(kind), UiKit.C_ACCENT2, 26, 80)
+			if kind == "agility":
+				agility_levels()
+			else:
+				_choose_place(kind), UiKit.C_ACCENT2, 26, 80)
 		btn.custom_minimum_size = Vector2(150, 80)
 		if not GameState.activity_unlocked(kind):
 			btn.disabled = true
@@ -510,9 +516,50 @@ static func _launch(kind: String, env: String) -> void:
 			_m().screen.refresh()
 	match kind:
 		"fetch": _m().start_activity(FetchGame.new(false))
-		"agility": _m().start_activity(AgilityGame.new({}))
+		"agility": agility_levels()
 		"search": _m().start_activity(SearchGame.new({}))
 		"walk": _m().start_activity(WalkActivity.new())
+
+# ================================================================== Agilité : niveaux
+static func agility_levels() -> void:
+	var v := UiKit.vbox(12)
+	var p := GameState.active_pet()
+	v.add_child(UiKit.label(_t("Touchez le gros bouton d'action quand la jauge est dans la zone verte. Or : 85, argent : 65, bronze : 45."), 22, UiKit.C_SUB))
+	for lv in GameData.AGILITY_LEVELS.size():
+		var L: Dictionary = GameData.AGILITY_LEVELS[lv]
+		var req := GameState.agility_requirements(lv)
+		var best := GameState.record("agility_%d" % lv)
+		var best_t := GameState.record("agility_time_%d" % lv)
+		var c := _card(Color(1, 0.97, 0.9) if req == "" else Color(0.95, 0.94, 0.92))
+		var info := UiKit.vbox(3)
+		var title := "%s · %d %s" % [_t(L["name"]), int(L["obstacles"]), _t("obstacles")]
+		if best >= 0.0:
+			var medal := GameData.medal_for(best)
+			title = ("[i:medal_%s] " % medal if medal != "" else "") + title
+		info.add_child(UiKit.label(title, 28))
+		var names: Array[String] = []
+		for k in L["kinds"]:
+			names.append(_t(GameData.AGILITY_OBSTACLES[k]["name"]).to_lower())
+		info.add_child(UiKit.label(", ".join(names), 20, UiKit.C_SUB))
+		if best >= 0.0:
+			info.add_child(UiKit.label("[i:star] " + _t("Record de %s : %d / 100 · %.1f s") % [p["name"], int(best), best_t], 21, UiKit.C_ACCENT))
+		if req != "":
+			info.add_child(UiKit.label("[i:lock] " + req, 21, UiKit.C_DANGER))
+		else:
+			info.add_child(UiKit.label("[i:coin] " + _t("Jusqu'à %d pièces · énergie requise : %d %%") % [int(L["coins"]), int(L["energy"])], 20, UiKit.C_SUB))
+		var ll := lv
+		var btn := UiKit.button(_t("Jouer"), func():
+			_m().close_panel()
+			if _m().env_id != "center":
+				_m().change_env("center")
+				if _m().screen and _m().screen.has_method("refresh"):
+					_m().screen.refresh()
+			_m().start_activity(AgilityGame.new({"level": ll})), UiKit.C_ACCENT2, 26, 80)
+		btn.disabled = req != ""
+		btn.custom_minimum_size = Vector2(150, 80)
+		c.add_child(_row(info, btn))
+		v.add_child(c)
+	_m().open_panel("[i:agility] " + _t("Parcours d'agilité"), UiKit.scroll(v))
 
 # ================================================================== Concours
 static func competitions() -> void:
@@ -726,10 +773,8 @@ static func settings() -> void:
 	sens.custom_minimum_size = Vector2(0, 56)
 	sens.value_changed.connect(func(val): GameState.set_setting("sensitivity", float(val)))
 	v.add_child(sens)
-	v.add_child(_toggle(_t("Commandes vocales (hors ligne)"), "voice"))
-	if GameState.setting("voice"):
-		v.add_child(UiKit.button("[i:mic] " + _t("Enregistrer ma voix"), func(): voice_setup(), UiKit.C_BLUE, 26, 80))
-	v.add_child(UiKit.label(_t("La reconnaissance vocale fonctionne sans Internet : vous enregistrez votre voix pour chaque ordre, puis le jeu compare ce que vous dites à vos enregistrements. Tous les ordres restent disponibles au toucher."), 20, UiKit.C_SUB))
+	v.add_child(_toggle(_t("Commandes vocales (micro)"), "voice"))
+	v.add_child(UiKit.label(_t("Sans Internet : pendant le dressage, vous associez votre propre mot à chaque ordre ; le jeu compare ensuite votre voix à ces enregistrements, propres à chaque compagnon. Tous les ordres restent disponibles au toucher."), 20, UiKit.C_SUB))
 	v.add_child(UiKit.label(_t("Langue : Français"), 24, UiKit.C_SUB))
 	v.add_child(UiKit.button("[i:save] " + _t("Sauvegarder maintenant"), func():
 		if GameState.save_game():
@@ -741,7 +786,7 @@ static func settings() -> void:
 	v.add_child(UiKit.button("[i:warning] " + _t("Recommencer une partie"), func():
 		_m().confirm(_t("Tout effacer et recommencer ? Vos animaux, pièces et objets seront perdus."), func():
 			GameState.reset_game()
-			Voice.clear_templates()
+			Voice.invalidate_cache()
 			_m().close_all_panels()
 			_m().env_id = ""
 			_m().change_env("shelter")
@@ -763,46 +808,3 @@ static func _toggle(txt: String, key: String) -> Control:
 		if _m().screen and _m().screen.has_method("refresh"):
 			_m().screen.refresh(), UiKit.C_ACCENT2 if on else UiKit.C_DISABLED, 26, 80)
 	return b
-
-static func voice_setup() -> void:
-	var v := UiKit.vbox(10)
-	v.add_child(UiKit.label(_t("Touchez « Enregistrer » puis prononcez clairement l'ordre. Répétez 2 ou 3 fois par ordre pour plus de fiabilité."), 22, UiKit.C_SUB))
-	var status := UiKit.label("", 24, UiKit.C_ACCENT)
-	v.add_child(status)
-	var lvl := UiKit.bar(0, UiKit.C_ACCENT2, 16)
-	v.add_child(lvl)
-	var on_lvl := func(x: float): lvl.value = x * 100.0
-	Voice.level.connect(on_lvl)
-	for cmd in GameData.COMMAND_ORDER:
-		var cc: String = cmd
-		var n: int = Voice.templates.get(cmd, []).size()
-		var c := _card()
-		var info := UiKit.label("%s  (%d/3)" % [_t(GameData.COMMANDS[cmd]["name"]), n], 26)
-		var btn := UiKit.button("[i:record] " + _t("Enregistrer"), func():
-			if Voice.record_template(cc):
-				status.text = _t("Parlez maintenant : « %s »") % _t(GameData.COMMANDS[cc]["name"])
-			else:
-				status.text = _t("Micro indisponible ou non autorisé."), UiKit.C_BLUE, 22, 70)
-		btn.custom_minimum_size = Vector2(230, 70)
-		c.add_child(_row(info, btn))
-		v.add_child(c)
-	var done_cb := func(cmd: String, _ok: bool):
-		status.text = _t("Enregistré pour « %s »") % _t(GameData.COMMANDS[cmd]["name"])
-		Voice.stop_listening()
-		Audio.play("chime")
-	Voice.template_recorded.connect(done_cb)
-	var test := UiKit.button("[i:play] " + _t("Tester"), func():
-		status.text = _t("Dites un ordre…")
-		Voice.start_listening(), UiKit.C_ACCENT2, 24, 76)
-	v.add_child(test)
-	var heard_cb := func(cmd: String, conf: float):
-		status.text = _t("Compris : « %s » (%d %%)") % [_t(GameData.COMMANDS[cmd]["name"]), int(conf * 100.0)]
-	Voice.heard.connect(heard_cb)
-	v.add_child(UiKit.button(_t("Effacer mes enregistrements"), func():
-		Voice.clear_templates()
-		status.text = _t("Enregistrements effacés."), UiKit.C_DANGER, 22, 70))
-	_m().open_panel("[i:mic] " + _t("Commandes vocales"), UiKit.scroll(v), func():
-		Voice.level.disconnect(on_lvl)
-		Voice.template_recorded.disconnect(done_cb)
-		Voice.heard.disconnect(heard_cb)
-		Voice.stop_listening())

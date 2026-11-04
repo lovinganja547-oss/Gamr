@@ -18,8 +18,8 @@ func _ready() -> void:
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	main.safe.add_child(ui)
 	if pet:
+		pet.interrupt()
 		pet.busy = true
-		pet.stop_moving()
 	_start()
 
 func _exit_tree() -> void:

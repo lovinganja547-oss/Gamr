@@ -20,6 +20,9 @@ var trace: Line2D
 var demo_trace: Line2D
 var _last_result_ms := 0
 var _impatience := 0
+var voice_btn: Button
+var _voice_started := false
+var _cam_tw: Tween
 
 func _init(c: String = "sit") -> void:
 	cmd = c
@@ -53,6 +56,9 @@ func _start() -> void:
 	order_btn = UiKit.button(tr("Donner l'ordre (bouton)"), _order_button, UiKit.C_BLUE, 24, 76)
 	order_btn.visible = false
 	v.add_child(order_btn)
+	voice_btn = UiKit.button("", _open_voice, UiKit.C_ACCENT, 22, 70)
+	v.add_child(voice_btn)
+	_update_voice_btn()
 	pnl.add_child(v)
 	bb.add_child(pnl)
 	trace = Line2D.new()
@@ -79,11 +85,39 @@ func _start() -> void:
 	pet.face(pet.player_pos)
 	if treats == 0:
 		main.toast(tr("Pas de friandise : le « Bravo » fonctionne aussi !"))
-	if Voice.listening or (GameState.setting("voice") and Voice.trained_count() > 0):
-		Voice.heard.connect(_on_voice)
-		if not Voice.listening:
-			Voice.start_listening()
+	Voice.heard.connect(_on_voice)
+	Voice.unrecognized.connect(_on_voice_miss)
 	_demo()
+
+func _update_voice_btn() -> void:
+	var p := GameState.active_pet()
+	var n := Voice.template_count(p, cmd)
+	if n == 0:
+		voice_btn.text = tr("Voix : associer un mot à cet ordre")
+		voice_btn.icon = UiKit.icon("mic")
+	else:
+		voice_btn.text = tr("Voix « %s » · %d/%d · %s") % [Voice.word(p, cmd), n, Voice.MAX_TEMPLATES, Voice.reliability_label(Voice.reliability(p, cmd))]
+		voice_btn.icon = UiKit.icon("mic")
+	if step == "wait_order":
+		_wait_order()
+
+func _open_voice() -> void:
+	if step == "attempt":
+		return
+	var was_listening := Voice.listening
+	main.open_panel("[i:mic] " + tr("Mot vocal pour « %s »") % tr(data["name"]), UiKit.scroll(VoicePanel.new(cmd, _update_voice_btn)), func():
+		if was_listening and not Voice.listening:
+			Voice.start_listening())
+
+## Écoute le micro si un mot est associé à cet ordre (permission demandée au besoin).
+func _ensure_listening() -> void:
+	if Voice.template_count(GameState.active_pet(), cmd) == 0:
+		return
+	if not Voice.listening and Voice.has_permission() and Voice.available():
+		if Voice.start_listening():
+			_voice_started = true
+	elif not Voice.listening:
+		Voice.ensure_permission()
 
 func _update_skill() -> void:
 	var s := GameState.skill(cmd)
@@ -154,9 +188,10 @@ func _wait_order() -> void:
 	pet.model.set_posture("stand")
 	pet.face(pet.player_pos)
 	pet.model.expression = "focus"
+	_ensure_listening()
 	var voice_txt := ""
-	if Voice.listening:
-		voice_txt = "  " + tr("ou dites « %s »") % tr(data["name"])
+	if Voice.listening and Voice.template_count(GameState.active_pet(), cmd) > 0:
+		voice_txt = "  " + tr("ou dites « %s »") % Voice.word(GameState.active_pet(), cmd)
 	hint_l.text = tr("À vous ! Geste : %s (%s)") % [GestureRecognizer.pretty(data["gesture"]), tr(data["hint"])] + voice_txt
 	_update_skill()
 
@@ -207,10 +242,26 @@ func _order_button() -> void:
 		_attempt(0.95)
 
 func _on_voice(c: String, _conf: float) -> void:
-	if step == "wait_order" and c == cmd:
-		_attempt(1.05)
+	if step != "wait_order" or main.has_panel():
+		return
+	var p := GameState.active_pet()
+	if c == cmd:
+		Voice.record_use(p, cmd, true)
+		# plus l'empreinte est fiable, plus l'animal est sûr de lui
+		_attempt(1.0 + 0.1 * Voice.reliability(p, cmd))
+	else:
+		Voice.record_use(p, cmd, false)
+		big_hint(tr("Il a entendu « %s »…") % Voice.word(p, c), 1.0, UiKit.C_DANGER)
+		_attempt(1.0, c)
 
-func _attempt(bonus: float) -> void:
+func _on_voice_miss(_best: String, _d: float) -> void:
+	if step != "wait_order" or main.has_panel():
+		return
+	Voice.record_use(GameState.active_pet(), cmd, false)
+	big_hint(tr("Mot non reconnu"), 0.9, UiKit.C_DANGER)
+	pet.head_tilt()
+
+func _attempt(bonus: float, heard_other: String = "") -> void:
 	step = "attempt"
 	order_btn.visible = false
 	reps += 1
@@ -218,8 +269,18 @@ func _attempt(bonus: float) -> void:
 	if Time.get_ticks_msec() - _last_result_ms < 900:
 		chance *= 0.8   # ordre donné trop vite : l'animal n'est pas prêt
 	last_ok = randf() < chance
+	if heard_other != "":
+		last_ok = false
 	hint_l.text = tr("%s essaie…") % pet_name()
-	var dur := pet.perform(cmd) if last_ok else pet.fail_behaviour(cmd)
+	var dur := 0.0
+	if heard_other != "":
+		dur = pet.perform(heard_other)
+	elif last_ok:
+		dur = pet.perform(cmd)
+	else:
+		dur = pet.fail_behaviour(cmd)
+	if cmd == "stay":
+		_step_away(minf(dur, 2.4))
 	await get_tree().create_timer(minf(dur, 2.4), false).timeout
 	if finished:
 		return
@@ -270,6 +331,16 @@ func _feedback(positive: bool, treat: bool) -> void:
 	else:
 		_wait_order()
 
+## « Reste » : le joueur (caméra) s'éloigne puis revient ; l'animal doit rester en place.
+func _step_away(dur: float) -> void:
+	if _cam_tw and _cam_tw.is_valid():
+		_cam_tw.kill()
+	var d0 := main.cam_rig.distance
+	_cam_tw = create_tween()
+	_cam_tw.tween_property(main.cam_rig, "distance", d0 + 1.8, dur * 0.6).set_trans(Tween.TRANS_SINE)
+	_cam_tw.tween_property(main.cam_rig, "distance", d0, dur * 0.4).set_trans(Tween.TRANS_SINE)
+	hint_l.text = tr("Éloignez-vous… il doit rester en place.")
+
 func _end_session() -> void:
 	if finished:
 		return
@@ -293,6 +364,10 @@ func _exit_tree() -> void:
 	super._exit_tree()
 	if Voice.heard.is_connected(_on_voice):
 		Voice.heard.disconnect(_on_voice)
+	if Voice.unrecognized.is_connected(_on_voice_miss):
+		Voice.unrecognized.disconnect(_on_voice_miss)
+	if _voice_started:
+		Voice.stop_listening()
 	if instructor and is_instance_valid(instructor):
 		main.extra_pets.erase(instructor)
 		instructor.queue_free()

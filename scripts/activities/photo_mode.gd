@@ -51,8 +51,8 @@ func _start() -> void:
 	bb.add_child(pv)
 	pet.stop_moving()
 	pet.state = "action"
-	pet.face(pet.player_pos)
 	main.recenter_camera(0.35)
+	pet.face(main.cam_rig.player_ground_pos())
 
 func can_recenter() -> bool:
 	return true

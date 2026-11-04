@@ -13,6 +13,7 @@ signal daily_changed
 signal relation_up(level: int)
 signal pet_level_up(level: int)
 
+const VoiceScript := preload("res://scripts/autoload/voice.gd")
 const SAVE_PATH := "user://save.json"
 const BACKUP_PATH := "user://save.bak.json"
 const TMP_PATH := "user://save.tmp.json"
@@ -264,8 +265,8 @@ func sanitize_pet(p: Dictionary) -> Dictionary:
 		"xp": maxi(0, int(p.get("xp", 0))),
 		"level": clampi(int(p.get("level", 1)), 1, GameData.MAX_PET_LEVEL),
 		"last_bath": float(p.get("last_bath", 0.0)),
-		"records": p.get("records", {}) if p.get("records") is Dictionary else {},
-		"voice": p.get("voice", {}) if p.get("voice") is Dictionary else {},
+		"records": {},
+		"voice": VoiceScript.sanitize_voice(p.get("voice")),
 		"cooldowns": p.get("cooldowns", {}) if p.get("cooldowns") is Dictionary else {},
 	}
 	if out["name"].strip_edges() == "":
@@ -287,6 +288,10 @@ func sanitize_pet(p: Dictionary) -> Dictionary:
 	var traits: Dictionary = p.get("traits", {}) if p.get("traits") is Dictionary else {}
 	for t in b["traits"].keys():
 		out["traits"][t] = clampf(float(traits.get(t, b["traits"][t])), 0.0, 100.0)
+	var recs: Dictionary = p.get("records", {}) if p.get("records") is Dictionary else {}
+	for k in recs.keys():
+		if typeof(recs[k]) == TYPE_FLOAT or typeof(recs[k]) == TYPE_INT:
+			out["records"][str(k)] = float(recs[k])
 	return out
 
 func _notification(what: int) -> void:
@@ -905,6 +910,47 @@ func comp_result(cat: String, lv: int, score: float, seed_v: int) -> Dictionary:
 			toast.emit(tr("Niveau suivant débloqué en %s !") % tr(GameData.COMP_CATS[cat]["name"]))
 	save_game()
 	return {"place": place, "ranking": ranking, "prize": prize, "xp": xp}
+
+# ================================================================== Agilité / records
+## Retourne "" si le niveau d'agilité est accessible, sinon la raison.
+func agility_requirements(lv: int) -> String:
+	var p := active_pet()
+	if p.is_empty():
+		return tr("Aucun animal")
+	var L: Dictionary = GameData.AGILITY_LEVELS[clampi(lv, 0, GameData.AGILITY_LEVELS.size() - 1)]
+	if pet_level() < int(L["pet_level"]):
+		return tr("%s doit être niveau %d") % [p["name"], int(L["pet_level"])]
+	for c in L["cmds"].keys():
+		if skill(c) < float(L["cmds"][c]):
+			return tr("« %s » à %d %% requis") % [tr(GameData.COMMANDS[c]["name"]), int(L["cmds"][c])]
+	if float(p["needs"]["energy"]) < float(L["energy"]):
+		return tr("Énergie insuffisante (%d %% requis)") % int(L["energy"])
+	return ""
+
+## Record personnel de l'animal actif ; -1 si aucun.
+func record(key: String, p: Dictionary = {}) -> float:
+	if p.is_empty():
+		p = active_pet()
+	if p.is_empty():
+		return -1.0
+	var r: Dictionary = p.get("records", {})
+	return float(r.get(key, -1.0))
+
+## Enregistre un record si meilleur (plus grand, ou plus petit si higher_better = false). Retourne true si nouveau record.
+func set_record(key: String, value: float, higher_better: bool = true, p: Dictionary = {}) -> bool:
+	if p.is_empty():
+		p = active_pet()
+	if p.is_empty():
+		return false
+	if not (p.get("records") is Dictionary):
+		p["records"] = {}
+	var r: Dictionary = p["records"]
+	var old := float(r.get(key, -1.0))
+	var better := old < 0.0 or (value > old if higher_better else value < old)
+	if better:
+		r[key] = snappedf(value, 0.01)
+		mark_dirty()
+	return better
 
 # ================================================================== Statistiques / succès / objectifs
 func get_stat(key: String) -> int:

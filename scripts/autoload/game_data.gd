@@ -151,13 +151,14 @@ const COMMANDS := {
 	"down": {"name": "Couché", "gesture": "DR", "hint": "Bas puis droite", "difficulty": 1.2, "words": ["couché", "couche"], "level": 1},
 	"stand": {"name": "Debout", "gesture": "U", "hint": "Glissez vers le haut", "difficulty": 1.1, "words": ["debout"], "level": 1},
 	"come": {"name": "Viens", "gesture": "TT", "hint": "Tapez deux fois", "difficulty": 1.0, "words": ["viens", "ici"], "level": 1},
+	"stay": {"name": "Reste", "gesture": "UD", "hint": "Haut puis bas", "difficulty": 1.3, "words": ["reste", "pas bouger"], "level": 2},
 	"paw": {"name": "Donne la patte", "gesture": "R", "hint": "Glissez vers la droite", "difficulty": 1.4, "words": ["patte"], "level": 2},
 	"fetch": {"name": "Rapporte", "gesture": "L", "hint": "Glissez vers la gauche", "difficulty": 1.5, "words": ["rapporte"], "level": 2},
 	"spin": {"name": "Tourne", "gesture": "O", "hint": "Dessinez un cercle", "difficulty": 1.6, "words": ["tourne"], "level": 3},
 	"jump": {"name": "Saute", "gesture": "DU", "hint": "Bas puis haut", "difficulty": 1.8, "words": ["saute", "hop"], "level": 4},
 	"beg": {"name": "Fais le beau", "gesture": "UDU", "hint": "Haut, bas, haut", "difficulty": 2.0, "words": ["beau"], "level": 5},
 }
-const COMMAND_ORDER: Array[String] = ["sit", "down", "stand", "come", "paw", "fetch", "spin", "jump", "beg"]
+const COMMAND_ORDER: Array[String] = ["sit", "down", "stand", "come", "stay", "paw", "fetch", "spin", "jump", "beg"]
 const SKILL_LEARNED := 50.0
 const SKILL_MASTERED := 85.0
 
@@ -252,7 +253,7 @@ const ENV_ORDER: Array[String] = ["house", "garden", "park", "beach", "center", 
 
 # ------------------------------------------------------------------ Compétitions
 const COMP_CATS := {
-	"obedience": {"name": "Obéissance", "icon": "obedience", "desc": "Exécutez une série d'ordres le plus vite possible.", "skills": ["sit", "down", "stand", "come"]},
+	"obedience": {"name": "Obéissance", "icon": "obedience", "desc": "Exécutez une série d'ordres le plus vite possible.", "skills": ["sit", "down", "stand", "come", "stay"]},
 	"agility": {"name": "Agilité", "icon": "agility", "desc": "Franchissez les obstacles avec le meilleur chrono.", "skills": ["jump"]},
 	"search": {"name": "Recherche", "icon": "search", "desc": "Retrouvez les objets cachés avec un minimum d'essais.", "skills": []},
 	"tricks": {"name": "Dressage avancé", "icon": "tricks", "desc": "Enchaînez les tours avec style.", "skills": ["paw", "spin", "jump", "beg"]},
@@ -285,7 +286,7 @@ const ACHIEVEMENTS := {
 	"thrower": {"name": "Bras d'or", "desc": "Lancer 50 fois la balle.", "stat": "throw", "value": 50, "reward": 100},
 	"student": {"name": "Bon élève", "desc": "Maîtriser une commande.", "stat": "mastered", "value": 1, "reward": 100},
 	"professor": {"name": "Professeur", "desc": "Maîtriser 5 commandes.", "stat": "mastered", "value": 5, "reward": 300},
-	"genius": {"name": "Génie canin", "desc": "Maîtriser toutes les commandes.", "stat": "mastered", "value": 9, "reward": 800},
+	"genius": {"name": "Génie canin", "desc": "Maîtriser toutes les commandes.", "stat": "mastered", "value": 10, "reward": 800},
 	"first_comp": {"name": "Premiers pas", "desc": "Participer à une compétition.", "stat": "comp", "value": 1, "reward": 50},
 	"winner": {"name": "Champion !", "desc": "Gagner une compétition.", "stat": "comp_win", "value": 1, "reward": 150},
 	"champion": {"name": "Collectionneur de coupes", "desc": "Gagner 10 compétitions.", "stat": "comp_win", "value": 10, "reward": 600},
@@ -313,6 +314,40 @@ const DAILY_POOL := [
 	{"id": "d_agility", "text": "Terminer un parcours d'agilité", "stat": "agility_run", "target": 1, "reward": 40},
 	{"id": "d_treat", "text": "Donner 3 friandises", "stat": "treat", "target": 3, "reward": 20},
 ]
+
+# ------------------------------------------------------------------ Agilité
+const AGILITY_LEVELS := [
+	{"name": "Initiation", "obstacles": 4, "kinds": ["hurdle", "tunnel"], "layouts": ["oval"], "window": 2.4, "speed": 0.85, "pet_level": 3, "energy": 15.0, "cmds": {}, "coins": 20, "xp": 25},
+	{"name": "Débutant", "obstacles": 6, "kinds": ["hurdle", "tunnel", "weave", "hoop"], "layouts": ["oval", "serpentine"], "window": 2.1, "speed": 0.95, "pet_level": 4, "energy": 20.0, "cmds": {"jump": 20.0}, "coins": 35, "xp": 40},
+	{"name": "Intermédiaire", "obstacles": 8, "kinds": ["hurdle", "tunnel", "weave", "hoop", "platform", "stop"], "layouts": ["serpentine", "figure8", "loop"], "window": 1.8, "speed": 1.05, "pet_level": 6, "energy": 25.0, "cmds": {"jump": 40.0, "sit": 30.0}, "coins": 55, "xp": 60},
+	{"name": "Avancé", "obstacles": 10, "kinds": ["hurdle", "tunnel", "weave", "hoop", "platform", "stop", "walkway", "combo"], "layouts": ["figure8", "loop", "serpentine"], "window": 1.6, "speed": 1.15, "pet_level": 9, "energy": 30.0, "cmds": {"jump": 55.0, "stay": 40.0}, "coins": 80, "xp": 85},
+	{"name": "Expert", "obstacles": 12, "kinds": ["hurdle", "tunnel", "weave", "hoop", "platform", "stop", "walkway", "combo"], "layouts": ["oval", "serpentine", "figure8", "loop"], "window": 1.35, "speed": 1.3, "pet_level": 13, "energy": 35.0, "cmds": {"jump": 70.0, "stay": 60.0, "sit": 50.0}, "coins": 120, "xp": 120},
+]
+const AGILITY_OBSTACLES := {
+	"hurdle": {"name": "Haie", "action": "Saute !", "icon": "hurdle", "span": 0.0},
+	"tunnel": {"name": "Tunnel", "action": "Baisse-toi !", "icon": "tunnel", "span": 1.5},
+	"weave": {"name": "Slalom", "action": "Slalome !", "icon": "weave", "span": 1.8},
+	"hoop": {"name": "Cerceau", "action": "Traverse !", "icon": "hoop", "span": 0.0},
+	"platform": {"name": "Plateforme", "action": "Monte !", "icon": "platform", "span": 1.2},
+	"walkway": {"name": "Passerelle", "action": "Avance !", "icon": "walkway", "span": 2.6},
+	"stop": {"name": "Zone d'arrêt", "action": "Stop !", "icon": "stop_zone", "span": 0.8},
+	"combo": {"name": "Combiné", "action": "Enchaîne !", "icon": "combo", "span": 0.0},
+}
+const AGILITY_LAYOUT_NAMES := {"oval": "Ovale", "serpentine": "Serpentin", "figure8": "Huit", "loop": "Boucle"}
+## Médailles : [clé, note minimale, nom]
+const MEDALS := [["gold", 85.0, "Or"], ["silver", 65.0, "Argent"], ["bronze", 45.0, "Bronze"]]
+
+static func medal_for(score: float) -> String:
+	for m in MEDALS:
+		if score >= float(m[1]):
+			return str(m[0])
+	return ""
+
+static func medal_name(key: String) -> String:
+	for m in MEDALS:
+		if str(m[0]) == key:
+			return str(m[2])
+	return ""
 
 const SEARCH_LEVELS := [
 	{"spots": 4, "tries": 3, "objects": 1, "reward": 25},

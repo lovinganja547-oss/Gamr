@@ -47,14 +47,17 @@ func _start() -> void:
 	main.cam_rig.follow = true
 	main.cam_rig.reset_view(4.2, -0.5, 0.0)
 	# Trouvailles
-	var finds: Array = GameData.WALK_FINDS.get(main.env_id, GameData.WALK_FINDS["park"])
+	var finds: Array[String] = GameData.collectibles(main.env_id)
+	if finds.is_empty():
+		finds = GameData.collectibles("park")
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	for i in 9:
 		var p := Vector3(rng.randf_range(area.position.x + 0.5, area.end.x - 0.5), 0, rng.randf_range(area.position.y + 0.5, area.end.y - 0.5))
 		var kind := "find" if i < 6 else "scent"
-		var f: Array = finds[rng.randi() % finds.size()]
-		items.append({"pos": p, "kind": kind, "icon": f[0], "name": f[1], "node": _make_item(p, kind, f[0]), "taken": false})
+		var fid: String = finds[rng.randi() % finds.size()]
+		var f: Dictionary = GameData.item(fid)
+		items.append({"pos": p, "kind": kind, "id": fid, "icon": f["icon"], "name": f["name"], "node": _make_item(p, kind, f["icon"]), "taken": false})
 	# Autres animaux
 	for i in 2:
 		var breed: String = GameData.BREED_ORDER[rng.randi() % GameData.BREED_ORDER.size()]
@@ -157,7 +160,7 @@ func _collect(it: Dictionary) -> void:
 	if it["kind"] == "find":
 		collected += 1
 		coins += 6
-		GameState.add_find(it["icon"], it["name"])
+		GameState.add_item(it["id"], 1)
 		Audio.play("coin", 0.05, -4.0)
 		main.toast("[i:%s] %s !" % [it["icon"], tr(it["name"])])
 	else:

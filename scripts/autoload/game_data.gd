@@ -2,7 +2,7 @@ extends Node
 ## Données statiques du jeu (races, objets, commandes, compétitions, succès…).
 ## Toutes les chaînes affichées passent par tr() côté interface.
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const NEED_KEYS: Array[String] = ["hunger", "thirst", "clean", "energy", "mood", "health", "outside", "affection"]
 const NEED_NAMES := {
 	"hunger": "Faim", "thirst": "Soif", "clean": "Propreté", "energy": "Énergie",
@@ -227,13 +227,43 @@ const ITEMS := {
 	"frame_sun": {"name": "Tableau soleil", "cat": "deco", "slot": "frame", "icon": "frame_sun", "price": 35, "color": Color(0.98, 0.75, 0.3), "desc": "Plein d'énergie."},
 	"frame_sea": {"name": "Tableau mer", "cat": "deco", "slot": "frame", "icon": "frame_sea", "price": 35, "color": Color(0.3, 0.6, 0.9), "desc": "Apaisant."},
 	"toybox": {"name": "Coffre à jouets", "cat": "deco", "slot": "box", "icon": "toybox", "price": 70, "color": Color(0.55, 0.75, 0.95), "desc": "+5 humeur par jour au réveil."},
+	# Objets de collection (trouvailles de promenade et de recherche) : rareté 1 à 3, valeur de vente
+	"daisy": {"name": "Pâquerette", "cat": "collection", "icon": "daisy", "price": 0, "sell": 3, "rarity": 1, "envs": ["garden", "park"], "desc": "Cueillie dans l'herbe."},
+	"snail": {"name": "Escargot", "cat": "collection", "icon": "snail", "price": 0, "sell": 4, "rarity": 1, "envs": ["garden", "forest"], "desc": "Il a laissé une trace brillante."},
+	"leaf": {"name": "Feuille d'automne", "cat": "collection", "icon": "leaf", "price": 0, "sell": 2, "rarity": 1, "envs": ["garden", "park", "forest"], "desc": "Rousse et craquante."},
+	"worm": {"name": "Ver de terre", "cat": "collection", "icon": "worm", "price": 0, "sell": 2, "rarity": 1, "envs": ["garden"], "desc": "Il gigote encore."},
+	"strawberry": {"name": "Fraise des bois", "cat": "collection", "icon": "strawberry", "price": 0, "sell": 6, "rarity": 2, "envs": ["garden", "forest"], "desc": "Sucrée et minuscule."},
+	"acorn": {"name": "Gland", "cat": "collection", "icon": "acorn", "price": 0, "sell": 3, "rarity": 1, "envs": ["park", "forest"], "desc": "Tombé d'un chêne."},
+	"feather": {"name": "Plume", "cat": "collection", "icon": "feather", "price": 0, "sell": 4, "rarity": 1, "envs": ["park", "forest", "beach"], "desc": "Légère comme l'air."},
+	"mushroom": {"name": "Champignon", "cat": "collection", "icon": "mushroom", "price": 0, "sell": 5, "rarity": 1, "envs": ["park", "forest"], "desc": "À ne pas manger !"},
+	"butterfly": {"name": "Papillon", "cat": "collection", "icon": "butterfly", "price": 0, "sell": 8, "rarity": 2, "envs": ["garden", "park"], "desc": "Il s'est posé sur la truffe."},
+	"stick": {"name": "Joli bâton", "cat": "collection", "icon": "stick", "price": 0, "sell": 3, "rarity": 1, "envs": ["park", "forest", "center"], "desc": "Le meilleur des jouets."},
+	"maple": {"name": "Feuille d'érable", "cat": "collection", "icon": "maple", "price": 0, "sell": 4, "rarity": 1, "envs": ["park", "forest"], "desc": "Rouge flamboyant."},
+	"shell": {"name": "Coquillage", "cat": "collection", "icon": "shell", "price": 0, "sell": 5, "rarity": 1, "envs": ["beach"], "desc": "On entend la mer."},
+	"starfish": {"name": "Étoile de mer", "cat": "collection", "icon": "starfish", "price": 0, "sell": 9, "rarity": 2, "envs": ["beach"], "desc": "Cinq bras orange."},
+	"crab": {"name": "Petit crabe", "cat": "collection", "icon": "crab", "price": 0, "sell": 7, "rarity": 2, "envs": ["beach"], "desc": "Attention aux pinces."},
+	"coral": {"name": "Corail", "cat": "collection", "icon": "coral", "price": 0, "sell": 10, "rarity": 2, "envs": ["beach"], "desc": "Rose et dentelé."},
+	"pebble": {"name": "Galet rond", "cat": "collection", "icon": "pebble", "price": 0, "sell": 2, "rarity": 1, "envs": ["beach", "forest"], "desc": "Poli par les vagues."},
+	"driftwood": {"name": "Bois flotté", "cat": "collection", "icon": "driftwood", "price": 0, "sell": 4, "rarity": 1, "envs": ["beach"], "desc": "Blanchi par le sel."},
+	"pinecone": {"name": "Pomme de pin", "cat": "collection", "icon": "pinecone", "price": 0, "sell": 3, "rarity": 1, "envs": ["forest"], "desc": "Elle sent la résine."},
+	"marble": {"name": "Bille", "cat": "collection", "icon": "marble", "price": 0, "sell": 5, "rarity": 1, "envs": ["house", "garden", "center"], "desc": "Perdue sous un meuble."},
+	"sock": {"name": "Chaussette perdue", "cat": "collection", "icon": "sock", "price": 0, "sell": 2, "rarity": 1, "envs": ["house"], "desc": "Enfin retrouvée !"},
+	"coin_old": {"name": "Pièce ancienne", "cat": "collection", "icon": "coin_old", "price": 0, "sell": 18, "rarity": 2, "envs": ["house", "park", "center", "beach"], "desc": "Frappée il y a longtemps."},
+	"key_old": {"name": "Vieille clé", "cat": "collection", "icon": "key_old", "price": 0, "sell": 15, "rarity": 2, "envs": ["house", "garden", "forest"], "desc": "Quelle porte ouvre-t-elle ?"},
+	"bottle": {"name": "Bouteille à message", "cat": "collection", "icon": "bottle", "price": 0, "sell": 20, "rarity": 2, "envs": ["beach"], "desc": "Un mot d'un autre rivage."},
+	"gem": {"name": "Pierre brillante", "cat": "collection", "icon": "gem", "price": 0, "sell": 60, "rarity": 3, "envs": ["forest", "beach", "park"], "desc": "Elle scintille au soleil."},
+	"bone_old": {"name": "Os fossile", "cat": "collection", "icon": "bone_old", "price": 0, "sell": 45, "rarity": 3, "envs": ["forest", "garden"], "desc": "Un trésor de chien."},
+	"medal_old": {"name": "Médaille oubliée", "cat": "collection", "icon": "medal_old", "price": 0, "sell": 50, "rarity": 3, "envs": ["park", "center", "house"], "desc": "Un champion l'a perdue."},
+	"pearl": {"name": "Perle nacrée", "cat": "collection", "icon": "pearl", "price": 0, "sell": 70, "rarity": 3, "envs": ["beach"], "desc": "Cachée dans une huître."},
 }
-const SHOP_TABS: Array[String] = ["food", "treat", "care", "toy", "collar", "accessory", "deco", "env"]
+const SHOP_TABS: Array[String] = ["food", "treat", "care", "toy", "collar", "accessory", "deco", "env", "sell"]
 const SHOP_TAB_NAMES := {
 	"food": "Repas", "treat": "Friandises", "care": "Soins", "toy": "Jouets", "collar": "Colliers",
-	"accessory": "Accessoires", "deco": "Déco", "env": "Lieux",
+	"accessory": "Accessoires", "deco": "Déco", "env": "Lieux", "sell": "Vendre",
 }
-const CONSUMABLE_CATS: Array[String] = ["food", "treat", "care"]
+## Catégories comptées dans l'inventaire (empilables) : consommables et objets de collection.
+const CONSUMABLE_CATS: Array[String] = ["food", "treat", "care", "collection"]
+const RARITY_NAMES := ["", "Courant", "Peu courant", "Rare"]
 const DECO_SLOTS: Array[String] = ["wall", "rug", "sofa", "bed", "plant", "lamp", "frame", "box"]
 const DECO_SLOT_NAMES := {
 	"wall": "Murs", "rug": "Tapis", "sofa": "Canapé", "bed": "Couchage", "plant": "Plante",
@@ -245,11 +275,12 @@ const ENVIRONMENTS := {
 	"house": {"name": "Maison", "icon": "house", "price": 0, "level": 1, "amb": "amb_house", "walk": false},
 	"garden": {"name": "Jardin", "icon": "garden", "price": 0, "level": 1, "amb": "amb_garden", "walk": true},
 	"park": {"name": "Parc", "icon": "park", "price": 150, "level": 2, "amb": "amb_park", "walk": true},
+	"forest": {"name": "Forêt", "icon": "forest", "price": 250, "level": 3, "amb": "amb_forest", "walk": true},
 	"beach": {"name": "Plage", "icon": "beach", "price": 400, "level": 4, "amb": "amb_beach", "walk": true},
-	"center": {"name": "Centre de dressage", "icon": "center", "price": 0, "level": 1, "amb": "amb_center", "walk": false},
+	"center": {"name": "Terrain d'entraînement", "icon": "center", "price": 0, "level": 1, "amb": "amb_center", "walk": false},
 	"shelter": {"name": "Refuge", "icon": "shelter", "price": 0, "level": 1, "amb": "amb_shelter", "walk": false},
 }
-const ENV_ORDER: Array[String] = ["house", "garden", "park", "beach", "center", "shelter"]
+const ENV_ORDER: Array[String] = ["house", "garden", "park", "forest", "beach", "center", "shelter"]
 
 # ------------------------------------------------------------------ Compétitions
 const COMP_CATS := {
@@ -349,19 +380,39 @@ static func medal_name(key: String) -> String:
 			return str(m[2])
 	return ""
 
+# ------------------------------------------------------------------ Recherche
+## tries = erreurs tolérées, clues = usages du flair, rare = chance d'objet rare par objet caché
 const SEARCH_LEVELS := [
-	{"spots": 4, "tries": 3, "objects": 1, "reward": 25},
-	{"spots": 6, "tries": 4, "objects": 2, "reward": 45},
-	{"spots": 8, "tries": 5, "objects": 3, "reward": 70},
-	{"spots": 10, "tries": 5, "objects": 3, "reward": 100},
-	{"spots": 12, "tries": 6, "objects": 4, "reward": 140},
+	{"name": "Facile", "spots": 4, "tries": 3, "objects": 1, "clues": 2, "rare": 0.03, "reward": 25, "xp": 15},
+	{"name": "Simple", "spots": 6, "tries": 4, "objects": 2, "clues": 2, "rare": 0.06, "reward": 45, "xp": 25},
+	{"name": "Moyen", "spots": 8, "tries": 4, "objects": 3, "clues": 2, "rare": 0.1, "reward": 70, "xp": 35},
+	{"name": "Difficile", "spots": 10, "tries": 5, "objects": 3, "clues": 1, "rare": 0.14, "reward": 100, "xp": 45},
+	{"name": "Expert", "spots": 12, "tries": 5, "objects": 4, "clues": 1, "rare": 0.2, "reward": 140, "xp": 60},
 ]
-
-const WALK_FINDS := {
-	"garden": [["daisy", "Pâquerette"], ["snail", "Escargot"], ["leaf", "Feuille d'automne"], ["worm", "Ver de terre"], ["strawberry", "Fraise des bois"]],
-	"park": [["acorn", "Gland"], ["feather", "Plume"], ["mushroom", "Champignon"], ["butterfly", "Papillon"], ["stick", "Joli bâton"], ["maple", "Feuille d'érable"]],
-	"beach": [["shell", "Coquillage"], ["starfish", "Étoile de mer"], ["crab", "Petit crabe"], ["coral", "Corail"], ["pebble", "Galet rond"], ["driftwood", "Bois flotté"]],
+const SEARCH_ENVS: Array[String] = ["house", "garden", "park", "forest", "beach", "center"]
+## Cachettes : kind -> nom affiché (le lieu fournit position, type et libellé précis)
+const HIDE_KINDS := {
+	"under": "sous un meuble", "cushion": "sous un coussin", "box": "dans un carton", "basket": "dans un panier",
+	"bush": "dans un buisson", "leaves": "sous un tas de feuilles", "rock": "derrière un rocher", "log": "derrière un tronc",
+	"flowerbed": "dans les fleurs", "sand": "sous le sable", "crate": "dans une caisse", "tire": "dans un pneu",
 }
+## Objets que l'on peut trouver en recherche, en plus des objets de collection du lieu
+const SEARCH_TOYS: Array[String] = ["tennis", "disc", "rope", "plush"]
+const SEARCH_ACCESSORIES: Array[String] = ["hat", "glasses", "scarf"]
+
+## Objets de collection disponibles dans un lieu (rareté facultative).
+static func collectibles(env: String, rarity: int = 0) -> Array[String]:
+	var out: Array[String] = []
+	for id in ITEMS.keys():
+		var it: Dictionary = ITEMS[id]
+		if it.get("cat", "") != "collection":
+			continue
+		if not (it.get("envs", []) as Array).has(env):
+			continue
+		if rarity > 0 and int(it.get("rarity", 1)) != rarity:
+			continue
+		out.append(id)
+	return out
 
 static func item(id: String) -> Dictionary:
 	return ITEMS.get(id, {})

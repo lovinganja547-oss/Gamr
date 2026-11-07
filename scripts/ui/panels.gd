@@ -159,7 +159,53 @@ static func shop(tab: String = "food") -> void:
 	var coins := UiKit.label("[i:coin] " + _t("Vos pièces : %d") % GameState.coins(), 26, UiKit.C_SUB)
 	v.add_child(coins)
 	var list := UiKit.vbox(10)
-	if tab == "env":
+	if tab == "sell":
+		var any_s := false
+		var all_v := 0
+		for id in GameData.ITEMS.keys():
+			var its: Dictionary = GameData.ITEMS[id]
+			if not GameState.CONSUMABLE_CAT(its) or GameState.item_count(id) <= 0:
+				continue
+			if its["cat"] != "collection" and its["cat"] != "treat" and its["cat"] != "food" and its["cat"] != "care":
+				continue
+			any_s = true
+			var sid: String = id
+			var cnt := GameState.item_count(id)
+			var unit := GameState.sell_value(id)
+			all_v += unit * cnt if its["cat"] == "collection" else 0
+			var c := _card()
+			var info := UiKit.vbox(2)
+			info.add_child(UiKit.label("[i:%s] %s  (×%d)" % [its["icon"], _t(its["name"]), cnt], 28))
+			var sub := _t("%d pièces l'unité") % unit
+			if its["cat"] == "collection":
+				sub += " · " + _t(GameData.RARITY_NAMES[int(its.get("rarity", 1))])
+			info.add_child(UiKit.label(sub, 21, UiKit.C_SUB))
+			var hb := UiKit.hbox(6)
+			var b1 := UiKit.button("[i:coin] +%d" % unit, func():
+				var g := GameState.sell(sid, 1)
+				if g > 0:
+					Audio.play("coin")
+					_m().close_panel()
+					shop("sell"), UiKit.C_GOLD, 22, 76)
+			b1.custom_minimum_size = Vector2(120, 76)
+			hb.add_child(b1)
+			if cnt > 1:
+				var ball := UiKit.button(_t("Tout"), func():
+					var g := GameState.sell(sid, GameState.item_count(sid))
+					if g > 0:
+						Audio.play("coin")
+						_m().toast(_t("Vendu : +%d pièces") % g)
+						_m().close_panel()
+						shop("sell"), UiKit.C_ACCENT2, 22, 76)
+				ball.custom_minimum_size = Vector2(90, 76)
+				hb.add_child(ball)
+			c.add_child(_row(info, hb))
+			list.add_child(c)
+		if not any_s:
+			list.add_child(UiKit.label(_t("Rien à vendre : partez en promenade ou jouez au jeu de recherche pour ramasser des trouvailles."), 24, UiKit.C_SUB))
+		else:
+			list.add_child(UiKit.label(_t("Valeur totale des trouvailles : %d pièces") % all_v, 22, UiKit.C_SUB))
+	elif tab == "env":
 		for id in GameData.ENV_ORDER:
 			var e: Dictionary = GameData.ENVIRONMENTS[id]
 			if int(e["price"]) <= 0:
@@ -187,7 +233,7 @@ static func shop(tab: String = "food") -> void:
 	else:
 		for id in GameData.ITEMS.keys():
 			var it: Dictionary = GameData.ITEMS[id]
-			if it["cat"] != tab or (int(it["price"]) == 0 and not GameState.CONSUMABLE_CAT(it)):
+			if it["cat"] != tab or int(it["price"]) == 0:
 				continue
 			var iid: String = id
 			var consumable := GameState.CONSUMABLE_CAT(it)
@@ -256,16 +302,42 @@ static func inventory() -> void:
 	v.add_child(tg)
 	v.add_child(UiKit.button(_t("Colliers et accessoires"), func(): customize(), UiKit.C_ACCENT2, 26, 80))
 	v.add_child(UiKit.button(_t("Décorer la maison"), func(): deco(), UiKit.C_BLUE, 26, 80))
-	var fd: Dictionary = GameState.data["finds"]
-	if not fd.is_empty():
-		v.add_child(UiKit.label(_t("Trouvailles de promenade"), 30))
-		var keys: Array = fd.keys()
-		keys.sort()
-		var txt := ""
-		for k in keys:
-			txt += "%s ×%d   " % [k, int(fd[k])]
-		v.add_child(UiKit.label(txt, 24, UiKit.C_SUB))
+	var fg := HFlowContainer.new()
+	fg.add_theme_constant_override("h_separation", 10)
+	fg.add_theme_constant_override("v_separation", 10)
+	var total_sell := 0
+	for id in GameData.ITEMS.keys():
+		var it3: Dictionary = GameData.ITEMS[id]
+		if it3["cat"] != "collection" or GameState.item_count(id) <= 0:
+			continue
+		var iid3: String = id
+		total_sell += GameState.sell_value(id) * GameState.item_count(id)
+		fg.add_child(UiKit.icon_button(it3["icon"], "%s ×%d" % [_t(it3["name"]), GameState.item_count(id)], func(): _collectible_info(iid3), Color(1, 0.97, 0.9), 132))
+	if fg.get_child_count() > 0:
+		v.add_child(UiKit.label("[i:sell] " + _t("Trouvailles (valeur : %d pièces)") % total_sell, 30))
+		v.add_child(fg)
+		v.add_child(UiKit.button("[i:shop] " + _t("Vendre des trouvailles"), func():
+			_m().close_panel()
+			shop("sell"), UiKit.C_GOLD, 26, 80))
 	_m().open_panel("[i:inventory] " + _t("Sac"), UiKit.scroll(v))
+
+static func _collectible_info(id: String) -> void:
+	var it := GameData.item(id)
+	var v := UiKit.vbox(12)
+	v.add_child(UiKit.label("[i:%s] %s" % [it["icon"], _t(it["name"])], 34))
+	v.add_child(UiKit.label(_t(it.get("desc", "")), 26, UiKit.C_SUB))
+	var envs: Array[String] = []
+	for e in it.get("envs", []):
+		envs.append(_t(GameData.ENVIRONMENTS[e]["name"]))
+	v.add_child(UiKit.label(_t("Rareté : %s · Valeur : %d pièces · Lieux : %s") % [_t(GameData.RARITY_NAMES[int(it.get("rarity", 1))]), GameState.sell_value(id), ", ".join(envs)], 22, UiKit.C_SUB))
+	v.add_child(UiKit.label(_t("Vous en avez %d.") % GameState.item_count(id), 24))
+	v.add_child(UiKit.button("[i:coin] " + _t("Vendre un exemplaire (+%d)") % GameState.sell_value(id), func():
+		var g := GameState.sell(id, 1)
+		if g > 0:
+			Audio.play("coin")
+			_m().toast(_t("Vendu : +%d pièces") % g)
+		_m().close_panel(), UiKit.C_GOLD, 26, 80))
+	_m().open_panel(_t("Trouvaille"), UiKit.scroll(v))
 
 static func _use_item(iid: String) -> void:
 	_m().close_panel()

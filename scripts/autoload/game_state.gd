@@ -58,8 +58,10 @@ func default_data() -> Dictionary:
 		"daily": {"day": "", "list": []},
 		"days_played": [],
 		"comp": {"obedience": -1, "agility": -1, "search": -1, "tricks": -1},
-		"trophies": [], "photos": [], "finds": {},
+		"trophies": [], "photos": [],
 		"search_level": 0,
+		"search_daily": {"day": "", "done": false, "seed": 0},
+		"collection_seen": [],
 		"bowls": {"food": 0.0, "water": 0.0},
 		"tutorial": {"done": false},
 		"settings": {"master": 0.9, "music": 0.6, "sfx": 0.9, "quality": 1, "voice": false, "vibration": true, "locale": "fr", "text_scale": 0, "reduce_motion": false, "sensitivity": 1.0},
@@ -219,6 +221,19 @@ func sanitize(src: Dictionary) -> Dictionary:
 						lv = i + 1
 				p["level"] = lv
 				p["xp"] = 0
+	if src_version < 3 and src.get("finds") is Dictionary:
+		# v2 -> v3 : les trouvailles (clés texte « icône Nom ») deviennent des objets d'inventaire
+		for key in src["finds"].keys():
+			var icon := str(key).get_slice(" ", 0)
+			var cnt := int(src["finds"][key])
+			for id in GameData.ITEMS.keys():
+				var it: Dictionary = GameData.ITEMS[id]
+				if it.get("cat", "") == "collection" and it.get("icon", "") == icon:
+					d["inventory"][id] = mini(999, int(d["inventory"].get(id, 0)) + maxi(0, cnt))
+					break
+	if not (d["search_daily"] is Dictionary):
+		d["search_daily"] = defs["search_daily"]
+	d["search_daily"] = {"day": str(d["search_daily"].get("day", "")), "done": bool(d["search_daily"].get("done", false)), "seed": int(d["search_daily"].get("seed", 0))}
 	d["version"] = GameData.SAVE_VERSION
 	var pets: Array = []
 	for p in d["pets"]:
@@ -1026,11 +1041,55 @@ func claim_daily(idx: int) -> bool:
 	daily_changed.emit()
 	return true
 
-func add_find(icon: String, find_name: String) -> void:
-	var f: Dictionary = data["finds"]
-	var key := icon + " " + find_name
-	f[key] = int(f.get(key, 0)) + 1
-	inc_stat("collect", 1)
+## Ajoute un objet empilable (consommable ou objet de collection) au sac.
+func add_item(id: String, n: int = 1) -> void:
+	var it := GameData.item(id)
+	if it.is_empty() or n <= 0 or not CONSUMABLE_CAT(it):
+		return
+	data["inventory"][id] = mini(999, item_count(id) + n)
+	if it.get("cat", "") == "collection":
+		inc_stat("collect", n)
+		var seen: Array = data.get("collection_seen", [])
+		if not seen.has(id):
+			seen.append(id)
+			data["collection_seen"] = seen
+			set_stat_max("collection_kinds", seen.size())
+	inventory_changed.emit()
+	mark_dirty()
+
+## Valeur de vente d'un objet (collection : valeur propre ; autres : quart du prix).
+func sell_value(id: String) -> int:
+	var it := GameData.item(id)
+	if it.is_empty():
+		return 0
+	if it.has("sell"):
+		return int(it["sell"])
+	return int(it.get("price", 0)) / 4
+
+## Vend n exemplaires d'un objet empilable. Retourne les pièces gagnées (0 si impossible).
+func sell(id: String, n: int = 1) -> int:
+	var it := GameData.item(id)
+	if it.is_empty() or not CONSUMABLE_CAT(it) or item_count(id) < n or n <= 0:
+		return 0
+	var v := sell_value(id) * n
+	consume(id, n)
+	add_coins(v)
+	inc_stat("sold", n)
+	return v
+
+## Donne un objet non empilable trouvé (jouet, accessoire) : possédé, ou converti en pièces s'il l'est déjà.
+func grant_owned(id: String) -> int:
+	var it := GameData.item(id)
+	if it.is_empty() or CONSUMABLE_CAT(it):
+		return 0
+	if data["owned"].has(id):
+		var v := maxi(5, int(it.get("price", 0)) / 4)
+		add_coins(v)
+		return v
+	data["owned"].append(id)
+	inventory_changed.emit()
+	mark_dirty()
+	return 0
 
 # ================================================================== Paramètres
 func setting(key: String) -> Variant:

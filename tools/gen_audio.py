@@ -179,6 +179,15 @@ def ambience():
     for st, f0 in ((2.0, 520), (5.5, 380), (9.0, 600)):
         b = bark(f0, 0.18) * 0.18; p = int(st * SR); yb[p:p + len(b)] += b
     save("amb_shelter", norm(loopfade(yb + birds(4, 21) * 0.5), 0.3), loop=True)
+    # Forêt : vent dans les feuilles, beaucoup d'oiseaux, pic-vert
+    rf = np.random.default_rng(77)
+    rustle = lp(rf.normal(0, 1, n + SR), 0.03) * 1.2 * (0.5 + 0.5 * np.sin(2 * np.pi * tt2 / 5.0))
+    wood = np.zeros(n + SR)
+    for k in range(7):
+        p = int((1.5 + k * 0.09) * SR); tap = tone([900], 0.03, 60, (1, 0.3)) * 0.4; wood[p:p + len(tap)] += tap
+    for k in range(5):
+        p = int((7.0 + k * 0.1) * SR); tap = tone([850], 0.03, 60, (1, 0.3)) * 0.35; wood[p:p + len(tap)] += tap
+    save("amb_forest", norm(loopfade(wind * 0.7 + birds(20, 31) + rustle * 0.5 + wood), 0.35), loop=True)
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)

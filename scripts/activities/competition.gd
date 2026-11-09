@@ -31,6 +31,8 @@ func _start() -> void:
 			_run_sub(AgilityGame.new({"comp": true, "level": mini(level + 1, GameData.AGILITY_LEVELS.size() - 1)}))
 		"search":
 			_run_sub(SearchGame.new({"comp": true, "level": mini(level + 1, GameData.SEARCH_LEVELS.size() - 1)}))
+		"walk":
+			_run_sub(WalkActivity.new({"route": GameData.COMP_WALK_ROUTES[clampi(level, 0, GameData.COMP_WALK_ROUTES.size() - 1)], "comp": true}))
 		_:
 			make_top("[i:%s] %s · %s" % [cd["icon"], tr(cd["name"]), tr(GameData.COMP_LEVELS[level]["name"])])
 			_setup_sequence()
@@ -200,7 +202,7 @@ func _results(score: float) -> void:
 	var medals := ["medal_gold", "medal_silver", "medal_bronze"]
 	# Podium
 	pet.busy = true
-	if place <= 3:
+	if place <= 3 and cat != "walk":
 		var pos: Vector3 = [Vector3(6.0, 0.5, -6.0), Vector3(5.1, 0.35, -6.0), Vector3(6.9, 0.25, -6.0)][place - 1]
 		pet.stop_moving()
 		pet.position = pos

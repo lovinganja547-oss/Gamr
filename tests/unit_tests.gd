@@ -69,7 +69,7 @@ func _ready() -> void:
 	ok(GS.data["daily"]["list"].size() == 3, "3 objectifs")
 	var e: Dictionary = GS.data["daily"]["list"][0]
 	var d := GS.daily_def(e["id"])
-	GS.inc_stat(d["stat"], int(d["target"]))
+	GS.inc_stat(d["stat"], GS.daily_target(e))
 	var cc := GS.coins()
 	ok(GS.claim_daily(0) and GS.coins() > cc, "récompense objectif")
 	ok(not GS.claim_daily(0), "pas de double réclamation")
@@ -113,6 +113,46 @@ func _ready() -> void:
 		ok(dup == 1, "geste unique " + cmd)
 	# Voix : FFT, caractéristiques, détection, qualité, reconnaissance
 	_voice_tests()
+	# Phase 8 : missions adaptées, connexion, classements, déblocages, vente, migration
+	GS.data["daily"] = {"day": "", "list": []}
+	GS.active_pet()["level"] = 9
+	GS.ensure_daily()
+	var tiers_ok := true
+	for x in GS.data["daily"]["list"]:
+		if int(x["tier"]) != 2:
+			tiers_ok = false
+	ok(tiers_ok and GS.data["daily"]["list"].size() == 3, "missions au palier 2")
+	ok(GS.daily_target({"id": "d_pet", "tier": 2}) == 40 and GS.daily_target({"id": "d_pet", "tier": 0}) == 20, "cible selon palier")
+	ok(GS.daily_text({"id": "d_pet", "tier": 1}).find("30") >= 0, "texte de mission")
+	for k in 3:
+		var ee: Dictionary = GS.data["daily"]["list"][k]
+		GS.inc_stat(GS.daily_def(ee["id"])["stat"], GS.daily_target(ee))
+	var c_before := GS.coins()
+	GS.claim_daily(0); GS.claim_daily(1); GS.claim_daily(2)
+	ok(GS.data["daily"]["bonus"] == true and GS.coins() > c_before + 40, "bonus 3 missions")
+	GS.data["login"] = {"last": "", "streak": 0, "claimed": ""}
+	ok(GS.login_check() == 0, "connexion jour 1")
+	var lc := GS.coins()
+	ok(not GS.login_claim().is_empty() and GS.coins() == lc + 30, "récompense jour 1")
+	ok(GS.login_check() == -1 and GS.login_claim().is_empty(), "pas de double récompense")
+	var y := Time.get_date_string_from_unix_time(int(Time.get_unix_time_from_system()) - 86400)
+	GS.data["login"] = {"last": y, "streak": 3, "claimed": y}
+	ok(GS.login_check() == 3 and int(GS.data["login"]["streak"]) == 4, "série de connexion")
+	GS.data["login"] = {"last": "2000-01-01", "streak": 5, "claimed": "2000-01-01"}
+	ok(GS.login_check() == 0, "série remise à zéro")
+	for sc in [50.0, 80.0, 65.0]:
+		GS.board_add("test_board", sc)
+	ok(GS.data["boards"]["test_board"][0]["score"] == 80.0 and GS.data["boards"]["test_board"].size() == 3, "classement local trié")
+	ok(GS.breed_unlocked("shepherd") and GS.unlock_level() == 9, "races débloquées par niveau")
+	GS.active_pet()["level"] = 1
+	ok(not GS.breed_unlocked("poodle") and GS.breed_unlocked("cat"), "race verrouillée")
+	GS.add_item("gem", 2)
+	var cg := GS.coins()
+	ok(GS.sell("gem", 1) == 60 and GS.coins() == cg + 60 and GS.item_count("gem") == 1, "vente objet de collection")
+	ok(GS.data["collection_seen"].has("gem"), "collection découverte")
+	var mig := GS.sanitize({"version": 2, "finds": {"shell Coquillage": 3}, "pets": []})
+	ok(int(mig["inventory"].get("shell", 0)) == 3 and int(mig["version"]) == GameData.SAVE_VERSION, "migration v2 -> v3 des trouvailles")
+	ok(GameData.COMP_ORDER.has("walk") and GameData.route("park_pond")["length"] == 300, "défi de promenade et itinéraires")
 	# Nettoyage
 	GS.reset_game()
 	print("TESTS: %d OK, %d ECHECS" % [passes, fails])

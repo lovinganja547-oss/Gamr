@@ -127,7 +127,11 @@ func _fill_info() -> void:
 	info_box.add_child(g)
 	var price := 0 if first else GameData.ADOPT_PRICE
 	var txt := tr("Adopter") if price == 0 else "[i:coin] " + tr("Adopter (%d pièces)") % price
+	var bid: String = GameData.BREED_ORDER[idx]
+	if not GameState.breed_unlocked(bid):
+		txt = "[i:lock] " + tr("Débloquée au niveau %d") % int(GameData.BREED_LEVELS[bid])
 	var btn := UiKit.button(txt, _adopt, UiKit.C_ACCENT, 34, 96)
+	btn.disabled = not GameState.breed_unlocked(bid)
 	info_box.add_child(btn)
 	if not first:
 		info_box.add_child(UiKit.button(tr("Retour à la maison"), func():
@@ -140,9 +144,11 @@ func _move(d: int) -> void:
 	_focus()
 
 func _adopt() -> void:
+	if not GameState.breed_unlocked(GameData.BREED_ORDER[idx]):
+		return
 	if not first:
-		if GameState.level() < 2:
-			Main.inst.toast(tr("Atteignez le niveau 2 pour adopter un autre animal."))
+		if GameState.unlock_level() < 2:
+			Main.inst.toast(tr("Votre compagnon doit atteindre le niveau 2 pour adopter un autre animal."))
 			return
 		if GameState.coins() < GameData.ADOPT_PRICE:
 			Main.inst.toast(tr("Pas assez de pièces"))
@@ -218,9 +224,16 @@ func _build_custom(refocus: bool = false, detail: String = "") -> void:
 	ph.add_theme_constant_override("h_separation", 12)
 	for i in b["palettes"].size():
 		var ii: int = i
-		ph.add_child(UiKit.swatch(b["palettes"][i]["main"], i == custom["palette"], func():
+		var need: int = GameData.PALETTE_LEVELS[mini(i, GameData.PALETTE_LEVELS.size() - 1)]
+		var sw := UiKit.swatch(b["palettes"][i]["main"], i == custom["palette"], func():
+			if GameState.unlock_level() < need:
+				Main.inst.toast("[i:lock] " + tr("Pelage débloqué au niveau %d") % need)
+				return
 			custom["palette"] = ii
-			_build_custom(false, "body")))
+			_build_custom(false, "body"))
+		if GameState.unlock_level() < need:
+			sw.modulate = Color(1, 1, 1, 0.35)
+		ph.add_child(sw)
 	inner.add_child(ph)
 	# Yeux
 	inner.add_child(UiKit.label(tr("Yeux : %s") % tr(GameData.EYE_NAMES[custom["eyes"]]), 26, UiKit.C_SUB))
@@ -228,9 +241,16 @@ func _build_custom(refocus: bool = false, detail: String = "") -> void:
 	eh.add_theme_constant_override("h_separation", 12)
 	for i in GameData.EYE_COLORS.size():
 		var ii: int = i
-		eh.add_child(UiKit.swatch(GameData.EYE_COLORS[i], i == custom["eyes"], func():
+		var need_e: int = GameData.EYE_LEVELS[mini(i, GameData.EYE_LEVELS.size() - 1)]
+		var swe := UiKit.swatch(GameData.EYE_COLORS[i], i == custom["eyes"], func():
+			if GameState.unlock_level() < need_e:
+				Main.inst.toast("[i:lock] " + tr("Couleur débloquée au niveau %d") % need_e)
+				return
 			custom["eyes"] = ii
-			_build_custom(false, "head"), 64))
+			_build_custom(false, "head"), 64)
+		if GameState.unlock_level() < need_e:
+			swe.modulate = Color(1, 1, 1, 0.35)
+		eh.add_child(swe)
 	inner.add_child(eh)
 	# Collier
 	inner.add_child(UiKit.label(tr("Collier"), 26, UiKit.C_SUB))

@@ -57,7 +57,9 @@ func default_data() -> Dictionary:
 		"achievements": [], "stats": {},
 		"daily": {"day": "", "list": []},
 		"days_played": [],
-		"comp": {"obedience": -1, "agility": -1, "search": -1, "tricks": -1},
+		"comp": {"obedience": -1, "agility": -1, "search": -1, "tricks": -1, "walk": -1},
+		"login": {"last": "", "streak": 0, "claimed": ""},
+		"boards": {},
 		"trophies": [], "photos": [],
 		"search_level": 0,
 		"search_daily": {"day": "", "done": false, "seed": 0},
@@ -234,6 +236,14 @@ func sanitize(src: Dictionary) -> Dictionary:
 	if not (d["search_daily"] is Dictionary):
 		d["search_daily"] = defs["search_daily"]
 	d["search_daily"] = {"day": str(d["search_daily"].get("day", "")), "done": bool(d["search_daily"].get("done", false)), "seed": int(d["search_daily"].get("seed", 0))}
+	if not (d["login"] is Dictionary):
+		d["login"] = defs["login"]
+	d["login"] = {"last": str(d["login"].get("last", "")), "streak": maxi(0, int(d["login"].get("streak", 0))), "claimed": str(d["login"].get("claimed", ""))}
+	if not (d["boards"] is Dictionary):
+		d["boards"] = {}
+	for ck in defs["comp"].keys():
+		if not d["comp"].has(ck):
+			d["comp"][ck] = -1
 	d["version"] = GameData.SAVE_VERSION
 	var pets: Array = []
 	for p in d["pets"]:
@@ -644,7 +654,7 @@ func buy(id: String) -> String:
 	var it := GameData.item(id)
 	if it.is_empty():
 		return tr("Objet inconnu")
-	if level() < int(it.get("level", 1)):
+	if unlock_level() < int(it.get("level", 1)):
 		return tr("Niveau %d requis") % int(it.get("level", 1))
 	if not CONSUMABLE_CAT(it) and data["owned"].has(id):
 		return tr("Déjà possédé")
@@ -672,7 +682,7 @@ func buy_env(id: String) -> String:
 		return tr("Lieu inconnu")
 	if data["envs"].has(id):
 		return tr("Déjà débloqué")
-	if level() < int(e["level"]):
+	if unlock_level() < int(e["level"]):
 		return tr("Niveau %d requis") % int(e["level"])
 	if not spend(int(e["price"])):
 		return tr("Pas assez de pièces")
@@ -910,6 +920,7 @@ func comp_result(cat: String, lv: int, score: float, seed_v: int) -> Dictionary:
 	elif place == 3:
 		prize = int(L["prize"]) / 4; xp = int(L["xp"]) / 2
 	inc_stat("comp", 1)
+	board_add("comp_%s_%d" % [cat, lv], score)
 	add_coins(prize)
 	add_xp(xp)
 	add_relation(10)
@@ -1000,15 +1011,20 @@ func ensure_daily() -> void:
 	if data["daily"].get("day", "") == day and data["daily"].get("list", []).size() == 3:
 		return
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(day)
-	var pool := range(GameData.DAILY_POOL.size())
+	rng.seed = hash(day + str(data.get("active_pet", "")))
+	var lv := pet_level()
+	var tier := 0 if lv < 4 else (1 if lv < 8 else 2)
+	var pool: Array = []
+	for i in GameData.DAILY_POOL.size():
+		if int(GameData.DAILY_POOL[i].get("min", 1)) <= lv:
+			pool.append(i)
 	var list: Array = []
-	for i in 3:
+	for i in mini(3, pool.size()):
 		var j := rng.randi_range(0, pool.size() - 1)
 		var d: Dictionary = GameData.DAILY_POOL[pool[j]]
 		pool.remove_at(j)
-		list.append({"id": d["id"], "progress": 0, "claimed": false})
-	data["daily"] = {"day": day, "list": list}
+		list.append({"id": d["id"], "progress": 0, "claimed": false, "tier": tier})
+	data["daily"] = {"day": day, "list": list, "bonus": false}
 	daily_changed.emit()
 
 func daily_def(id: String) -> Dictionary:
@@ -1017,14 +1033,32 @@ func daily_def(id: String) -> Dictionary:
 			return d
 	return {}
 
+## Cible d'une mission selon son palier.
+func daily_target(e: Dictionary) -> int:
+	var d := daily_def(e.get("id", ""))
+	var t: Variant = d.get("target", 1)
+	if t is Array:
+		return int(t[clampi(int(e.get("tier", 0)), 0, t.size() - 1)])
+	return int(t)
+
+func daily_reward(e: Dictionary) -> int:
+	var d := daily_def(e.get("id", ""))
+	return int(round(float(d.get("reward", 20)) * (1.0 + int(e.get("tier", 0)) * 0.5)))
+
+func daily_text(e: Dictionary) -> String:
+	var d := daily_def(e.get("id", ""))
+	var t := tr(str(d.get("text", "")))
+	return t % daily_target(e) if t.find("%d") >= 0 else t
+
 func _progress_daily(stat: String, n: int) -> void:
 	for e in data["daily"].get("list", []):
 		var d := daily_def(e["id"])
 		if d.get("stat", "") == stat and not e["claimed"]:
 			var before := int(e["progress"])
-			e["progress"] = mini(int(d["target"]), before + n)
-			if before < int(d["target"]) and int(e["progress"]) >= int(d["target"]):
-				toast.emit(tr("Objectif du jour terminé ! Récupérez la récompense."))
+			var target := daily_target(e)
+			e["progress"] = mini(target, before + n)
+			if before < target and int(e["progress"]) >= target:
+				toast.emit("[i:calendar] " + tr("Mission du jour terminée ! Récupérez la récompense."))
 			daily_changed.emit()
 
 func claim_daily(idx: int) -> bool:
@@ -1032,14 +1066,77 @@ func claim_daily(idx: int) -> bool:
 	if idx < 0 or idx >= list.size():
 		return false
 	var e: Dictionary = list[idx]
-	var d := daily_def(e["id"])
-	if e["claimed"] or int(e["progress"]) < int(d.get("target", 1)):
+	if e["claimed"] or int(e["progress"]) < daily_target(e):
 		return false
 	e["claimed"] = true
-	add_coins(int(d["reward"]))
-	add_xp(20)
+	add_coins(daily_reward(e))
+	add_xp(15 + int(e.get("tier", 0)) * 10)
+	var all_done := true
+	for x in list:
+		if not x["claimed"]:
+			all_done = false
+	if all_done and not data["daily"].get("bonus", false):
+		data["daily"]["bonus"] = true
+		add_coins(40)
+		inc_stat("daily_all", 1)
+		toast.emit("[i:daily_star] " + tr("Toutes les missions du jour : bonus +40 pièces !"))
 	daily_changed.emit()
 	return true
+
+# ================================================================== Connexion quotidienne
+## Met à jour la série de jours ; retourne l'indice (0..6) de la récompense du jour si elle n'est pas encore réclamée, sinon -1.
+func login_check() -> int:
+	var lg: Dictionary = data.get("login", {})
+	var day := today()
+	if lg.get("last", "") != day:
+		var y := Time.get_date_string_from_unix_time(int(Time.get_unix_time_from_system()) - 86400)
+		lg["streak"] = (int(lg.get("streak", 0)) + 1) if lg.get("last", "") == y else 1
+		lg["last"] = day
+		data["login"] = lg
+		mark_dirty()
+	if lg.get("claimed", "") == day:
+		return -1
+	return (maxi(1, int(lg.get("streak", 1))) - 1) % GameData.LOGIN_REWARDS.size()
+
+func login_claim() -> Array:
+	var idx := login_check()
+	if idx < 0:
+		return []
+	var r: Array = GameData.LOGIN_REWARDS[idx]
+	if int(r[0]) > 0:
+		add_coins(int(r[0]))
+	if str(r[1]) != "":
+		add_item(str(r[1]), int(r[2]))
+	data["login"]["claimed"] = today()
+	inc_stat("login", 1)
+	mark_dirty()
+	return r
+
+# ================================================================== Déblocages et classements
+## Niveau de référence des déblocages : le compagnon le plus avancé.
+func unlock_level() -> int:
+	var best := 1
+	for p in data.get("pets", []):
+		best = maxi(best, int(p.get("level", 1)))
+	return best
+
+func breed_unlocked(b: String) -> bool:
+	return unlock_level() >= int(GameData.BREED_LEVELS.get(b, 1))
+
+## Enregistre un score dans le classement local d'une épreuve (10 meilleurs).
+func board_add(key: String, score: float) -> int:
+	var boards: Dictionary = data.get("boards", {})
+	var list: Array = boards.get(key, [])
+	var p := active_pet()
+	var entry := {"pet": p.get("name", "?"), "breed": p.get("breed", ""), "score": snappedf(score, 0.1), "day": today()}
+	list.append(entry)
+	list.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+	while list.size() > 10:
+		list.pop_back()
+	boards[key] = list
+	data["boards"] = boards
+	mark_dirty()
+	return list.find(entry) + 1
 
 ## Ajoute un objet empilable (consommable ou objet de collection) au sac.
 func add_item(id: String, n: int = 1) -> void:

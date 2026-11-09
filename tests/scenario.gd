@@ -27,9 +27,9 @@ func _ready() -> void:
 	main.show_screen("home")
 	await wait(0.8)
 	var sc: Array = OS.get_cmdline_user_args()
-	var name: String = sc[0] if sc.size() > 0 else "search"
-	await call("sc_" + name)
-	print("SCENARIO DONE ", name)
+	var sc_name: String = sc[0] if sc.size() > 0 else "search"
+	await call("sc_" + sc_name)
+	print("SCENARIO DONE ", sc_name)
 	get_tree().quit()
 
 func wait(t: float) -> void:
@@ -66,3 +66,46 @@ func sc_search() -> void:
 		print("SEARCH check ", i, " has=", sg.spots[i]["has"], " checked=", sg.spots[i]["checked"], " busy=", sg.busy_sniff, " pos=", sg.pet.position, " state=", sg.pet.state)
 	print("SEARCH found ", sg.found_items, " finished=", sg.finished, " errors_left=", sg.errors_left)
 	await shot("search_end")
+
+func sc_progress() -> void:
+	GameState.add_item("shell", 3)
+	GameState.add_item("gem", 1)
+	GameState.data["login"] = {"last": "", "streak": 0, "claimed": ""}
+	Panels.daily()
+	await shot("daily")
+	main.close_all_panels()
+	for t in ["pets", "breeds", "items", "acc"]:
+		Panels.collection(t)
+		await shot("collection_" + t)
+		main.close_all_panels()
+	Panels.competitions()
+	await shot("competitions")
+	main.close_all_panels()
+	# défi de promenade complet
+	GameState.active_pet()["skills"]["sit"] = 50.0
+	main.start_activity(Competition.new("walk", 0))
+	await wait(1.5)
+	var cp := main.activity as Competition
+	var w := cp.sub as WalkActivity
+	var guard := 0
+	while is_instance_valid(w) and not w.finished and guard < 900:
+		if main.has_panel():
+			main.close_panel()
+		if w.pet.state != "action":
+			var goal: Vector3 = w.home if w.returning or w.next_cp >= w.path.size() else w.path[w.next_cp]
+			for it in w.items:
+				if not it["taken"] and w.pet.position.distance_to(it["pos"]) < 2.0:
+					goal = it["pos"]
+			if w.pet.state != "moving" or w.pet._target.distance_to(goal) > 0.3:
+				w.pet.walk_to(goal, 2.2)
+		if guard == 60:
+			await shot("walk_comp")
+		await wait(0.1)
+		guard += 1
+	await wait(2.0)
+	await shot("walk_comp_result")
+	print("BOARDS ", GameState.data["boards"].keys(), " comp_walk=", GameState.data["comp"]["walk"])
+	main.close_all_panels()
+	await wait(0.5)
+	Panels.collection("records")
+	await shot("records")

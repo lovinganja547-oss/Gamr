@@ -288,8 +288,11 @@ const COMP_CATS := {
 	"agility": {"name": "Agilité", "icon": "agility", "desc": "Franchissez les obstacles avec le meilleur chrono.", "skills": ["jump"]},
 	"search": {"name": "Recherche", "icon": "search", "desc": "Retrouvez les objets cachés avec un minimum d'essais.", "skills": []},
 	"tricks": {"name": "Dressage avancé", "icon": "tricks", "desc": "Enchaînez les tours avec style.", "skills": ["paw", "spin", "jump", "beg"]},
+	"walk": {"name": "Défi de promenade", "icon": "walk", "desc": "Bouclez l'itinéraire vite en ramassant un maximum de trouvailles.", "skills": []},
 }
-const COMP_ORDER: Array[String] = ["obedience", "agility", "search", "tricks"]
+const COMP_ORDER: Array[String] = ["obedience", "agility", "search", "tricks", "walk"]
+## Itinéraire du défi de promenade selon le niveau du concours
+const COMP_WALK_ROUTES: Array[String] = ["garden_loop", "park_pond", "forest_ferns", "beach_shore"]
 const COMP_LEVELS := [
 	{"name": "Débutant", "fee": 20, "player_level": 1, "relation": 1, "skill": 30.0, "rivals": 45.0, "prize": 80, "xp": 60},
 	{"name": "Confirmé", "fee": 50, "player_level": 3, "relation": 3, "skill": 50.0, "rivals": 60.0, "prize": 180, "xp": 120},
@@ -332,19 +335,33 @@ const ACHIEVEMENTS := {
 	"level10": {"name": "Expert animalier", "desc": "Atteindre le niveau 10.", "stat": "level", "value": 10, "reward": 500},
 }
 
+## Missions du jour : la cible et la récompense augmentent avec le palier du compagnon
+## (palier 0 : niv. 1-3, 1 : niv. 4-7, 2 : niv. 8+). min = niveau minimum pour apparaître.
 const DAILY_POOL := [
-	{"id": "d_feed", "text": "Nourrir votre compagnon 2 fois", "stat": "feed", "target": 2, "reward": 30},
-	{"id": "d_pet", "text": "Faire 30 caresses", "stat": "pet", "target": 30, "reward": 25},
-	{"id": "d_train", "text": "Réussir 5 exercices de dressage", "stat": "train_ok", "target": 5, "reward": 40},
-	{"id": "d_throw", "text": "Lancer 10 fois un jouet", "stat": "throw", "target": 10, "reward": 30},
-	{"id": "d_walk", "text": "Faire une promenade", "stat": "walk", "target": 1, "reward": 40},
-	{"id": "d_bath", "text": "Donner un bain", "stat": "bath", "target": 1, "reward": 25},
-	{"id": "d_photo", "text": "Prendre 2 photos", "stat": "photo", "target": 2, "reward": 20},
-	{"id": "d_find", "text": "Trouver 3 objets cachés", "stat": "found", "target": 3, "reward": 35},
-	{"id": "d_comp", "text": "Participer à une compétition", "stat": "comp", "target": 1, "reward": 50},
-	{"id": "d_agility", "text": "Terminer un parcours d'agilité", "stat": "agility_run", "target": 1, "reward": 40},
-	{"id": "d_treat", "text": "Donner 3 friandises", "stat": "treat", "target": 3, "reward": 20},
+	{"id": "d_feed", "text": "Nourrir votre compagnon %d fois", "stat": "feed", "target": [2, 2, 3], "reward": 30, "min": 1},
+	{"id": "d_pet", "text": "Faire %d caresses", "stat": "pet", "target": [20, 30, 40], "reward": 25, "min": 1},
+	{"id": "d_treat", "text": "Donner %d friandises", "stat": "treat", "target": [2, 3, 4], "reward": 20, "min": 1},
+	{"id": "d_bath", "text": "Donner %d bain", "stat": "bath", "target": [1, 1, 1], "reward": 25, "min": 1},
+	{"id": "d_brush", "text": "Brosser votre compagnon %d fois", "stat": "brush", "target": [1, 1, 2], "reward": 20, "min": 1},
+	{"id": "d_cuddle", "text": "Partager %d moment câlin", "stat": "cuddle", "target": [1, 1, 2], "reward": 20, "min": 1},
+	{"id": "d_photo", "text": "Prendre %d photos", "stat": "photo", "target": [2, 2, 3], "reward": 20, "min": 1},
+	{"id": "d_throw", "text": "Lancer %d fois un jouet", "stat": "throw", "target": [8, 12, 16], "reward": 30, "min": 1},
+	{"id": "d_train", "text": "Réussir %d exercices de dressage", "stat": "train_ok", "target": [3, 5, 8], "reward": 40, "min": 1},
+	{"id": "d_walk", "text": "Faire %d promenade", "stat": "walk", "target": [1, 1, 2], "reward": 40, "min": 1},
+	{"id": "d_collect", "text": "Ramasser %d trouvailles", "stat": "collect", "target": [3, 5, 7], "reward": 30, "min": 1},
+	{"id": "d_sell", "text": "Vendre %d objets", "stat": "sold", "target": [2, 4, 6], "reward": 25, "min": 2},
+	{"id": "d_tug", "text": "Jouer %d fois à la corde", "stat": "tug", "target": [1, 2, 2], "reward": 25, "min": 2},
+	{"id": "d_find", "text": "Trouver %d objets cachés", "stat": "found", "target": [2, 3, 5], "reward": 35, "min": 2},
+	{"id": "d_agility", "text": "Terminer %d parcours d'agilité", "stat": "agility_run", "target": [1, 1, 2], "reward": 40, "min": 3},
+	{"id": "d_comp", "text": "Participer à %d concours", "stat": "comp", "target": [1, 1, 2], "reward": 50, "min": 4},
 ]
+## Récompense de connexion (cycle de 7 jours) : [pièces, objet, quantité]
+const LOGIN_REWARDS := [[30, "", 0], [0, "biscuit", 3], [50, "", 0], [0, "kibble", 2], [80, "", 0], [0, "cookie", 2], [150, "shampoo", 1]]
+
+# ------------------------------------------------------------------ Déblocages (niveau du compagnon le plus avancé)
+const BREED_LEVELS := {"labrador": 1, "shiba": 1, "cat": 1, "beagle": 2, "poodle": 4, "shepherd": 6}
+const PALETTE_LEVELS := [1, 1, 3, 5, 7]
+const EYE_LEVELS := [1, 1, 2, 3, 5]
 
 # ------------------------------------------------------------------ Agilité
 const AGILITY_LEVELS := [

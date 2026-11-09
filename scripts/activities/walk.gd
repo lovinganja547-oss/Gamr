@@ -45,8 +45,12 @@ var energy_bar: ProgressBar
 var obj_l: Label
 var home_btn: Button
 
+var comp := false
+var elapsed := 0.0
+
 func _init(params: Dictionary = {}) -> void:
 	route_id = str(params.get("route", ""))
+	comp = bool(params.get("comp", false))
 
 func _start() -> void:
 	make_top("[i:walk] " + tr("Promenade"))
@@ -300,6 +304,7 @@ func handle_input(event: InputEvent) -> bool:
 func _process(delta: float) -> void:
 	if finished or not started or pet == null:
 		return
+	elapsed += delta
 	var energy: float = GameState.active_pet()["needs"]["energy"]
 	if joy_active and joy_vec.length() > 0.15 and pet.state != "action":
 		var basis := main.cam_rig.cam.global_transform.basis
@@ -575,6 +580,15 @@ func _finish(arrived: bool) -> void:
 	finished = true
 	pet.stop_moving()
 	var frac := 1.0 if next_cp >= path.size() else maxf(progress(), 0.15)
+	if on_done.is_valid():
+		# défi de promenade : parcours, trouvailles et chrono
+		var par := maxf(10.0, float(path.size()) * 1.6 / 1.6)
+		var finds_k := clampf(float(collected) / maxf(1.0, float(route.get("finds", 1))), 0.0, 1.0)
+		var time_k := clampf((par * 1.6 - elapsed) / (par * 0.8), 0.0, 1.0) if arrived and frac >= 1.0 else 0.0
+		var sc := (frac * 55.0 + finds_k * 25.0 + time_k * 20.0) if arrived else frac * 30.0
+		GameState.spend_energy("walk_km", float(route.get("length", 300)) / 1000.0)
+		on_done.call(clampf(sc, 0.0, 100.0))
+		return
 	var length := float(route["length"])
 	var lines: Array = []
 	var coins := 0

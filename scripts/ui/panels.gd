@@ -665,12 +665,21 @@ static func competitions() -> void:
 				_m().confirm(_t("Inscription en %s (%s) : %d pièces. Récompense jusqu'à %d pièces.") % [_t(GameData.COMP_CATS[cc]["name"]), _t(GameData.COMP_LEVELS[ll]["name"]), int(GameData.COMP_LEVELS[ll]["fee"]), int(GameData.COMP_LEVELS[ll]["prize"])], func():
 					if GameState.spend(int(GameData.COMP_LEVELS[ll]["fee"])):
 						_m().close_all_panels()
-						_m().change_env("center")
+						if cc != "walk":
+							_m().change_env("center")
 						_m().start_activity(Competition.new(cc, ll)), "S'inscrire"), UiKit.C_ACCENT if req == "" else UiKit.C_DISABLED, 24, 70)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			g.add_child(b)
 		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		inner.add_child(g)
+		var best_line := ""
+		for lv2 in range(GameData.COMP_LEVELS.size() - 1, -1, -1):
+			var top: Array = GameState.data.get("boards", {}).get("comp_%s_%d" % [cat, lv2], [])
+			if not top.is_empty():
+				best_line = _t("Meilleur score local (%s) : %s · %.1f") % [_t(GameData.COMP_LEVELS[lv2]["name"]), top[0]["pet"], float(top[0]["score"])]
+				break
+		if best_line != "":
+			inner.add_child(UiKit.label("[i:star] " + best_line, 20, UiKit.C_SUB))
 		c.add_child(inner)
 		v.add_child(c)
 	_m().open_panel("[i:trophy] " + _t("Concours"), UiKit.scroll(v))
@@ -680,9 +689,10 @@ static func more() -> void:
 	var g := GridContainer.new()
 	g.columns = 3
 	var items := [
-		["calendar", "Objectifs", func(): daily()],
+		["daily_star", "Chaque jour", func(): daily()],
+		["album", "Collection", func(): collection()],
 		["medal", "Succès", func(): achievements()],
-		["album", "Album", func(): album()],
+		["camera", "Album photo", func(): album()],
 		["house", "Décorer", func(): deco()],
 		["style", "Style", func(): customize()],
 		["paw", "Animaux", func(): pets()],
@@ -704,17 +714,19 @@ static func _save_now() -> void:
 static func daily() -> void:
 	GameState.ensure_daily()
 	var v := UiKit.vbox(12)
+	v.add_child(_login_strip())
+	v.add_child(UiKit.label("[i:calendar] " + _t("Missions du jour"), 30))
 	var list: Array = GameState.data["daily"]["list"]
 	for i in list.size():
 		var e: Dictionary = list[i]
-		var d := GameState.daily_def(e["id"])
+		var target := GameState.daily_target(e)
 		var c := _card()
 		var info := UiKit.vbox(4)
-		info.add_child(UiKit.label(_t(d["text"]), 26))
-		info.add_child(UiKit.bar(float(e["progress"]) / float(d["target"]) * 100.0, UiKit.C_ACCENT2, 16))
-		info.add_child(UiKit.label("[i:coin] " + "%d / %d   ·   +%d" % [int(e["progress"]), int(d["target"]), int(d["reward"])], 21, UiKit.C_SUB))
+		info.add_child(UiKit.label(GameState.daily_text(e), 26))
+		info.add_child(UiKit.bar(float(e["progress"]) / float(maxi(1, target)) * 100.0, UiKit.C_ACCENT2, 16))
+		info.add_child(UiKit.label("[i:coin] " + "%d / %d   ·   +%d " % [int(e["progress"]), target, GameState.daily_reward(e)] + _t("pièces"), 21, UiKit.C_SUB))
 		var ii := i
-		var done := int(e["progress"]) >= int(d["target"])
+		var done := int(e["progress"]) >= target
 		var btn := UiKit.button(_t("Reçu") if e["claimed"] else _t("Récupérer"), func():
 			if GameState.claim_daily(ii):
 				Audio.play("coin")
@@ -724,8 +736,166 @@ static func daily() -> void:
 		btn.custom_minimum_size = Vector2(170, 76)
 		c.add_child(_row(info, btn))
 		v.add_child(c)
-	v.add_child(UiKit.label(_t("Nouveaux objectifs chaque jour."), 22, UiKit.C_SUB))
-	_m().open_panel("[i:calendar] " + _t("Objectifs du jour"), UiKit.scroll(v))
+	v.add_child(UiKit.label(_t("Terminez les 3 missions pour un bonus de 40 pièces. Nouvelles missions chaque jour, adaptées au niveau de votre compagnon."), 21, UiKit.C_SUB))
+	_m().open_panel("[i:daily_star] " + _t("Chaque jour"), UiKit.scroll(v))
+
+## Bandeau des 7 jours de connexion avec bouton de réclamation.
+static func _login_strip() -> Control:
+	var idx := GameState.login_check()
+	var streak := int(GameState.data["login"].get("streak", 1))
+	var cur := (maxi(1, streak) - 1) % GameData.LOGIN_REWARDS.size()
+	var pnl := UiKit.panel(12, Color(1, 0.95, 0.82))
+	var v := UiKit.vbox(8)
+	v.add_child(UiKit.label("[i:daily_star] " + _t("Récompense de connexion · série de %d jour(s)") % streak, 24))
+	var h := UiKit.hbox(4)
+	for i in GameData.LOGIN_REWARDS.size():
+		var r: Array = GameData.LOGIN_REWARDS[i]
+		var cell := UiKit.vbox(0)
+		cell.custom_minimum_size = Vector2(88, 0)
+		var icon_name := "coin" if str(r[1]) == "" else str(GameData.item(str(r[1])).get("icon", "coin"))
+		var ic := UiKit.icon_rect(icon_name, 40)
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		if i < cur or (i == cur and idx < 0):
+			ic.modulate = Color(1, 1, 1, 0.35)
+		cell.add_child(ic)
+		var amount := ("%d" % int(r[0])) if int(r[0]) > 0 else ("×%d" % int(r[2]))
+		cell.add_child(UiKit.label(_t("J%d") % (i + 1) + " " + amount, 17, UiKit.C_ACCENT if i == cur else UiKit.C_SUB, HORIZONTAL_ALIGNMENT_CENTER))
+		h.add_child(cell)
+	v.add_child(h)
+	var b := UiKit.button(_t("Récupérer la récompense du jour") if idx >= 0 else _t("Reviens demain !"), func():
+		var got := GameState.login_claim()
+		if not got.is_empty():
+			Audio.play("coin")
+			_m().toast("[i:daily_star] " + _t("Récompense du jour récupérée !"))
+			_m().close_panel()
+			daily(), UiKit.C_GOLD, 22, 68)
+	b.disabled = idx < 0
+	v.add_child(b)
+	pnl.add_child(v)
+	return pnl
+
+# ================================================================== Collection
+static func collection(tab: String = "pets") -> void:
+	var v := UiKit.vbox(10)
+	var tabs := HFlowContainer.new()
+	tabs.add_theme_constant_override("h_separation", 6)
+	tabs.add_theme_constant_override("v_separation", 6)
+	for t in [["pets", "Mes animaux"], ["breeds", "Races"], ["items", "Objets"], ["acc", "Accessoires"], ["trophies", "Trophées"], ["records", "Records"]]:
+		var tt: String = t[0]
+		tabs.add_child(UiKit.button(_t(t[1]), func():
+			_m().close_panel()
+			collection(tt), UiKit.C_ACCENT if tab == tt else UiKit.C_DISABLED, 20, 56))
+	v.add_child(tabs)
+	match tab:
+		"pets":
+			for p in GameState.data["pets"]:
+				var b := GameData.breed(p["breed"])
+				var c := _card()
+				var info := UiKit.vbox(2)
+				info.add_child(UiKit.label("[i:%s] %s · %s" % ["male" if p["sex"] == "m" else "female", p["name"], _t(b["name"])], 26))
+				info.add_child(UiKit.label(_t("Niveau %d · Relation %d · %s · %d victoire(s)") % [int(p.get("level", 1)), GameState.relation_level(p), _t(GameData.TEMPERAMENTS[p["temperament"]]["name"]), int(p.get("wins", 0))], 20, UiKit.C_SUB))
+				var known := 0
+				for cmd in GameData.COMMAND_ORDER:
+					if float(p["skills"].get(cmd, 0.0)) >= GameData.SKILL_LEARNED:
+						known += 1
+				info.add_child(UiKit.label(_t("Ordres connus : %d / %d · adopté le %s") % [known, GameData.COMMAND_ORDER.size(), Time.get_date_string_from_unix_time(int(p.get("adopted", 0)))], 20, UiKit.C_SUB))
+				c.add_child(info)
+				v.add_child(c)
+		"breeds":
+			for bid in GameData.BREED_ORDER:
+				var b2 := GameData.breed(bid)
+				var owned: bool = GameState.data["pets"].any(func(p): return p["breed"] == bid)
+				var ok := GameState.breed_unlocked(bid)
+				var c2 := _card(Color(0.92, 0.97, 0.9) if owned else Color(1, 0.97, 0.9))
+				var info2 := UiKit.vbox(2)
+				info2.add_child(UiKit.label(("[i:check] " if owned else ("[i:lock] " if not ok else "[i:paw] ")) + _t(b2["name"]), 26))
+				info2.add_child(UiKit.label(_t(b2["desc"]) if ok else _t("Débloquée au niveau %d") % int(GameData.BREED_LEVELS[bid]), 20, UiKit.C_SUB))
+				c2.add_child(info2)
+				v.add_child(c2)
+		"items":
+			var seen: Array = GameState.data.get("collection_seen", [])
+			var total := 0
+			var g := GridContainer.new()
+			g.columns = 4
+			for id in GameData.ITEMS.keys():
+				var it: Dictionary = GameData.ITEMS[id]
+				if it.get("cat", "") != "collection":
+					continue
+				total += 1
+				var cell := UiKit.vbox(2)
+				cell.custom_minimum_size = Vector2(150, 0)
+				var known := seen.has(id)
+				var ic := UiKit.icon_rect(it["icon"], 64)
+				ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+				if not known:
+					ic.modulate = Color(0, 0, 0, 0.25)
+				cell.add_child(ic)
+				cell.add_child(UiKit.label(_t(it["name"]) if known else "???", 17, UiKit.C_TEXT, HORIZONTAL_ALIGNMENT_CENTER))
+				cell.add_child(UiKit.label(_t(GameData.RARITY_NAMES[int(it.get("rarity", 1))]) + (" ×%d" % GameState.item_count(id) if known else ""), 15, UiKit.C_SUB, HORIZONTAL_ALIGNMENT_CENTER))
+				g.add_child(cell)
+			v.add_child(UiKit.label(_t("Objets découverts : %d / %d") % [seen.size(), total], 24, UiKit.C_SUB))
+			v.add_child(g)
+		"acc":
+			var g2 := GridContainer.new()
+			g2.columns = 4
+			var n_own := 0
+			var n_all := 0
+			for id in GameData.ITEMS.keys():
+				var it2: Dictionary = GameData.ITEMS[id]
+				if not (it2.get("cat", "") in ["collar", "accessory", "toy"]) or id == "acc_none":
+					continue
+				n_all += 1
+				var own: bool = GameState.data["owned"].has(id)
+				if own:
+					n_own += 1
+				var cell2 := UiKit.vbox(2)
+				cell2.custom_minimum_size = Vector2(150, 0)
+				var ic2 := UiKit.icon_rect(it2["icon"], 60)
+				ic2.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+				if not own:
+					ic2.modulate = Color(1, 1, 1, 0.3)
+				cell2.add_child(ic2)
+				cell2.add_child(UiKit.label(_t(it2["name"]), 16, UiKit.C_TEXT if own else UiKit.C_SUB, HORIZONTAL_ALIGNMENT_CENTER))
+				g2.add_child(cell2)
+			v.add_child(UiKit.label(_t("Collection : %d / %d") % [n_own, n_all], 24, UiKit.C_SUB))
+			v.add_child(g2)
+		"trophies":
+			var tro: Array = GameState.data["trophies"]
+			if tro.is_empty():
+				v.add_child(UiKit.label(_t("Aucun trophée pour l'instant : inscrivez-vous à un concours !"), 24, UiKit.C_SUB))
+			for i in range(tro.size() - 1, -1, -1):
+				var t: Dictionary = tro[i]
+				var medal: String = ["medal_gold", "medal_silver", "medal_bronze"][clampi(int(t.get("place", 3)) - 1, 0, 2)]
+				var cat: Dictionary = GameData.COMP_CATS.get(t.get("cat", ""), {"name": "?"})
+				v.add_child(UiKit.label("[i:%s] %s · %s · %s · %s" % [medal, _t(cat["name"]), _t(GameData.COMP_LEVELS[clampi(int(t.get("level", 0)), 0, 3)]["name"]), t.get("pet", ""), t.get("day", "")], 22))
+		"records":
+			var p2 := GameState.active_pet()
+			var recs: Dictionary = p2.get("records", {})
+			v.add_child(UiKit.label(_t("Records de %s") % p2["name"], 26))
+			if recs.is_empty():
+				v.add_child(UiKit.label(_t("Pas encore de record : agilité, promenades et concours en établissent."), 22, UiKit.C_SUB))
+			for k in recs.keys():
+				v.add_child(UiKit.label("[i:star] %s : %s" % [_record_name(str(k)), str(recs[k])], 22))
+			var boards: Dictionary = GameState.data.get("boards", {})
+			if not boards.is_empty():
+				v.add_child(UiKit.label(_t("Classements locaux (meilleurs scores)"), 26))
+				for key in boards.keys():
+					var top: Array = boards[key]
+					if top.is_empty():
+						continue
+					v.add_child(UiKit.label("[i:trophy] %s : %s %.1f" % [_record_name(str(key)), top[0]["pet"], float(top[0]["score"])], 21, UiKit.C_SUB))
+	_m().open_panel("[i:album] " + _t("Collection"), UiKit.scroll(v))
+
+static func _record_name(k: String) -> String:
+	if k.begins_with("walk_"):
+		return _t("Promenade %s") % _t(GameData.route(k.substr(5)).get("name", k))
+	if k.begins_with("comp_"):
+		var parts := k.split("_")
+		if parts.size() >= 3:
+			return _t("Concours %s (%s)") % [_t(GameData.COMP_CATS.get(parts[1], {"name": parts[1]})["name"]), _t(GameData.COMP_LEVELS[clampi(int(parts[2]), 0, 3)]["name"])]
+	if k.begins_with("agility"):
+		return _t("Agilité") + " " + k.substr(7).replace("_", " ")
+	return k
 
 static func achievements() -> void:
 	var v := UiKit.vbox(10)

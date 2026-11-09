@@ -37,6 +37,8 @@ func _ready() -> void:
 	var args: Dictionary = get_meta("args", {})
 	if args.get("welcome", false) and not GameState.data["tutorial"].get("done", false):
 		_tutorial()
+	else:
+		_daily_popup.call_deferred()
 
 func _build() -> void:
 	var root := UiKit.vbox(8)
@@ -152,6 +154,13 @@ func _on_pet_panel_input(e: InputEvent) -> void:
 func _on_needs_input(e: InputEvent) -> void:
 	if _is_tap(e):
 		Panels.needs()
+
+## Récompense de connexion : proposée à la première ouverture de la journée.
+func _daily_popup() -> void:
+	if Main.inst.has_panel() or Main.inst.activity:
+		return
+	if GameState.login_check() >= 0:
+		Panels.daily()
 
 func _is_tap(e: InputEvent) -> bool:
 	return e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT

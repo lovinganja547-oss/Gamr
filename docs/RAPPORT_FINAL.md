@@ -5,8 +5,8 @@ Date : 9 novembre 2026. Branche `ccr-2c3a8767-t3it8t`.
 ## 1. Livrables
 | Élément | Emplacement |
 |---|---|
-| APK release signé (2.0.0, code 2) | `dist/TruffeEtCo.apk` (62 Mo, arm64-v8a + armeabi-v7a, minSdk 24, targetSdk 35) |
-| App Bundle Play Store | voir § 6 |
+| APK release signé (2.0.0, code 2) | `dist/TruffeEtCo.apk` (61 Mo, arm64-v8a + armeabi-v7a, minSdk 24, targetSdk 35) |
+| App Bundle Play Store (signé) | `dist/TruffeEtCo.aab` (61 Mo) |
 | Code source | dépôt, branche ci-dessus |
 | Politique de confidentialité | `docs/POLITIQUE_CONFIDENTIALITE.md` |
 | Instructions de compilation | `README.md` |
@@ -50,7 +50,7 @@ Images par seconde : **non mesurées sur téléphone** (le rendu logiciel du ser
 - Adresse de contact à compléter dans la politique de confidentialité avant publication.
 
 ## 6. App Bundle (AAB)
-Voir la section ajoutée en fin de chantier ci-dessous.
+Compilé via l'export Gradle (Gradle 8.11.1, gabarit Android de Godot 4.5.1 dans `android/build`, non versionné). Signature vérifiée (`jar verified`). Le premier essai a échoué sur une limitation temporaire du serveur Maven (HTTP 429), le second a réussi. Pour le Play Store, activer Play App Signing et conserver la clé d'importation `build/truffeco-release.keystore` hors du dépôt.
 
 ## 7. Recommandations pour la suite
 1. Tester l'APK sur 2 ou 3 téléphones (un modeste, un récent) : FPS, micro, reprise après mise en veille.

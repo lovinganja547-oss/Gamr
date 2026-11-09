@@ -109,3 +109,18 @@ func sc_progress() -> void:
 	await wait(0.5)
 	Panels.collection("records")
 	await shot("records")
+
+func sc_visuals() -> void:
+	GameState.data["deco"]["plant"] = "plant_fern"
+	GameState.data["deco"]["box"] = "toybox"
+	for e in ["garden", "house", "park", "forest", "beach", "center"]:
+		Panels.go_to(e)
+		await wait(1.5)
+		main.close_all_panels()
+		await shot("env_" + e)
+		main.cam_rig.distance = 4.8 if e == "house" else 6.5
+		main.cam_rig.pitch = -0.45
+		main.cam_rig.yaw = 0.5
+		await wait(1.2)
+		await shot("wide_" + e)
+		print("PERF ", e, " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " prims=", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), " fps=", Performance.get_monitor(Performance.TIME_FPS))

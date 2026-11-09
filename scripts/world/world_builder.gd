@@ -16,6 +16,43 @@ static func make_nav(root: Node3D, radius: float = 0.22) -> NavGrid:
 
 static var _tex_cache := {}
 
+static var _prop_mats := {}
+static var cur_quality := 1
+
+## Texture du jeu (assets/textures/<nom>.png).
+static func tex(name: String) -> Texture2D:
+	var path := "res://assets/textures/%s.png" % name
+	return load(path) if ResourceLoader.exists(path) else null
+
+## Matériau teinté avec texture en projection triplanaire (pas besoin d'UV).
+static func tex_mat(c: Color, tex_name: String, scale: float = 1.0, use_vertex_ao: bool = false) -> StandardMaterial3D:
+	var key := "%s_%s_%.2f_%s" % [c.to_html(), tex_name, scale, use_vertex_ao]
+	if _prop_mats.has(key):
+		return _prop_mats[key]
+	var mt := StandardMaterial3D.new()
+	mt.albedo_color = c
+	mt.roughness = 0.88
+	mt.metallic_specular = 0.12
+	mt.vertex_color_use_as_albedo = use_vertex_ao
+	if tex_name != "":
+		mt.albedo_texture = tex(tex_name)
+		mt.uv1_triplanar = true
+		mt.uv1_scale = Vector3.ONE * scale
+		mt.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_prop_mats[key] = mt
+	return mt
+
+## Meuble arrondi sculpté (assets/models/props), teinté par le matériau.
+static func prop(parent: Node3D, name: String, pos: Vector3, c: Color, rot_y: float = 0.0, tex_name: String = "", tex_scale: float = 2.0) -> MeshInstance3D:
+	var q := "hi" if cur_quality >= 2 else "lo"
+	var mi := MeshInstance3D.new()
+	mi.mesh = load("res://assets/models/props/%s_%s.res" % [name, q])
+	mi.material_override = tex_mat(c, tex_name, tex_scale, true)
+	mi.position = pos
+	mi.rotation.y = rot_y
+	parent.add_child(mi)
+	return mi
+
 static func m(c: Color, rough: float = 0.9) -> StandardMaterial3D:
 	return PetModel.mat(c, rough, 0.0)
 
@@ -193,13 +230,7 @@ static func bench(parent: Node3D, pos: Vector3, rot_y: float) -> Node3D:
 	n.position = pos
 	n.rotation.y = rot_y
 	parent.add_child(n)
-	var wood := Color(0.7, 0.45, 0.28)
-	for k in 3:
-		box(n, Vector3(1.4, 0.05, 0.12), Vector3(0, 0.45, -0.15 + k * 0.15), wood)
-	for k in 2:
-		box(n, Vector3(1.4, 0.12, 0.05), Vector3(0, 0.65 + k * 0.17, -0.25), wood)
-	for sx in [-0.6, 0.6]:
-		box(n, Vector3(0.06, 0.45, 0.4), Vector3(sx, 0.22, -0.05), Color(0.3, 0.3, 0.32))
+	prop(n, "bench", Vector3.ZERO, Color(0.78, 0.55, 0.36), 0.0, "wood_planks", 1.5)
 	return n
 
 static func fence_line(parent: Node3D, a: Vector3, b: Vector3, c: Color, step: float = 0.5) -> void:
@@ -218,8 +249,8 @@ static func make_bowl(parent: Node3D, pos: Vector3, c: Color, kind: String) -> N
 	n.position = pos
 	n.name = "Bowl_" + kind
 	parent.add_child(n)
-	cyl(n, 0.16, 0.2, 0.08, Vector3(0, 0.04, 0), c, 18)
-	var fill := cyl(n, 0.16, 0.16, 0.01, Vector3(0, 0.075, 0), Color(0.6, 0.38, 0.2) if kind == "food" else Color(0.45, 0.7, 0.95), 18)
+	prop(n, "bowl", Vector3.ZERO, c)
+	var fill := cyl(n, 0.145, 0.145, 0.01, Vector3(0, 0.075, 0), Color(0.6, 0.38, 0.2) if kind == "food" else Color(0.45, 0.7, 0.95), 18)
 	fill.name = "Fill"
 	var body := StaticBody3D.new()
 	body.collision_layer = 4
@@ -248,6 +279,7 @@ static func interactive(node: Node3D, part: String, size: Vector3, offset: Vecto
 
 # ================================================================== Environnements
 static func build(env_id: String, quality: int) -> Node3D:
+	cur_quality = quality
 	var root := Node3D.new()
 	root.name = "Env_" + env_id
 	root.set_meta("bounds", Rect2(-2.5, -2.0, 5.0, 4.5))
@@ -272,10 +304,15 @@ static func _house(r: Node3D, q: int) -> void:
 	var wall_c: Color = GameData.item(str(deco.get("wall", "wall_cream"))).get("color", Color(0.98, 0.93, 0.84))
 	r.set_meta("bounds", Rect2(-2.3, -1.9, 4.6, 4.0))
 	r.set_meta("indoor", true)
-	ground(r, Vector2(7, 7), Color(0.85, 0.65, 0.45), noise_tex("wood", Color(0.86, 0.66, 0.46), Color(0.7, 0.5, 0.32), 8), 3.0)
-	box(r, Vector3(7, 3.2, 0.2), Vector3(0, 1.6, -2.6), wall_c, Vector3.ZERO, false)
-	box(r, Vector3(0.2, 3.2, 7), Vector3(-3.0, 1.6, 0), wall_c.darkened(0.06), Vector3.ZERO, false)
-	box(r, Vector3(0.2, 3.2, 7), Vector3(3.0, 1.6, 0), wall_c.darkened(0.06), Vector3.ZERO, false)
+	ground(r, Vector2(7, 7), Color(1, 1, 1), tex("wood_planks"), 2.2)
+	var walls: Array = [box(r, Vector3(7, 3.2, 0.2), Vector3(0, 1.6, -2.6), wall_c, Vector3.ZERO, false),
+		box(r, Vector3(0.2, 3.2, 7), Vector3(-3.0, 1.6, 0), wall_c.darkened(0.06), Vector3.ZERO, false),
+		box(r, Vector3(0.2, 3.2, 7), Vector3(3.0, 1.6, 0), wall_c.darkened(0.06), Vector3.ZERO, false)]
+	for w in walls:
+		var wmi: MeshInstance3D = w
+		wmi.material_override = tex_mat((wmi.material_override as StandardMaterial3D).albedo_color, "plaster", 0.6)
+	for sx in [-2.88, 2.88]:
+		box(r, Vector3(0.05, 0.14, 7), Vector3(sx, 0.07, 0), Color(1, 1, 1))
 	box(r, Vector3(7, 0.15, 0.25), Vector3(0, 0.07, -2.47), Color(1, 1, 1))
 	# Fenêtre
 	box(r, Vector3(1.5, 1.1, 0.06), Vector3(0.9, 1.75, -2.48), Color(1, 1, 1))
@@ -297,12 +334,7 @@ static func _house(r: Node3D, q: int) -> void:
 	sofa.position = Vector3(-1.6, 0, -1.9)
 	obs_rect(r, sofa.position, 2.15, 0.85)
 	r.add_child(sofa)
-	box(sofa, Vector3(1.9, 0.4, 0.8), Vector3(0, 0.25, 0), sofa_c)
-	box(sofa, Vector3(1.9, 0.6, 0.25), Vector3(0, 0.6, -0.3), sofa_c.darkened(0.05))
-	for sx in [-0.95, 0.95]:
-		box(sofa, Vector3(0.22, 0.55, 0.8), Vector3(sx, 0.35, 0), sofa_c.darkened(0.08))
-	for sx in [-0.45, 0.45]:
-		box(sofa, Vector3(0.85, 0.12, 0.6), Vector3(sx, 0.5, 0.06), sofa_c.lightened(0.1))
+	prop(sofa, "sofa", Vector3.ZERO, sofa_c, 0.0, "fabric", 3.0)
 	# Couchage
 	var bed_id := str(deco.get("bed", "bed_basic"))
 	var bed_c: Color = GameData.item(bed_id).get("color", Color(0.7, 0.45, 0.3))
@@ -315,19 +347,17 @@ static func _house(r: Node3D, q: int) -> void:
 		box(bed, Vector3(0.9, 0.12, 0.7), Vector3(0, 0.3, 0), bed_c)
 		box(bed, Vector3(1.0, 0.6, 0.08), Vector3(0, 0.4, -0.38), Color(0.85, 0.7, 0.35))
 	elif bed_id == "bed_cloud":
-		for k in 5:
-			ball(bed, 0.28, Vector3(cos(k * 1.256) * 0.3, 0.12, sin(k * 1.256) * 0.25), bed_c, Vector3(1, 0.55, 1))
-		cyl(bed, 0.4, 0.4, 0.08, Vector3(0, 0.08, 0), bed_c.darkened(0.05), 20)
+		prop(bed, "cushion_bed", Vector3.ZERO, bed_c, 0.0, "fabric", 3.0)
 	else:
-		torus(bed, 0.3, 0.48, Vector3(0, 0.09, 0), bed_c, Vector3.ZERO)
-		cyl(bed, 0.38, 0.38, 0.06, Vector3(0, 0.04, 0), Color(0.95, 0.9, 0.8), 20)
+		prop(bed, "bed_basket", Vector3.ZERO, bed_c, 0.0, "fabric", 3.0)
+		ball(bed, 0.34, Vector3(0, 0.07, 0), Color(0.96, 0.92, 0.84), Vector3(1, 0.18, 1), 14)
 	interactive(bed, "bed", Vector3(0.9, 0.4, 0.8), Vector3(0, 0.2, 0))
 	r.set_meta("bed", Vector3(1.85, 0, -1.55))
 	# Plante, lampe, tableau, coffre
 	var plant := str(deco.get("plant", ""))
 	if plant != "":
 		var pc: Color = GameData.item(plant).get("color", Color.GREEN)
-		cyl(r, 0.18, 0.22, 0.35, Vector3(-2.55, 0.18, 0.9), Color(0.85, 0.5, 0.35), 14)
+		prop(r, "pot", Vector3(-2.55, 0, 0.9), Color(0.88, 0.52, 0.36))
 		obs_circle(r, Vector3(-2.55, 0, 0.9), 0.3)
 		match plant:
 			"plant_cactus":
@@ -371,9 +401,8 @@ static func _house(r: Node3D, q: int) -> void:
 		else:
 			box(r, Vector3(0.78, 0.25, 0.04), Vector3(-1.4, 1.58, -2.41), fc)
 	if str(deco.get("box", "")) == "toybox":
-		box(r, Vector3(0.7, 0.45, 0.45), Vector3(-2.5, 0.23, -0.5), Color(0.55, 0.75, 0.95))
+		prop(r, "toybox", Vector3(-2.5, 0, -0.5), Color(0.55, 0.75, 0.95), 0.0, "wood_planks", 2.0)
 		obs_rect(r, Vector3(-2.5, 0, -0.5), 0.75, 0.5)
-		box(r, Vector3(0.72, 0.08, 0.47), Vector3(-2.5, 0.48, -0.5), Color(0.95, 0.6, 0.4))
 		ball(r, 0.08, Vector3(-2.4, 0.6, -0.45), Color(0.9, 0.2, 0.2))
 	# Étagère à trophées
 	var trophies: Array = GameState.data.get("trophies", [])
@@ -398,7 +427,7 @@ static func _house(r: Node3D, q: int) -> void:
 
 static func _garden(r: Node3D, q: int) -> void:
 	var d := _density(q)
-	ground(r, Vector2(30, 30), Color(0.55, 0.78, 0.4), noise_tex("grass", Color(0.56, 0.8, 0.4), Color(0.4, 0.65, 0.3)), 6.0)
+	ground(r, Vector2(30, 30), Color(1, 1, 1), tex("grass"), 7.0)
 	var tuft := _cone_mesh(0.05, 0.0, 0.18)
 	scatter(r, tuft, Color(0.42, 0.7, 0.32), int(500 * d), Rect2(-7, -6, 14, 10), 11, Vector2(0.7, 1.3), Rect2(-2.5, -1.5, 5, 3.5))
 	var flower := SphereMesh.new()
@@ -415,10 +444,9 @@ static func _garden(r: Node3D, q: int) -> void:
 	obs_circle(r, k.position, 0.62)
 	k.rotation.y = -0.4
 	r.add_child(k)
-	box(k, Vector3(1.0, 0.8, 1.0), Vector3(0, 0.4, 0), Color(0.85, 0.55, 0.35))
-	box(k, Vector3(0.75, 0.12, 1.2), Vector3(-0.3, 0.98, 0), Color(0.85, 0.3, 0.3), Vector3(0, 0, 0.75))
-	box(k, Vector3(0.75, 0.12, 1.2), Vector3(0.3, 0.98, 0), Color(0.85, 0.3, 0.3), Vector3(0, 0, -0.75))
-	box(k, Vector3(0.4, 0.5, 0.05), Vector3(0, 0.25, 0.5), Color(0.25, 0.18, 0.15))
+	prop(k, "kennel", Vector3.ZERO, Color(0.86, 0.58, 0.38), 0.0, "wood_planks", 2.5)
+	prop(k, "kennel_roof", Vector3.ZERO, Color(0.85, 0.34, 0.3))
+	box(k, Vector3(0.36, 0.48, 0.04), Vector3(0, 0.25, 0.43), Color(0.22, 0.16, 0.13), Vector3.ZERO, false)
 	interactive(k, "bed", Vector3(1, 1, 1), Vector3(0, 0.5, 0))
 	r.set_meta("bed", Vector3(2.6, 0, -1.7))
 	tree(r, Vector3(-3.6, 0, -4.8), 3.2, Color(0.35, 0.65, 0.3), 3)
@@ -439,12 +467,12 @@ static func _garden(r: Node3D, q: int) -> void:
 
 static func _park(r: Node3D, q: int) -> void:
 	var d := _density(q)
-	ground(r, Vector2(40, 40), Color(0.5, 0.75, 0.38), noise_tex("park", Color(0.5, 0.76, 0.38), Color(0.38, 0.6, 0.28)), 8.0)
+	ground(r, Vector2(40, 40), Color(0.95, 0.97, 0.95), tex("grass"), 9.0)
 	var path := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(2.0, 40)
 	path.mesh = pm
-	path.material_override = m(Color(0.88, 0.78, 0.6))
+	path.material_override = tex_mat(Color(1, 1, 1), "dirt", 1.2)
 	path.position = Vector3(3.5, 0.005, 0)
 	path.rotation.y = 0.15
 	r.add_child(path)
@@ -512,13 +540,13 @@ static func rock(parent: Node3D, pos: Vector3, s: float) -> void:
 
 static func _forest(r: Node3D, q: int) -> void:
 	var d := _density(q)
-	ground(r, Vector2(40, 40), Color(0.42, 0.58, 0.32), noise_tex("forest", Color(0.42, 0.56, 0.3), Color(0.5, 0.42, 0.26)), 8.0)
+	ground(r, Vector2(40, 40), Color(1, 1, 1), tex("forest_floor"), 9.0)
 	# sentier de terre
 	var path := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(1.6, 40)
 	path.mesh = pm
-	path.material_override = m(Color(0.62, 0.5, 0.36))
+	path.material_override = tex_mat(Color(0.95, 0.9, 0.85), "dirt", 1.2)
 	path.position = Vector3(-0.4, 0.005, 0)
 	path.rotation.y = -0.12
 	r.add_child(path)
@@ -527,7 +555,7 @@ static func _forest(r: Node3D, q: int) -> void:
 	var placed: Array[Vector2] = []
 	for i in 34:
 		var p := Vector3(rng.randf_range(-11, 11), 0, rng.randf_range(-12, 6))
-		if absf(p.x + 0.4 + p.z * 0.12) < 1.6 or Rect2(-3.5, -2.5, 7, 5).has_point(Vector2(p.x, p.z)):
+		if absf(p.x + 0.4 + p.z * 0.12) < 1.6 or Rect2(-3.5, -2.5, 7, 5).has_point(Vector2(p.x, p.z)) or (p.z > 1.5 and absf(p.x) < 6.5):
 			continue
 		var close := false
 		for o in placed:
@@ -562,7 +590,7 @@ static func _forest(r: Node3D, q: int) -> void:
 
 static func _beach(r: Node3D, q: int) -> void:
 	var d := _density(q)
-	ground(r, Vector2(40, 40), Color(0.96, 0.88, 0.68), noise_tex("sand", Color(0.97, 0.89, 0.7), Color(0.88, 0.78, 0.58)), 8.0)
+	ground(r, Vector2(40, 40), Color(1, 1, 1), tex("sand"), 9.0)
 	# Mer animée (shader simple compatible)
 	var sea := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
@@ -624,7 +652,7 @@ void fragment() {
 	r.set_meta("throw_area", Rect2(-4, -3.8, 8, 3.8))
 
 static func _center(r: Node3D, q: int) -> void:
-	ground(r, Vector2(30, 30), Color(0.55, 0.78, 0.4), noise_tex("grass2", Color(0.5, 0.75, 0.38), Color(0.42, 0.66, 0.32)), 6.0)
+	ground(r, Vector2(30, 30), Color(0.95, 0.98, 0.95), tex("grass"), 7.0)
 	cyl(r, 6.0, 6.0, 0.02, Vector3(0, 0.01, -2.5), Color(0.86, 0.75, 0.55), 40)
 	# Barrière blanche de l'arène
 	for i in 28:
@@ -657,7 +685,7 @@ static func _center(r: Node3D, q: int) -> void:
 
 static func _shelter(r: Node3D, q: int) -> void:
 	var d := _density(q)
-	ground(r, Vector2(30, 30), Color(0.6, 0.78, 0.45), noise_tex("grass3", Color(0.6, 0.8, 0.45), Color(0.48, 0.68, 0.36)), 6.0)
+	ground(r, Vector2(30, 30), Color(1.0, 1.0, 0.95), tex("grass"), 7.0)
 	box(r, Vector3(14, 0.02, 3.4), Vector3(0, 0.01, -0.6), Color(0.9, 0.85, 0.75), Vector3.ZERO, false)
 	# Bâtiment du refuge
 	box(r, Vector3(14, 3.2, 0.4), Vector3(0, 1.6, -4.5), Color(0.98, 0.9, 0.8))
@@ -733,6 +761,27 @@ static func make_lighting(env_root: Node3D, quality: int) -> Node3D:
 	env.ambient_light_color = env_root.get_meta("ambient", Color(1, 0.95, 0.9))
 	env.ambient_light_energy = 0.34
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	if env_root.get_meta("indoor", false):
+		env.ambient_light_energy = 0.3
+		sun.light_energy = 0.42
+		if quality >= 1:
+			var ceil_l := OmniLight3D.new()
+			ceil_l.position = Vector3(0, 2.6, 0.4)
+			ceil_l.light_color = Color(1.0, 0.86, 0.68)
+			ceil_l.light_energy = 0.28
+			ceil_l.omni_range = 5.5
+			ceil_l.omni_attenuation = 1.4
+			n.add_child(ceil_l)
+	elif quality >= 1:
+		# brouillard léger : estompe les bords du terrain et donne de la profondeur
+		env.fog_enabled = true
+		env.fog_mode = Environment.FOG_MODE_DEPTH
+		env.fog_light_color = sky_c.lightened(0.12)
+		env.fog_light_energy = 1.0
+		env.fog_density = 1.0
+		env.fog_depth_begin = 13.0
+		env.fog_depth_end = 34.0
+		env.fog_depth_curve = 1.4
 	if quality >= 2:
 		env.glow_enabled = true
 		env.glow_intensity = 0.3

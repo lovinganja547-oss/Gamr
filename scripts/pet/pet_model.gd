@@ -361,6 +361,16 @@ func _build() -> void:
 	meta = _load_meta()
 	_make_fur_mat()
 	lids.clear()
+	# ombre douce au sol (seule ombre en qualité Faible)
+	var blob := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(bx * 2.2, bz * 1.6)
+	blob.mesh = pm
+	blob.position = Vector3(0, 0.012, 0)
+	blob.material_override = _blob_mat(0.42 if quality == 0 else 0.2)
+	blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	blob.name = "Blob"
+	add_child(blob)
 	body_pivot = _pivot(self, Vector3(0, L, 0), "Body")
 	_fur("torso", body_pivot)
 	var neck_base := Vector3(0, by * 0.28, bz * 0.38)
@@ -490,6 +500,29 @@ func _build() -> void:
 	emote_label.position = Vector3(0, L + by + hr * 2.6, 0)
 	emote_label.modulate = Color(1, 1, 1, 0)
 	add_child(emote_label)
+
+static var _blob_cache := {}
+static func _blob_mat(alpha: float) -> StandardMaterial3D:
+	var key := "%.2f" % alpha
+	if _blob_cache.has(key):
+		return _blob_cache[key]
+	var g := Gradient.new()
+	g.set_color(0, Color(0, 0, 0, alpha))
+	g.set_color(1, Color(0, 0, 0, 0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = 64
+	gt.height = 64
+	var mt := StandardMaterial3D.new()
+	mt.albedo_texture = gt
+	mt.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mt.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	_blob_cache[key] = mt
+	return mt
 
 static var _glow: StandardMaterial3D
 static func _glow_mat() -> StandardMaterial3D:

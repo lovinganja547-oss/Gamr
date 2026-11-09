@@ -55,7 +55,7 @@ func _process(delta: float) -> void:
 	if follow and target and is_instance_valid(target):
 		focus = focus.lerp(target.global_position + focus_offset, minf(1.0, delta * 3.0))
 	var dir := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
-	var raw := focus + dir * distance
+	var raw := _avoid(focus, dir, distance)
 	var want := _clamp_box(raw)
 	if follow and raw.distance_to(want) > 0.35:
 		# bloquée par un mur : la caméra tourne doucement vers l'intérieur de la pièce
@@ -72,6 +72,29 @@ func _process(delta: float) -> void:
 	cam.look_at(focus, Vector3.UP)
 	_shift = lerpf(_shift, screen_shift, minf(1.0, delta * 5.0))
 	cam.v_offset = -_shift * distance * tan(deg_to_rad(cam.fov * 0.5))
+
+## Obstacles du lieu (cercles au sol, comme la navigation) : la caméra ne les traverse pas.
+var obstacles: Array = []
+
+func _inside_obstacle(p: Vector3) -> bool:
+	var q := Vector2(p.x, p.z)
+	for o in obstacles:
+		if q.distance_to(o["c"]) < float(o["r"]) + 0.35:
+			return true
+	return false
+
+## Rapproche la caméra du sujet tant qu'elle serait dans un obstacle.
+func _avoid(f: Vector3, dir: Vector3, dist: float) -> Vector3:
+	var p := f + dir * dist
+	if obstacles.is_empty() or not _inside_obstacle(p):
+		return p
+	var k := 0.9
+	while k > 0.3:
+		p = f + dir * dist * k
+		if not _inside_obstacle(p):
+			return p
+		k -= 0.1
+	return f + dir * dist * 0.3
 
 func _clamp_box(p: Vector3) -> Vector3:
 	if bounds_box.size == Vector3.ZERO:

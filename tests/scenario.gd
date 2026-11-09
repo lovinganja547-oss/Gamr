@@ -124,3 +124,12 @@ func sc_visuals() -> void:
 		await wait(1.2)
 		await shot("wide_" + e)
 		print("PERF ", e, " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " prims=", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), " fps=", Performance.get_monitor(Performance.TIME_FPS))
+
+func sc_perf() -> void:
+	Panels.go_to("park")
+	await wait(1.5)
+	for q in [0, 1, 2]:
+		main.apply_quality(q)
+		await wait(1.5)
+		print("PERFQ q=", q, " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " prims=", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " vmem_MB=", snappedf(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0, 0.1), " mem_MB=", snappedf(Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, 0.1))
+		await shot("perf_q%d" % q)

@@ -1,42 +1,48 @@
 # Truffe & Co — compagnons virtuels (Android)
 
-Jeu original de simulation d'animaux de compagnie, Godot 4.5.1 (GDScript, rendu GL Compatibility).
-Modèles 3D, animations, sons et musiques 100 % procéduraux et originaux (aucune ressource externe).
+Jeu original de simulation canine (et féline), Godot 4.5.1 / GDScript, rendu GL Compatibility, 100 % hors ligne.
+Modèles 3D, poils, meubles, textures, icônes, sons et musiques sont générés par les outils du dépôt (aucune ressource externe).
 
 ## Installer
-APK prêt : `dist/TruffeEtCo.apk` (release signée, arm64-v8a + armeabi-v7a, Android 7.0+).
-```
-adb install -r dist/TruffeEtCo.apk
-```
-ou copier l'APK sur le téléphone et l'ouvrir (autoriser « sources inconnues »).
+- APK release signé : `dist/TruffeEtCo.apk` (Android 7.0+, arm64-v8a + armeabi-v7a).
+- `adb install -r dist/TruffeEtCo.apk`, ou copier l'APK sur le téléphone et l'ouvrir (autoriser les sources inconnues).
+- Identifiant : `fr.truffeco.compagnons`, version 2.0.0 (code 2).
 
 ## Reconstruire
 Prérequis : Godot 4.5.1 + modèles d'export 4.5.1, Android SDK (platform-tools, build-tools 35.0.1, platforms;android-35), JDK 17+.
 ```
-GODOT=/chemin/godot ANDROID_HOME=/chemin/sdk tools/build_apk.sh
+GODOT=/chemin/godot ANDROID_HOME=/chemin/sdk tools/build_apk.sh      # APK debug + release
 ```
-Produit `build/TruffeEtCo-debug.apk` et `build/TruffeEtCo.apk` (clés générées dans `build/`, non versionnées).
-Régénérer sons / icône : `python3 tools/gen_audio.py` ; `python3 tools/gen_icon.py` (numpy, Pillow).
-Régénérer les modèles 3D : `python3 tools/gen_models.py` puis `godot --headless --path . -s tools/convert_models.gd` (maillages sculptés par champs de distance, 2 niveaux de détail).
+App Bundle (Play Store) : export Gradle, préréglage « Android AAB » :
+```
+godot --headless --path . --install-android-build-template   # ou dézipper android_source.zip dans android/build
+GODOT_ANDROID_KEYSTORE_RELEASE_PATH=... GODOT_ANDROID_KEYSTORE_RELEASE_USER=... GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=... \
+  godot --headless --path . --export-release "Android AAB" build/TruffeEtCo.aab
+```
+La clé de signature release (`build/truffeco-release.keystore`) n'est pas versionnée : **la conserver hors du dépôt** (ou utiliser Play App Signing), sinon les mises à jour seront impossibles.
+
+Régénérer les ressources :
+| Ressource | Commande |
+|---|---|
+| Sons, musiques | `python3 tools/gen_audio.py` |
+| Icône, écran de démarrage | `python3 tools/gen_icon.py` ; `python3 tools/gen_splash.py` |
+| Icônes d'interface (SVG) | `python3 tools/gen_ui_icons.py` |
+| Textures | `python3 tools/gen_textures.py` |
+| Animaux / meubles 3D | `python3 tools/gen_models.py` ; `python3 tools/gen_props.py` puis `godot --headless --path . -s tools/convert_models.gd` |
 
 ## Tests
 - `tests/check.sh` : compilation de tous les scripts.
-- `tests/run_unit.sh` : 51 tests de logique (besoins, hors-ligne, économie, dressage, concours, objectifs, sauvegarde/corruption, gestes, voix).
-- `tests/run_e2e.sh` : parcours complet rendu sous xvfb (adoption → soins → bain → dressage → balle → recherche → promenade → agilité → concours → photo → sauvegarde/rechargement) avec captures.
+- `tests/run_unit.sh` : 93 tests de logique (besoins, hors ligne, économie, dressage, voix, missions, connexion, classements, déblocages, vente, migrations de sauvegarde, gestes).
+- `tests/run_e2e.sh` : parcours complet rendu sous xvfb avec captures (adoption, soins, bain, brossage, câlin, corde, mode photo, dressage vocal, Reste, balle, cache-cache, promenade, agilité, concours, photo, sauvegarde/rechargement).
+- `tests/run_scenario.sh <search|progress|visuals|perf>` : scénarios ciblés rapides.
+- `tests/portraits.sh` : portraits de contrôle des 6 races.
 
-## Contenu
-- 6 animaux (Labrador, Shiba Inu, Caniche, Berger allemand, Beagle, Chat), pelages, yeux, sexe, collier, accessoire, tempérament.
-- Besoins : faim, soif, propreté, énergie, humeur, santé, affection ; évolution hors ligne plafonnée (48 h, plancher 20, santé ≥ 10, jamais de mort).
-- Interactions : caresses (glisser), tapes (tête/corps), appel, toucher le sol, nourrir, eau, bain, friandises, lancer, photo, Bravo/Non.
-- Dressage : 9 ordres, démonstration par une monitrice, geste tactile / bouton / voix, chance selon compétence, motivation, caractère, relation, fatigue de séance.
-- Activités : lancer de balle (score), agilité (chrono/pénalités), recherche (5 niveaux), promenade (trouvailles, rencontres, fontaine).
-- Concours : obéissance, agilité, recherche, dressage avancé × 4 niveaux, conditions d'entrée, 7 rivaux, podium, trophées.
-- Économie : pièces, boutique (repas, friandises, soins, jouets, colliers, accessoires, déco, lieux), niveau joueur, relation, 22 succès, 3 objectifs/jour.
-- Lieux : maison (décorable, 8 emplacements), jardin, parc, plage, centre de dressage, refuge.
-- Réglages : volumes général/musique/effets, qualité Faible/Moyen/Élevé (MSAA, échelle de rendu, FPS 30/45/60, ombres, densité), vibrations, voix, recommencer.
-- Sauvegarde : JSON + empreinte SHA-256, écriture atomique, copie de secours, validation complète, sauvegarde auto 30 s et à la mise en pause/fermeture.
+## Architecture
+- `scripts/autoload/` : `GameData` (données), `GameState` (état, besoins, économie, progression, sauvegarde v3 + migrations), `Audio`, `Voice` (empreinte vocale MFCC + DTW).
+- `scripts/main.gd` : monde 3D, navigation, caméra, écrans, panneaux, entrées tactiles, photo.
+- `scripts/pet/` : `PetModel` (maillages sculptés, IK des pattes, postures, yeux/paupières, poils par couches), `PetController` (IA, navigation A*, réactions, ordres).
+- `scripts/world/` : `WorldBuilder` (7 lieux), `NavGrid` (A* avec obstacles), `CameraRig`.
+- `scripts/ui/` : `UiKit` (thème, icônes `[i:nom]`), écrans titre / refuge / HUD, `Panels`, `VoicePanel`.
+- `scripts/activities/` : bain, brossage, câlin, corde, mode photo, balle, cache-cache, promenade, agilité, dressage, concours.
 
-## Limites connues
-- Commandes vocales : reconnaissance hors ligne dépendante du locuteur (on enregistre sa voix par ordre, comparaison DTW). Pas de reconnaissance « native » Android (nécessiterait un plugin Gradle). Non testée sur micro réel ici.
-- Pas de test sur appareil/émulateur : l'environnement de build n'a pas de KVM. Tests faits sur bureau (xvfb, OpenGL logiciel).
-- Langue : jeu entièrement en français, forcé quelle que soit la langue du téléphone (architecture `tr()` conservée pour une future traduction).
+Documentation : `docs/RAPPORT_FINAL.md`, `docs/POLITIQUE_CONFIDENTIALITE.md`, `docs/RAPPORT_INITIAL.md`, captures dans `docs/captures/`.

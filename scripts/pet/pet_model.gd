@@ -293,7 +293,7 @@ func _fur(nm: String, parent: Node3D, pos: Vector3 = Vector3.ZERO) -> MeshInstan
 
 ## Nombre de couches de poils selon la qualité graphique.
 func shell_count() -> int:
-	return [4, 7, 10][clampi(quality, 0, 2)]
+	return [0, 4, 8][clampi(quality, 0, 2)]
 
 func _shell_mats(head: bool) -> Array:
 	var key := "head" if head else "body"

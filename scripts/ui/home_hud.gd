@@ -156,10 +156,13 @@ func _on_needs_input(e: InputEvent) -> void:
 		Panels.needs()
 
 ## Récompense de connexion : proposée à la première ouverture de la journée.
+static var _popup_day := ""
+
 func _daily_popup() -> void:
-	if Main.inst.has_panel() or Main.inst.activity:
+	if Main.inst.has_panel() or Main.inst.activity or _popup_day == GameState.today():
 		return
 	if GameState.login_check() >= 0:
+		_popup_day = GameState.today()
 		Panels.daily()
 
 func _is_tap(e: InputEvent) -> bool:

@@ -1,0 +1,60 @@
+# Truffe & Co 2.0 — Rapport final de la refonte
+
+Date : 9 novembre 2026. Branche `ccr-2c3a8767-t3it8t`.
+
+## 1. Livrables
+| Élément | Emplacement |
+|---|---|
+| APK release signé (2.0.0, code 2) | `dist/TruffeEtCo.apk` (62 Mo, arm64-v8a + armeabi-v7a, minSdk 24, targetSdk 35) |
+| App Bundle Play Store | voir § 6 |
+| Code source | dépôt, branche ci-dessus |
+| Politique de confidentialité | `docs/POLITIQUE_CONFIDENTIALITE.md` |
+| Instructions de compilation | `README.md` |
+| Captures de suivi | `docs/captures/` |
+
+## 2. Fonctionnalités ajoutées ou refondues (par phase)
+1. **Fondations** : navigation A* contournant les meubles et décors (fin des passages dans le canapé), repas réaliste (approche par un côté libre, gamelle qui se vide, faim mise à jour progressivement, sécurité si chemin bloqué), caméra (bouton Centrer, cadrage automatique selon la taille de l'animal, pas de traversée des murs ni des obstacles), bain par zones (tête, dos, ventre et pattes, queue) avec mousse, douche, éclaboussures et saleté visible sur le pelage, énergie rééquilibrée (activités calmes / modérées / intenses, endurance, caractère), besoin « Sortir », niveau et expérience propres à chaque animal, sauvegarde v2 puis v3 avec migrations, nom Truffe & Co.
+2. **Interface** : 212 icônes vectorielles originales (plus aucun emoji), fenêtre des besoins avec icône, pourcentage et couleur d'état, une icône par objet, accessibilité (taille du texte, réduction des animations, sensibilité de la caméra).
+3. **Interactions** : cœurs discrets (4 au maximum), réactions selon l'humeur et 6 personnalités (joueur, calme, curieux, énergique, affectueux, timide), brossage, tir à la corde, moment câlin, jeu spontané avec le jouet, mode photo (poses, expressions, accessoires, décors, interface masquable).
+4. **Dressage vocal** : apprentissage du mot pendant la séance (mot libre, contrôle qualité, réécoute, recommencer, validation), empreinte vocale hors ligne (MFCC par FFT + DTW), modèles par animal, fiabilité progressive, ordre « Reste ».
+5. **Agilité** : 5 niveaux (Initiation à Expert), obstacles haies, tunnels, slaloms, cerceaux, plateformes, passerelles, zones d'arrêt et combinés, plusieurs tracés, gros bouton d'action contextuel, recommencer, médailles et records.
+6. **Cache-cache** : lieu Forêt, cachettes propres à chaque lieu (coussins, cartons, paniers, sous un meuble, buissons, tas de feuilles, rochers, troncs, sable, caisses, pneus), 27 objets de collection dont des rares, jouets et accessoires à trouver, flair limité avec cachettes en surbrillance, queue qui s'agite près d'un objet, défi du jour, 5 niveaux.
+7. **Promenades** : 7 itinéraires (distance, durée, difficulté, trouvailles), parcours balisé en boucle, laisse visible, joystick, besoins naturels (crottes à ramasser), événements (rencontre, défi de dressage, trésor rare, point d'eau), énergie affichée avec alerte, retour à la maison obligatoire pour la récompense finale, boutique accessible pendant la promenade avec vente des trouvailles.
+8. **Progression** : missions du jour adaptées au niveau (paliers, bonus des 3 missions), récompense de connexion sur 7 jours, déblocages par niveau (races, pelages, yeux, objets, lieux, activités), écran Collection (animaux, races, objets, accessoires, trophées, records), 5e concours « Défi de promenade », classements locaux.
+9. **Graphismes** : textures 512 px raccordables (parquet, tissu, plâtre, herbe, sable, sol forestier, terre), meubles arrondis sculptés (canapé, couchages, niche, banc, coffre, gamelles, pot), brouillard de profondeur, éclairage intérieur chaud, ombre douce sous l'animal.
+10. **Publication** : écran de démarrage, version 2.0.0, politique de confidentialité, APK release, préréglage AAB.
+
+## 3. Tests réellement exécutés (sur bureau Linux, rendu logiciel sous xvfb)
+| Test | Résultat |
+|---|---|
+| Compilation des 35 scripts (`tests/check.sh`) | 0 échec |
+| Tests unitaires (`tests/run_unit.sh`) | **93 / 93 OK** |
+| Parcours complet rendu (`tests/run_e2e.sh`, environ 50 captures) | **0 erreur de script**. Repas : 0 image dans un obstacle. Corde, câlin, brossage, mode photo terminés. Vocal : enregistrement, réécoute, reconnaissance et mot inconnu rejeté. Balle : 163 points. Cache-cache : 2/2 objets. Promenade : 18/18 points de passage, 282 m, 4 trouvailles. Agilité : médaille, record 71,2. Concours : classement. Sauvegarde puis rechargement identiques. |
+| Scénario cache-cache en forêt | 2/2 objets, partie terminée, objets ajoutés au sac |
+| Scénario progression | missions, connexion, collection, défi de promenade (podium, classement local enregistré) |
+| Contenu du paquet exporté | modèles, métadonnées, meubles, textures, icônes, shaders, sons présents. Lancement depuis le .pck exporté sans ressource manquante. |
+
+## 4. Performances mesurées (scène Parc, animal + décor, moniteurs Godot)
+| Qualité | Appels de rendu | Primitives | Mémoire vidéo | Mémoire |
+|---|---|---|---|---|
+| Faible | 218 | 39 000 | 35 Mo | 69 Mo |
+| Moyen | 351 | 140 000 | 48 Mo | 70 Mo |
+| Élevé | 415 | 279 000 | 68 Mo | 70 Mo |
+Images par seconde : **non mesurées sur téléphone** (le rendu logiciel du serveur de test n'est pas représentatif).
+
+## 5. Limitations restantes (honnêtes)
+- **Aucun test sur téléphone ou émulateur Android** : l'environnement de build n'a pas de virtualisation (KVM). Tout a été testé sur bureau.
+- **Reconnaissance vocale** : validée uniquement avec des signaux de synthèse et des enregistrements simulés, jamais avec un vrai micro. Elle reconnaît la voix de la personne qui a enregistré les mots.
+- Images par seconde réelles inconnues : à mesurer sur un appareil modeste (régler la qualité sur Faible si besoin).
+- La qualité Élevé (279 000 primitives) vise les téléphones récents.
+- Adresse de contact à compléter dans la politique de confidentialité avant publication.
+
+## 6. App Bundle (AAB)
+Voir la section ajoutée en fin de chantier ci-dessous.
+
+## 7. Recommandations pour la suite
+1. Tester l'APK sur 2 ou 3 téléphones (un modeste, un récent) : FPS, micro, reprise après mise en veille.
+2. Ajuster l'équilibrage (énergie, prix, récompenses) d'après des sessions réelles.
+3. Fusionner les décors statiques (MultiMesh / maillages combinés) pour réduire les appels de rendu.
+4. Ajouter une traduction anglaise (architecture `tr()` déjà en place).
+5. Préparer la fiche Play Store (captures, description, classification du contenu, sécurité des données : « aucune donnée collectée »).

@@ -322,34 +322,77 @@ func _run() -> void:
 	await shot("fetch_result")
 	main.close_all_panels()
 	await wait(0.3)
-	# Recherche
+	# Recherche : sélecteur de niveau, puis partie en forêt avec flair
 	main.start_activity(SearchGame.new({}))
 	await wait(1.0)
-	await shot("search")
+	await shot("search_levels")
+	main.close_all_panels()
+	await wait(0.3)
+	GameState.data["envs"].append("forest")
+	Panels.go_to("forest")
+	await wait(1.2)
+	await shot("forest")
+	main.start_activity(SearchGame.new({"level": 1}))
+	await wait(1.0)
 	var sg := main.activity as SearchGame
+	sg._use_clue()
+	await wait(1.0)
+	await shot("search")
+	var inv_before := 0
+	for id in GameState.data["inventory"].keys():
+		inv_before += int(GameState.data["inventory"][id])
 	for i in sg.spots.size():
 		if sg.finished:
 			break
+		if not sg.spots[i]["has"] and i % 2 == 0:
+			continue   # joue « bien » : surtout les bonnes cachettes
+		while sg.clue_busy:
+			await wait(0.1)
 		sg._check(i)
 		var g2 := 0
 		while sg.busy_sniff and g2 < 60:
 			await wait(0.2)
 			g2 += 1
-	print("SEARCH found ", sg.found)
+	var inv_after := 0
+	for id in GameState.data["inventory"].keys():
+		inv_after += int(GameState.data["inventory"][id])
+	print("SEARCH found ", sg.found_items, " finished=", sg.finished, " level_now=", GameState.data["search_level"], " inv ", inv_before, "->", inv_after)
 	await shot("search_result")
 	main.close_all_panels()
 	await wait(0.3)
-	# Promenade
+	# Promenade : sélecteur d'itinéraire, puis parcours complet en laisse jusqu'à la maison
 	main.start_activity(WalkActivity.new())
 	await wait(1.0)
-	var w := main.activity as WalkActivity
-	for it in w.items:
-		main.pet_ctrl.walk_to(it["pos"], 2.0)
-		await wait(1.2)
-	await shot("walk")
-	w.quit()
-	await wait(0.5)
+	await shot("walk_routes")
 	main.close_all_panels()
+	await wait(0.5)
+	main.start_activity(WalkActivity.new({"route": "park_pond"}))
+	await wait(1.5)
+	var w := main.activity as WalkActivity
+	var guard_w := 0
+	var shot_w := false
+	while not w.finished and guard_w < 900:
+		if main.has_panel():
+			main.close_panel()   # défi de dressage : on passe
+		if w.pet.state != "action":
+			var goal: Vector3 = w.home if w.returning or w.next_cp >= w.path.size() else w.path[w.next_cp]
+			for it in w.items:
+				if not it["taken"] and w.pet.position.distance_to(it["pos"]) < 2.0:
+					goal = it["pos"]
+			if w.pet.state != "moving" or w.pet._target.distance_to(goal) > 0.3:
+				w.pet.walk_to(goal, 2.2)
+		for i in w.poops.size():
+			if is_instance_valid(w.poops[i]):
+				w._pick_poop(i)
+		if not shot_w and w.next_cp > 3:
+			shot_w = true
+			await shot("walk")
+		await wait(0.1)
+		guard_w += 1
+	print("WALK finished=", w.finished, " cp=", w.next_cp, "/", w.path.size(), " dist_m=", int(w.dist_done * 10.0), " finds=", w.collected, " met=", w.met.size(), " peed=", w.peed, " pooped=", w.pooped, " picked=", w.picked)
+	await shot("walk_result")
+	main.close_all_panels()
+	await wait(0.5)
 	# Agilité
 	Panels.go_to("center")
 	await wait(1.0)

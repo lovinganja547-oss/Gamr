@@ -238,6 +238,20 @@ ICONS["coral"] = lambda: P("M32,58 L32,30 M32,40 L20,24 M32,36 L44,18 M20,24 L16
 ICONS["pebble"] = lambda: E(32, 36, 22, 15, "#c9c3bd") + HL(24, 30, 3)
 ICONS["driftwood"] = lambda: R(6, 26, 52, 12, "#d8c3a5", 6, rot=-10) + L(18, 32, 30, 30, 2) + L(36, 30, 46, 28, 2)
 
+ICONS["pinecone"] = lambda: E(32, 36, 14, 20, "#a8703f") + "".join(P(f"M{20 + (i % 3) * 8},{24 + (i // 3) * 9} q4,5 8,0", "none", 2.5) for i in range(9)) + R(29, 8, 6, 8, "#6a8a3a", 2)
+ICONS["marble"] = lambda: C(32, 32, 20, "#7fc4f5") + P("M18,36 Q30,22 46,30", "none", 3, sc="#ff6b81") + HL(25, 24, 5)
+ICONS["sock"] = lambda: P("M22,8 L42,8 L42,36 L50,44 Q54,52 46,56 L24,56 Q14,56 18,44 L22,38 Z", "#ffb3cf") + R(22, 8, 20, 8, "#fff", 2) + P("M24,24 L40,24 M24,32 L40,32", "none", 2.5, sc="#ff6b9a")
+ICONS["coin_old"] = lambda: C(32, 32, 22, "#d8b25a") + C(32, 32, 15, "#c49a3e", sw=2) + P("M26,26 L38,26 L38,38 L26,38 Z", "none", 2.5) + HL(23, 23, 3)
+ICONS["key_old"] = lambda: C(18, 32, 11, "#d8b25a") + C(18, 32, 4, "#fbf3e2", sw=2) + R(27, 28, 30, 8, "#d8b25a", 2) + R(46, 36, 5, 9, "#d8b25a", 1) + R(38, 36, 5, 7, "#d8b25a", 1)
+ICONS["bottle"] = lambda: R(14, 22, 38, 22, "#bfe8d0", 10, rot=-25) + R(46, 10, 8, 10, "#c99a6a", 2, rot=-25) + R(22, 28, 18, 9, "#fff8e0", 2, rot=-25) + HL(20, 30, 3)
+ICONS["gem"] = lambda: P("M14,24 L24,12 L40,12 L50,24 L32,54 Z", "#b9a3f0") + P("M14,24 L50,24 M24,12 L32,24 L40,12 M32,24 L32,54", "none", 2) + HL(26, 18, 3)
+ICONS["bone_old"] = lambda: bone(32, 32, 30, "#e0cfa8") + P("M22,26 L26,30 M36,34 L40,36", "none", 2)
+ICONS["medal_old"] = lambda: P("M22,6 L30,28 M42,6 L34,28", "none", 6) + C(32, 40, 15, "#c49a3e") + star(32, 40, 8, "#a87d2a") + P("M20,52 L24,48", "none", 2)
+ICONS["pearl"] = lambda: P("M8,40 Q32,10 56,40 Q32,58 8,40 Z", "#d8c3a5") + C(32, 38, 10, "#fbf6f0") + HL(28, 34, 3)
+ICONS["leaves_pile"] = lambda: E(32, 42, 24, 12, "#c8792f") + E(24, 36, 10, 6, "#e8a040", -20) + E(40, 34, 10, 6, "#d65a2a", 25) + E(32, 30, 9, 5, "#e8c040", 5)
+ICONS["clue"] = lambda: E(32, 36, 20, 14, "#f5d4b8") + C(32, 30, 6, INK) + P("M10,16 Q16,10 22,16 M42,16 Q48,10 54,16 M26,8 Q32,2 38,8", "none", 3, sc="#7fb2f0")
+ICONS["daily_star"] = lambda: C(32, 32, 24, "#ffe9b8") + star(32, 33, 16, "#ffb91a")
+
 # ------------------------------------------------------------------ émotions (bulles au-dessus de l'animal)
 def bubble(inner):
     return P("M10,10 L54,10 Q58,10 58,14 L58,42 Q58,46 54,46 L30,46 L20,56 L22,46 L10,46 Q6,46 6,42 L6,14 Q6,10 10,10 Z", "#fff") + inner

@@ -614,6 +614,15 @@ func _posture_params(nm: String) -> Dictionary:
 			d.merge({"hp": 0.35, "tail": -0.4, "ears": -0.8}, true)
 		"alert":
 			d.merge({"hp": -0.25, "tail": 0.9, "ears": 1.0}, true)
+		"pee":
+			d.merge({"roll": -0.1, "hp": 0.2, "tail": 0.4}, true)
+			d["feet"][3] = Vector3(hx * 2.6, L * 0.55, zr + 0.02)
+		"squat":
+			var p8 := -0.35
+			var h8 := _h_for(hipF, p8, L * 0.97)
+			var xf8 := _bxf(h8, p8, 0)
+			d.merge({"h": h8 - L * 0.15, "pitch": p8, "hp": 0.25, "tail": 0.8}, true)
+			d["feet"] = [Vector3(-hx, 0, (xf8 * hipF).z + 0.03), Vector3(hx, 0, (xf8 * hipF).z + 0.03), Vector3(-hx * 1.3, 0, (xf8 * hipR).z + L * 0.25), Vector3(hx * 1.3, 0, (xf8 * hipR).z + L * 0.25)]
 		"stand_up":
 			var p7 := -0.95
 			var h7 := _h_for(hipR, p7, L * 0.97)

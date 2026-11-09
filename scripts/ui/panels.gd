@@ -556,11 +556,14 @@ static func activities() -> void:
 	_m().open_panel("[i:activities] " + _t("Activités"), UiKit.scroll(v))
 
 static func _choose_place(kind: String) -> void:
+	if kind == "walk":
+		_m().start_activity(WalkActivity.new())
+		return
 	var allowed: Array = []
 	match kind:
-		"fetch": allowed = ["garden", "park", "beach"]
-		"walk": allowed = ["garden", "park", "beach"]
-		"search": allowed = ["house", "garden", "park", "beach"]
+		"fetch": allowed = ["garden", "park", "forest", "beach"]
+		"walk": allowed = ["garden", "park", "forest", "beach"]
+		"search": allowed = Array(GameData.SEARCH_ENVS)
 		"agility": allowed = ["center"]
 	var unlocked: Array = allowed.filter(func(e): return GameState.env_unlocked(e))
 	if unlocked.size() == 1 or (unlocked.has(_m().env_id) and kind != "walk"):

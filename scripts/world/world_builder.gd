@@ -259,6 +259,7 @@ static func build(env_id: String, quality: int) -> Node3D:
 		"garden": _garden(root, quality)
 		"park": _park(root, quality)
 		"beach": _beach(root, quality)
+		"forest": _forest(root, quality)
 		"center": _center(root, quality)
 		"shelter": _shelter(root, quality)
 	return root
@@ -486,6 +487,78 @@ static func _park(r: Node3D, q: int) -> void:
 	r.set_meta("walk_area", Rect2(-8, -8, 16, 12))
 	r.set_meta("spots_area", Rect2(-4, -3, 8, 5))
 	r.set_meta("throw_area", Rect2(-4, -9, 8, 9))
+
+static func pine(parent: Node3D, pos: Vector3, h: float, c: Color) -> void:
+	obs_circle(parent, pos, 0.14 * h)
+	cyl(parent, 0.09 * h, 0.07 * h, h * 0.35, pos + Vector3(0, h * 0.17, 0), Color(0.45, 0.3, 0.2), 8)
+	for k in 3:
+		var rr := h * (0.36 - k * 0.09)
+		cyl(parent, rr, 0.01, h * 0.42, pos + Vector3(0, h * (0.42 + k * 0.2), 0), c.lightened(k * 0.05), 10)
+
+static func log_obj(parent: Node3D, pos: Vector3, length: float, rot_y: float) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = rot_y
+	parent.add_child(n)
+	cyl(n, 0.16, 0.16, length, Vector3(0, 0.16, 0), Color(0.5, 0.34, 0.22), 10, Vector3(0, 0, PI / 2))
+	cyl(n, 0.13, 0.13, 0.01, Vector3(length * 0.5 + 0.001, 0.16, 0), Color(0.82, 0.68, 0.48), 10, Vector3(0, 0, PI / 2))
+	ball(n, 0.06, Vector3(length * 0.2, 0.3, 0.05), Color(0.4, 0.62, 0.3), Vector3(1.4, 0.5, 1.2), 6)
+	obs_rect(parent, pos, absf(cos(rot_y)) * length + 0.35, absf(sin(rot_y)) * length + 0.35)
+
+static func rock(parent: Node3D, pos: Vector3, s: float) -> void:
+	obs_circle(parent, pos, s * 0.9)
+	ball(parent, s, pos + Vector3(0, s * 0.35, 0), Color(0.58, 0.58, 0.56), Vector3(1.2, 0.75, 1.0), 9)
+	ball(parent, s * 0.6, pos + Vector3(s * 0.7, s * 0.2, s * 0.2), Color(0.62, 0.62, 0.6), Vector3(1.1, 0.7, 1.0), 8)
+
+static func _forest(r: Node3D, q: int) -> void:
+	var d := _density(q)
+	ground(r, Vector2(40, 40), Color(0.42, 0.58, 0.32), noise_tex("forest", Color(0.42, 0.56, 0.3), Color(0.5, 0.42, 0.26)), 8.0)
+	# sentier de terre
+	var path := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(1.6, 40)
+	path.mesh = pm
+	path.material_override = m(Color(0.62, 0.5, 0.36))
+	path.position = Vector3(-0.4, 0.005, 0)
+	path.rotation.y = -0.12
+	r.add_child(path)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 404
+	var placed: Array[Vector2] = []
+	for i in 34:
+		var p := Vector3(rng.randf_range(-11, 11), 0, rng.randf_range(-12, 6))
+		if absf(p.x + 0.4 + p.z * 0.12) < 1.6 or Rect2(-3.5, -2.5, 7, 5).has_point(Vector2(p.x, p.z)):
+			continue
+		var close := false
+		for o in placed:
+			if o.distance_to(Vector2(p.x, p.z)) < 1.4:
+				close = true
+		if close:
+			continue
+		placed.append(Vector2(p.x, p.z))
+		if rng.randf() < 0.7:
+			pine(r, p, rng.randf_range(2.6, 4.2), Color(0.22, 0.45, 0.28).lightened(rng.randf() * 0.12))
+		else:
+			tree(r, p, rng.randf_range(2.6, 3.6), Color(0.35, 0.58, 0.28), i)
+	log_obj(r, Vector3(-2.6, 0, -1.6), 1.6, 0.4)
+	log_obj(r, Vector3(2.8, 0, 0.8), 1.3, -0.9)
+	rock(r, Vector3(2.4, 0, -2.2), 0.45)
+	rock(r, Vector3(-3.0, 0, 1.6), 0.35)
+	for i in int(10 * d) + 4:
+		var mp := Vector3(rng.randf_range(-6, 6), 0, rng.randf_range(-6, 3))
+		cyl(r, 0.025, 0.03, 0.12, mp + Vector3(0, 0.06, 0), Color(0.96, 0.92, 0.84), 6)
+		ball(r, 0.07, mp + Vector3(0, 0.13, 0), Color(0.85, 0.3, 0.25) if i % 3 else Color(0.85, 0.62, 0.35), Vector3(1, 0.55, 1), 8)
+	var fern := _cone_mesh(0.07, 0.0, 0.3)
+	scatter(r, fern, Color(0.3, 0.55, 0.3), int(500 * d), Rect2(-11, -12, 22, 18), 61, Vector2(0.8, 1.6), Rect2(-3.2, -2.4, 6.4, 4.6))
+	var leaf := SphereMesh.new()
+	leaf.radius = 0.05; leaf.height = 0.02; leaf.radial_segments = 6; leaf.rings = 2
+	scatter(r, leaf, Color.WHITE, int(260 * d), Rect2(-8, -8, 16, 12), 62, Vector2(0.8, 1.5), Rect2(), [Color(0.82, 0.48, 0.2), Color(0.9, 0.7, 0.25), Color(0.62, 0.36, 0.18)])
+	r.set_meta("sky", Color(0.6, 0.78, 0.86))
+	r.set_meta("ambient", Color(0.92, 0.98, 0.9))
+	r.set_meta("bounds", Rect2(-3.2, -2.6, 6.4, 5.0))
+	r.set_meta("walk_area", Rect2(-8, -9, 16, 13))
+	r.set_meta("spots_area", Rect2(-3.2, -2.6, 6.4, 4.4))
+	r.set_meta("throw_area", Rect2(-1.8, -9, 3.2, 9))
 
 static func _beach(r: Node3D, q: int) -> void:
 	var d := _density(q)

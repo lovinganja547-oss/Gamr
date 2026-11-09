@@ -380,6 +380,25 @@ static func medal_name(key: String) -> String:
 			return str(m[2])
 	return ""
 
+# ------------------------------------------------------------------ Promenades
+## length = distance affichée en mètres (1 m de jeu = 10 m affichés), diff 1..3, level = niveau du compagnon requis.
+const ROUTES := [
+	{"id": "garden_loop", "env": "garden", "name": "Tour du jardin", "length": 150, "diff": 1, "level": 1, "finds": 2, "desc": "Une petite boucle tranquille autour de la pelouse."},
+	{"id": "park_pond", "env": "park", "name": "Boucle de l'étang", "length": 300, "diff": 1, "level": 1, "finds": 3, "desc": "Le tour de l'étang, on y croise souvent d'autres chiens."},
+	{"id": "park_alley", "env": "park", "name": "Grande allée", "length": 550, "diff": 2, "level": 3, "finds": 4, "desc": "Une longue promenade ombragée sous les arbres."},
+	{"id": "forest_ferns", "env": "forest", "name": "Sentier des fougères", "length": 400, "diff": 2, "level": 3, "finds": 4, "desc": "Un sentier riche en odeurs et en trésors."},
+	{"id": "forest_ridge", "env": "forest", "name": "Crête des sapins", "length": 750, "diff": 3, "level": 6, "finds": 5, "desc": "Une longue randonnée pour chiens endurants."},
+	{"id": "beach_shore", "env": "beach", "name": "Bord de mer", "length": 450, "diff": 2, "level": 4, "finds": 4, "desc": "Les pattes dans le sable, le nez au vent."},
+	{"id": "beach_dunes", "env": "beach", "name": "Les dunes", "length": 800, "diff": 3, "level": 7, "finds": 5, "desc": "Un parcours exigeant entre dunes et rochers."},
+]
+const ROUTE_DIFF_NAMES := ["", "Facile", "Moyen", "Difficile"]
+
+static func route(id: String) -> Dictionary:
+	for r in ROUTES:
+		if r["id"] == id:
+			return r
+	return {}
+
 # ------------------------------------------------------------------ Recherche
 ## tries = erreurs tolérées, clues = usages du flair, rare = chance d'objet rare par objet caché
 const SEARCH_LEVELS := [

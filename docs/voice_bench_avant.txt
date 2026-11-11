@@ -1,0 +1,30 @@
+BANC VOCAL (signaux de synthèse) — chaîne d'origine, locuteurs [0, 1, 2], rapide=false
+BANC [voix grave]
+BANC   capture (parole 0,5 à 3 s après ouverture) : réussies 10/48 (20.8 %) · échec avant la parole 27 · délai dépassé 0 · mot tronqué 1 · refus qualité 9 · sans réponse 1
+BANC   capture (joueur lent, parole 4 à 6,5 s après ouverture) : réussies 5/16 (31.2 %)
+BANC   apprentissage : essais nécessaires 44 pour 24 modèles
+BANC   reconnaissance (mots enregistrés) : correct 119/192 (62.0 %) · confondu 0 · non reconnu 68 · aucun événement 5
+BANC   mots inconnus : acceptés à tort 0/54 (0.0 %)
+BANC   bruits (claquement, choc, souffle, musique) : acceptés à tort 0/24 (0.0 %)
+BANC [voix aiguë]
+BANC   capture (parole 0,5 à 3 s après ouverture) : réussies 14/48 (29.2 %) · échec avant la parole 22 · délai dépassé 0 · mot tronqué 0 · refus qualité 11 · sans réponse 1
+BANC   capture (joueur lent, parole 4 à 6,5 s après ouverture) : réussies 10/16 (62.5 %)
+BANC   apprentissage : essais nécessaires 52 pour 22 modèles
+BANC   reconnaissance (mots enregistrés) : correct 78/192 (40.6 %) · confondu 0 · non reconnu 113 · aucun événement 1
+BANC   mots inconnus : acceptés à tort 0/54 (0.0 %)
+BANC   bruits (claquement, choc, souffle, musique) : acceptés à tort 0/24 (0.0 %)
+BANC [voix d'enfant]
+BANC   capture (parole 0,5 à 3 s après ouverture) : réussies 14/48 (29.2 %) · échec avant la parole 20 · délai dépassé 0 · mot tronqué 1 · refus qualité 11 · sans réponse 2
+BANC   capture (joueur lent, parole 4 à 6,5 s après ouverture) : réussies 7/16 (43.8 %)
+BANC   apprentissage : essais nécessaires 36 pour 24 modèles
+BANC   reconnaissance (mots enregistrés) : correct 126/192 (65.6 %) · confondu 0 · non reconnu 63 · aucun événement 3
+BANC   mots inconnus : acceptés à tort 0/54 (0.0 %)
+BANC   bruits (claquement, choc, souffle, musique) : acceptés à tort 0/24 (0.0 %)
+BANC [TOTAL]
+BANC   capture (parole 0,5 à 3 s après ouverture) : réussies 38/144 (26.4 %) · échec avant la parole 69 · délai dépassé 0 · mot tronqué 2 · refus qualité 31 · sans réponse 4
+BANC   capture (joueur lent, parole 4 à 6,5 s après ouverture) : réussies 22/48 (45.8 %)
+BANC   apprentissage : essais nécessaires 132 pour 70 modèles
+BANC   reconnaissance (mots enregistrés) : correct 323/576 (56.1 %) · confondu 0 · non reconnu 244 · aucun événement 9
+BANC   mots inconnus : acceptés à tort 0/162 (0.0 %)
+BANC   bruits (claquement, choc, souffle, musique) : acceptés à tort 0/72 (0.0 %)
+BANC durée : 93 s

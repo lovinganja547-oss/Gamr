@@ -92,7 +92,10 @@ func _start() -> void:
 func _update_voice_btn() -> void:
 	var p := GameState.active_pet()
 	var n := Voice.template_count(p, cmd)
-	if n == 0:
+	if n == 0 and Voice.needs_redo(p, cmd):
+		voice_btn.text = tr("Voix : mot à réenregistrer (reconnaissance améliorée)")
+		voice_btn.icon = UiKit.icon("mic")
+	elif n == 0:
 		voice_btn.text = tr("Voix : associer un mot à cet ordre")
 		voice_btn.icon = UiKit.icon("mic")
 	else:

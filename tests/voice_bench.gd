@@ -7,7 +7,8 @@ extends Node
 ## doigt sur l'écran, trous de zéros (sous-alimentation du tampon), quantification 16 bits.
 ## Le banc pilote la vraie chaîne de Voice (enregistrement puis écoute continue).
 ## Variables d'environnement : BENCH_SPEAKERS (ex. "0,1"), BENCH_QUICK=1 (moins de tirages),
-## BENCH_VERBOSE=1 (détail par énoncé).
+## BENCH_VERBOSE=1 (détail par énoncé), BENCH_SEED=n (autre tirage aléatoire), BENCH_DUMP=chemin (enregistre les bandes mel de chaque
+## énoncé capté, pour le calibrage des seuils par tests/voice_tune.gd).
 
 # ------------------------------------------------------------------ phonèmes
 # voisé : [F1, F2, F3, amplitude voisée, amplitude bruit, centre bruit, largeur bruit]
@@ -66,17 +67,31 @@ const SPEAKERS := [
 ]
 
 var quick := false
+var seed_base := 0
 var verbose := false
 var new_api := false
 var _utt: Dictionary = {}
 var _got_utt := false
 var _events: Array = []
 var _noise_bank := PackedFloat32Array()
+var _dump: Array = []
+var _dump_path := ""
+
+func _keep(kind: String, si: int, label: String) -> void:
+	if _dump_path == "":
+		return
+	for raw in Voice.get("debug_raws"):
+		_dump.append({"kind": kind, "sp": si, "label": label, "mel": raw["mel"], "noise_mel": raw["noise_mel"], "snr": raw["snr"]})
+	Voice.get("debug_raws").clear()
 
 func _ready() -> void:
 	quick = OS.get_environment("BENCH_QUICK") == "1"
 	verbose = OS.get_environment("BENCH_VERBOSE") == "1"
+	seed_base = int(OS.get_environment("BENCH_SEED")) if OS.get_environment("BENCH_SEED") != "" else 0
 	new_api = Voice.has_method("feed_raw")
+	_dump_path = OS.get_environment("BENCH_DUMP") if new_api else ""
+	if _dump_path != "":
+		Voice.set("debug_keep", true)
 	var sp_env := OS.get_environment("BENCH_SPEAKERS")
 	var speakers: Array = []
 	if sp_env == "":
@@ -104,7 +119,7 @@ func _ready() -> void:
 	Voice.utterance_ready.connect(func(r): _utt = r; _got_utt = true)
 	Voice.heard.connect(func(c, conf): _events.append([c, conf]))
 	Voice.unrecognized.connect(func(b, d): _events.append(["", d, b]))
-	print("BANC VOCAL (signaux de synthèse) — chaîne ", "nouvelle" if new_api else "d'origine", ", locuteurs ", speakers, ", rapide=", quick)
+	print("BANC VOCAL (signaux de synthèse) — chaîne ", "nouvelle" if new_api else "d'origine", ", locuteurs ", speakers, ", rapide=", quick, ", tirage=", seed_base)
 	var tot := {}
 	var t0 := Time.get_ticks_msec()
 	for si in speakers:
@@ -112,9 +127,51 @@ func _ready() -> void:
 		for k in r.keys():
 			tot[k] = int(tot.get(k, 0)) + int(r[k])
 	_report("TOTAL", tot)
+	if new_api:
+		_cost()
 	print("BANC durée : %.0f s" % ((Time.get_ticks_msec() - t0) / 1000.0))
+	if _dump_path != "":
+		var f := FileAccess.open(_dump_path, FileAccess.WRITE)
+		f.store_var(_dump)
+		f.close()
+		print("BANC données brutes : ", _dump.size(), " énoncés -> ", _dump_path)
 	GameState.reset_game()
 	get_tree().quit(0)
+
+## Coût de calcul sur cette machine (un téléphone est plusieurs fois plus lent).
+func _cost() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var sr := 48000.0
+	var st := _stream(PackedFloat32Array(), sr, rng, {"lead": 10.0, "tail": 0.0, "noise_db": -55.0})
+	Voice.stop_listening()
+	Voice.start_listening()
+	var t0 := Time.get_ticks_usec()
+	var worst := 0
+	var chunk := int(sr / 60.0)
+	var i := 0
+	while i < st.size():
+		var t1 := Time.get_ticks_usec()
+		Voice.call("feed_raw", st.slice(i, mini(st.size(), i + chunk)), sr)
+		worst = maxi(worst, Time.get_ticks_usec() - t1)
+		i += chunk
+	var per_s := (Time.get_ticks_usec() - t0) / 1000.0 / 10.0
+	# un mot en écoute continue : cadres mel pendant la parole puis comparaison aux modèles
+	var w := _speak("la patte", SPEAKERS[0], sr, rng)
+	var st2 := _stream(w, sr, rng, {"lead": 0.5, "tail": 1.0, "noise_db": -55.0, "peak_db": -12.0})
+	var worst2 := 0
+	i = 0
+	while i < st2.size():
+		var t1 := Time.get_ticks_usec()
+		Voice.call("feed_raw", st2.slice(i, mini(st2.size(), i + chunk)), sr)
+		worst2 = maxi(worst2, Time.get_ticks_usec() - t1)
+		i += chunk
+	Voice.stop_listening()
+	var p := GameState.active_pet()
+	var ntpl := 0
+	for cmd in p.get("voice", {}).keys():
+		ntpl += Voice.template_count(p, cmd)
+	print("BANC [coût sur cette machine] écoute au repos : %.1f ms par seconde d'audio (pire image %.2f ms) · image la plus lourde pendant un mot, reconnaissance comprise (%d modèles, exécutée d'un bloc en mode test) : %.1f ms" % [per_s, worst / 1000.0, ntpl, worst2 / 1000.0])
 
 func _pct(a: int, b: int) -> String:
 	return "%d/%d (%.1f %%)" % [a, b, 100.0 * a / maxf(1.0, float(b))]
@@ -455,7 +512,7 @@ func _cond(rng: RandomNumberGenerator, noise_db: float, peak_lo: float, peak_hi:
 func _run_speaker(si: int) -> Dictionary:
 	var sp: Dictionary = SPEAKERS[si]
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 1000 + si * 77
+	rng.seed = 1000 + si * 77 + seed_base * 7919
 	var r := {}
 	var p := GameState.active_pet()
 	Voice.clear_all(p)
@@ -478,6 +535,11 @@ func _run_speaker(si: int) -> Dictionary:
 			if verbose:
 				print("  appr ", cmd, " essai ", tries, " -> ", res.get("ok", false), " ", res.get("reason", ""), " durée=", res.get("duration", 0.0), " mot=", wd)
 			# le joueur valide ce que le jeu accepte (il ne voit pas la troncature)
+			if _dump_path != "":
+				if bool(res.get("ok", false)):
+					_keep("enr", si, cmd)
+				else:
+					Voice.get("debug_raws").clear()
 			if bool(res.get("ok", false)):
 				if new_api and Voice.has_method("check_new_template"):
 					var chk: Dictionary = Voice.call("check_new_template", p, cmd, res["feats"])
@@ -501,6 +563,7 @@ func _run_speaker(si: int) -> Dictionary:
 		var st := _stream(w, sr, rng, o)
 		var res := _record(st, sr)
 		var wd := w.size() / sr
+		_keep("cap", si, cmd)
 		r["cap_n"] = int(r.get("cap_n", 0)) + 1
 		var key := ""
 		if res.is_empty():
@@ -529,6 +592,7 @@ func _run_speaker(si: int) -> Dictionary:
 		o["tap"] = rng.randf() < 0.5
 		var w := _speak(ENROLL[cmd], sp, sr, rng)
 		var res := _record(_stream(w, sr, rng, o), sr)
+		_keep("cap", si, cmd)
 		r["slow_n"] = int(r.get("slow_n", 0)) + 1
 		if bool(res.get("ok", false)) and float(res.get("duration", 0.0)) >= 0.6 * w.size() / sr:
 			r["slow_ok"] = int(r.get("slow_ok", 0)) + 1
@@ -554,6 +618,7 @@ func _run_speaker(si: int) -> Dictionary:
 				var w := _speak(ENROLL[cmd], sp, sr, rng)
 				_events.clear()
 				_drive(_stream(w, sr, rng, o), sr, false)
+				_keep("rec", si, cmd)
 				r["rec_n"] = int(r.get("rec_n", 0)) + 1
 				var key := _classify(cmd)
 				r[key] = int(r.get(key, 0)) + 1
@@ -567,6 +632,7 @@ func _run_speaker(si: int) -> Dictionary:
 				var w := _speak(uw, sp, sr, rng)
 				_events.clear()
 				_drive(_stream(w, sr, rng, o), sr, false)
+				_keep("unk", si, uw)
 				r["unk_n"] = int(r.get("unk_n", 0)) + 1
 				if _any_heard():
 					r["unk_fp"] = int(r.get("unk_fp", 0)) + 1
@@ -577,6 +643,7 @@ func _run_speaker(si: int) -> Dictionary:
 			o["lead"] = rng.randf_range(0.4, 1.0)
 			_events.clear()
 			_drive(_stream(_noise_event(k, sr, rng), sr, rng, o), sr, false)
+			_keep("noi", si, str(k % 4))
 			r["noi_n"] = int(r.get("noi_n", 0)) + 1
 			if _any_heard():
 				r["noi_fp"] = int(r.get("noi_fp", 0)) + 1

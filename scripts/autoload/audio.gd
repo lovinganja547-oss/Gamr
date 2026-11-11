@@ -9,6 +9,8 @@ var _pool: Array[AudioStreamPlayer] = []
 var _cache := {}
 var _current_music := ""
 var _current_amb := ""
+var _duck := false
+var sfx_until_msec := 0     # fin estimée du dernier effet sonore joué (le micro l'entend aussi)
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -55,8 +57,17 @@ func _stream(sound_name: String, looped: bool = false) -> AudioStream:
 func apply_volumes() -> void:
 	var st: Dictionary = GameState.data.get("settings", {})
 	_set_bus("Master", float(st.get("master", 0.9)))
-	_set_bus("Music", float(st.get("music", 0.6)))
+	_set_bus("Music", float(st.get("music", 0.6)) * (0.12 if _duck else 1.0))
 	_set_bus("SFX", float(st.get("sfx", 0.9)))
+
+## Baisse la musique pendant que le micro écoute (elle couvrirait la voix du joueur).
+func duck_for_mic(on: bool) -> void:
+	if on == _duck:
+		return
+	_duck = on
+	apply_volumes()
+	if _amb:
+		_amb.volume_db = -22.0 if on else -6.0
 
 func _set_bus(bus: String, v: float) -> void:
 	var i := AudioServer.get_bus_index(bus)
@@ -69,6 +80,7 @@ func play(sound_name: String, pitch_var: float = 0.06, vol_db: float = 0.0, pitc
 	var s := _stream(sound_name)
 	if s == null:
 		return
+	sfx_until_msec = maxi(sfx_until_msec, Time.get_ticks_msec() + int(s.get_length() * 1000.0))
 	var p: AudioStreamPlayer = null
 	for q in _pool:
 		if not q.playing:

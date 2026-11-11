@@ -1045,7 +1045,7 @@ static func _toggle(txt: String, key: String) -> Control:
 		GameState.set_setting(key, not bool(GameState.setting(key)))
 		if key == "voice":
 			if GameState.setting("voice"):
-				Voice.request_permission()
+				Voice.ensure_permission()
 			else:
 				Voice.stop_listening()
 		_m().close_panel()

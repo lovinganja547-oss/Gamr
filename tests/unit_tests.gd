@@ -192,11 +192,64 @@ var _utt: Dictionary = {}
 func _on_utt(r: Dictionary) -> void:
 	_utt = r
 
-func _capture(samples: PackedFloat32Array) -> Dictionary:
+func _capture(samples: PackedFloat32Array, quiet_noise: float = 0.0015) -> Dictionary:
 	_utt = {}
-	Voice.record_utterance(5.0)
+	Voice.stop_listening()
+	Voice.record_utterance(3.0)
 	Voice.feed(samples)
+	if _utt.is_empty():
+		# le joueur ne dit plus rien : le délai de début de parole s'écoule (horloge audio)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 5
+		var quiet := PackedFloat32Array()
+		for i in int(3.5 * Voice.SR):
+			quiet.append(rng.randfn(0.0, quiet_noise))
+		Voice.feed(quiet)
+	if Voice.is_recording():
+		Voice.cancel_record()
 	return _utt
+
+## Flux tel que livré par le moteur : stéréo, taux de mixage donné, sinusoïde pure.
+func _raw_tone(freq: float, rate: float, dur: float, amp: float = 0.3) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in int(dur * rate):
+		var v := amp * sin(TAU * freq * i / rate)
+		out.append(Vector2(v, v))
+	return out
+
+var _states: Array = []
+func _on_cap_state(st: String) -> void:
+	_states.append(st)
+
+var _raw_out := PackedFloat32Array()
+
+## Sortie du rééchantillonneur seul (16 kHz) pour un flux brut.
+func _resampled(raw: PackedVector2Array, rate: float) -> PackedFloat32Array:
+	Voice.stop_listening()
+	Voice.start_listening()
+	Voice.resample_probe = PackedFloat32Array()
+	Voice.resample_probe_on = true
+	var i := 0
+	while i < raw.size():
+		Voice.feed_raw(raw.slice(i, mini(raw.size(), i + 800)), rate)
+		i += 800
+	Voice.resample_probe_on = false
+	Voice.stop_listening()
+	return Voice.resample_probe
+
+func _peak_bin(x: PackedFloat32Array) -> int:
+	var pw := Voice.power_spectrum(x.slice(2000, 2000 + Voice.FRAME))
+	var peak := 0
+	for k in pw.size():
+		if pw[k] > pw[peak]:
+			peak = k
+	return peak
+
+func _rms(x: PackedFloat32Array, from: int = 2000) -> float:
+	var e := 0.0
+	for i in range(from, x.size()):
+		e += x[i] * x[i]
+	return sqrt(e / maxf(1.0, float(x.size() - from)))
 
 func _voice_tests() -> void:
 	Voice.test_mode = true
@@ -227,18 +280,82 @@ func _voice_tests() -> void:
 	Voice.utterance_ready.connect(_on_utt)
 	var r := _capture(_syn(WORD_A))
 	ok(bool(r.get("ok", false)), "mot détecté : " + str(r.get("reason", "")))
-	ok(int(r.get("frames", 0)) >= 15 and int(r.get("frames", 0)) <= 32, "durée du mot plausible (%d cadres)" % int(r.get("frames", 0)))
+	ok(int(r.get("frames", 0)) >= 18 and int(r.get("frames", 0)) <= 28, "durée du mot plausible (%d cadres)" % int(r.get("frames", 0)))
 	ok(r.has("samples") and (r["samples"] as PackedFloat32Array).size() > 5000, "échantillons conservés pour la réécoute")
 	r = _capture(_syn([[[500.0, 1500.0], 0.1]]))
 	ok(not bool(r.get("ok", true)) and r.get("reason", "") == "too_short", "trop court détecté : %s %d" % [r.get("reason", "?"), r.get("frames", -1)])
 	r = _capture(_syn(WORD_A, 1.6))
 	ok(not bool(r.get("ok", true)) and r.get("reason", "") == "saturated", "saturation détectée")
-	r = _capture(_syn(WORD_A, 0.3, 1.0, 0.07))
+	r = _capture(_syn(WORD_A, 0.3, 1.0, 0.07), 0.0715)
 	ok(not bool(r.get("ok", true)) and r.get("reason", "") == "noisy", "bruit de fond détecté : " + str(r.get("reason", "")))
 	r = _capture(_syn([[[300.0, 1200.0], 3.0]]))
 	ok(not bool(r.get("ok", true)) and r.get("reason", "") == "too_long", "mot trop long détecté")
 	var q := Voice.analyze([], PackedFloat32Array(), 0.01, 0.0, false)
 	ok(q["reason"] == "too_short", "analyse vide")
+	# Rééchantillonnage : 44,1 et 48 kHz stéréo -> 16 kHz, fréquence conservée, pas de repliement
+	for rate in [44100.0, 48000.0]:
+		var rs := _resampled(_raw_tone(1000.0, rate, 0.5), rate)
+		ok(absi(rs.size() - 8000) < 40, "rééchantillonnage %d Hz : durée conservée (%d échantillons)" % [int(rate), rs.size()])
+		ok(_peak_bin(rs) == 32 and absf(_rms(rs) - 0.212) < 0.02, "rééchantillonnage %d Hz : 1000 Hz conservé (case %d, niveau %.3f)" % [int(rate), _peak_bin(rs), _rms(rs)])
+		var al := _resampled(_raw_tone(11000.0, rate, 0.5), rate)
+		ok(_rms(al) < 0.212 * 0.06, "anti-repliement %d Hz : 11 kHz atténué de plus de 24 dB (%.4f)" % [int(rate), _rms(al)])
+	# Trous de silence numérique (micro pas démarré, tampon sous-alimenté) retirés du flux
+	var holes := PackedVector2Array()
+	holes.resize(9600)
+	var tone := _raw_tone(1000.0, 48000.0, 0.5)
+	holes.append_array(tone.slice(0, 12000))
+	var gap := PackedVector2Array()
+	gap.resize(960)
+	holes.append_array(gap)
+	holes.append_array(tone.slice(12000))
+	var hs := _resampled(holes, 48000.0)
+	ok(absi(hs.size() - 8000) < 40, "silence numérique retiré (%d échantillons)" % hs.size())
+	# Démarrage : aucun délai ne court tant que le micro ne livre rien, puis calibrage, puis prêt
+	_states.clear()
+	Voice.capture_state.connect(_on_cap_state)
+	_utt = {}
+	Voice.stop_listening()
+	Voice.record_utterance(3.0)
+	var zeros := PackedVector2Array()
+	zeros.resize(48000 * 2)
+	Voice.feed_raw(zeros, 48000.0)
+	ok(_utt.is_empty() and not Voice.is_ready() and Voice.is_recording(), "pas d'échec tant que le micro ne livre que du silence numérique")
+	var rngq := RandomNumberGenerator.new()
+	rngq.seed = 9
+	var amb := PackedVector2Array()
+	for i in int(48000 * 0.6):
+		var nv := rngq.randfn(0.0, 0.002)
+		amb.append(Vector2(nv, nv))
+	Voice.feed_raw(amb, 48000.0)
+	ok(Voice.is_ready() and _states.has("calibrating") and _states.has("ready"), "micro prêt après calibrage : " + str(_states))
+	ok(absf(Voice.time_left() - 3.0) < 0.4, "le délai de parole démarre quand le micro est prêt (%.1f s)" % Voice.time_left())
+	# Un bruit bref (clic, choc) est ignoré : la capture continue et le mot suivant est pris
+	var burst := _syn([[[500.0, 1500.0], 0.09]], 0.3, 1.0, 0.0, 0.3, 4)
+	var hush := PackedFloat32Array()
+	for i in int(0.7 * Voice.SR):
+		hush.append(rngq.randfn(0.0, 0.0015))
+	Voice.feed(burst)
+	Voice.feed(hush)
+	ok(_utt.is_empty() and Voice.is_recording() and _states.has("burst"), "bruit bref ignoré pendant l'enregistrement " + str(_states))
+	Voice.feed(_syn(WORD_A))
+	Voice.feed(hush)
+	ok(bool(_utt.get("ok", false)), "mot capté après un bruit bref : " + str(_utt.get("reason", "")))
+	# Micro muet : échec explicite « aucun son reçu », sans blocage
+	_utt = {}
+	Voice.record_utterance(3.0)
+	for i in 360:
+		Voice._process(1.0 / 60.0)
+	ok(_utt.get("reason", "") == "no_audio" and not Voice.is_recording(), "aucun son reçu signalé : " + str(_utt.get("reason", "?")))
+	Voice.capture_state.disconnect(_on_cap_state)
+	# Volume : le même mot 20 dB plus faible donne presque les mêmes caractéristiques
+	var loud_sig := _syn(WORD_A, 0.3, 1.0, 0.0005, 0.4, 2)
+	var soft_sig := PackedFloat32Array()
+	for v in loud_sig:
+		soft_sig.append(v * 0.1)
+	var loud: Dictionary = _capture(loud_sig)
+	var soft: Dictionary = _capture(soft_sig, 0.00015)
+	var dvol := Voice.dtw(loud["feats"], soft["feats"]) if bool(soft.get("ok", false)) else INF
+	ok(dvol < 0.1, "caractéristiques indépendantes du volume (distance %.3f)" % dvol)
 	# Reconnaissance : modèles par animal, marge, inconnu refusé
 	var p := GameState.active_pet()
 	Voice.clear_all(p)
@@ -262,14 +379,27 @@ func _voice_tests() -> void:
 	ok(rd["cmd"] == "", "mot inconnu refusé (meilleur : %s, d=%.2f)" % [rd["best"], rd["d"]])
 	ok(Voice.recognize(qa["feats"], {"id": "x", "voice": {}}).get("cmd", "x") == "", "sans modèle : rien")
 	ok(Voice.reliability(p, "sit") > Voice.reliability(p, "down"), "fiabilité croît avec les modèles")
+	var chk_ok := Voice.check_new_template(p, "sit", qa["feats"])
+	var chk_bad := Voice.check_new_template(p, "sit", qd["feats"])
+	ok(bool(chk_ok["ok"]) and not bool(chk_bad["ok"]) and chk_bad["reason"] == "incoherent", "cohérence d'un nouvel enregistrement (%.2f / %.2f)" % [chk_ok["d"], chk_bad["d"]])
+	var chk_conf := Voice.check_new_template(p, "paw", qb["feats"])
+	ok(chk_conf["reason"] == "confusable" and chk_conf["other"] == "down", "mot trop proche d'un autre ordre signalé")
 	ok(Voice.reliability(p, "paw") == 0.0 and Voice.reliability_label(0.0) != "", "fiabilité nulle sans modèle")
 	Voice.record_use(p, "sit", true)
 	ok(int(p["voice"]["sit"]["uses"]) == 1 and int(p["voice"]["sit"]["hits"]) == 1, "statistiques d'usage")
 	# Sauvegarde : validation de la structure
 	var packed := Voice.pack_feats(fa1["feats"])
 	ok(Voice.unpack_feats(packed).size() == fa1["feats"].size(), "compactage des modèles")
-	var sv := Voice.sanitize_voice({"sit": {"word": "x", "tpl": [packed, [[1, 2]], "zut"]}, "dragon": {"tpl": [packed]}, "down": 5})
+	var sv := Voice.sanitize_voice({"sit": {"v": Voice.FEAT_VERSION, "word": "x", "tpl": [packed, [[1, 2]], "zut"]}, "dragon": {"v": Voice.FEAT_VERSION, "tpl": [packed]}, "down": 5})
 	ok(sv.size() == 1 and sv["sit"]["tpl"].size() == 1 and sv["sit"]["word"] == "x", "validation des modèles vocaux")
+	# Migration : les modèles de l'ancien format sont invalidés, le mot est gardé pour être réenregistré
+	var old := Voice.sanitize_voice({"sit": {"word": "assis", "tpl": [packed], "uses": 4, "hits": 1}})
+	ok(old.has("sit") and old["sit"]["tpl"].is_empty() and bool(old["sit"].get("redo", false)) and old["sit"]["word"] == "assis", "anciens modèles vocaux invalidés")
+	var oldpet := {"id": "old", "voice": old}
+	ok(Voice.needs_redo(oldpet, "sit") and Voice.redo_count(oldpet) == 1 and Voice.trained_count(oldpet) == 0, "mot à réenregistrer signalé")
+	ok(Voice.recognize(qa["feats"], oldpet)["cmd"] == "", "ancien modèle jamais reconnu")
+	Voice.add_template(oldpet, "sit", fa1["feats"], "")
+	ok(not Voice.needs_redo(oldpet, "sit") and Voice.word(oldpet, "sit") == "assis", "réenregistrement après migration")
 	ok(Voice.sanitize_voice(null).is_empty(), "voix absente tolérée")
 	GameState.save_game()
 	GameState.load_game()

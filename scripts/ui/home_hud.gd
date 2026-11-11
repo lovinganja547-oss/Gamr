@@ -39,6 +39,9 @@ func _ready() -> void:
 		_tutorial()
 	else:
 		_daily_popup.call_deferred()
+	if Voice.redo_count() > 0 and not Voice.redo_notice_shown:
+		Voice.redo_notice_shown = true
+		Main.inst.toast.call_deferred("[i:mic] " + tr("La reconnaissance vocale a été améliorée : réenregistrez vos mots dans « Dressage »."))
 
 func _build() -> void:
 	var root := UiKit.vbox(8)

@@ -19,8 +19,9 @@ var btn_ok: Button
 var btn_test: Button
 var btn_clear: Button
 var btn_cancel: Button
-var _countdown := 0.0
-var _result_pending := false
+var _held := false
+var _phase := ""         # étape de capture signalée par Voice.capture_state
+var _replace := false    # le nouvel enregistrement remplacera les anciens (mot différent)
 
 func _init(c: String, cb: Callable = Callable()) -> void:
 	cmd = c
@@ -78,8 +79,16 @@ func _ready() -> void:
 	Voice.level.connect(_on_level)
 	Voice.utterance_ready.connect(_on_utterance)
 	Voice.permission_result.connect(_on_permission)
+	Voice.capture_state.connect(_on_capture_state)
 	_update_info()
 	_set_state("idle")
+	if Voice.needs_redo(p, cmd):
+		status_l.text = tr("La reconnaissance a été améliorée : réenregistrez ce mot.")
+		tip_l.text = tr("Les anciens enregistrements ne sont plus compatibles. Deux ou trois nouveaux suffisent.")
+	# micro gardé ouvert tant que l'écran est affiché : pas d'attente à chaque enregistrement
+	if Voice.has_permission() and Voice.available():
+		_held = true
+		Voice.hold_mic(true)
 
 func _exit_tree() -> void:
 	if Voice.level.is_connected(_on_level):
@@ -88,8 +97,13 @@ func _exit_tree() -> void:
 		Voice.utterance_ready.disconnect(_on_utterance)
 	if Voice.permission_result.is_connected(_on_permission):
 		Voice.permission_result.disconnect(_on_permission)
+	if Voice.capture_state.is_connected(_on_capture_state):
+		Voice.capture_state.disconnect(_on_capture_state)
 	if Voice.is_recording():
 		Voice.cancel_record()
+	if _held:
+		_held = false
+		Voice.hold_mic(false)
 
 func _update_info() -> void:
 	var p := GameState.active_pet()
@@ -97,6 +111,7 @@ func _update_info() -> void:
 	var r := Voice.reliability(p, cmd)
 	var txt := tr("Enregistrements : %d/%d · Fiabilité : %s") % [n, Voice.MAX_TEMPLATES, Voice.reliability_label(r)]
 	if n > 0:
+		txt += " (%d %%)" % int(round(r * 100.0))
 		var e: Dictionary = p.get("voice", {}).get(cmd, {})
 		var uses := int(e.get("uses", 0))
 		if uses > 0:
@@ -123,6 +138,9 @@ func _on_level(v: float) -> void:
 		level_bar.value = v * 100.0
 
 func _on_permission(granted: bool) -> void:
+	if granted and not _held:
+		_held = true
+		Voice.hold_mic(true)
 	if granted and state == "idle":
 		status_l.text = tr("Micro autorisé. Touchez « Enregistrer ».")
 	elif not granted:
@@ -137,14 +155,36 @@ func _begin_capture(test: bool) -> bool:
 		status_l.text = tr(Voice.QUALITY_TEXT["no_mic"])
 		tip_l.text = tr("Les ordres restent disponibles par geste ou bouton.")
 		return false
-	if not Voice.record_utterance(5.0):
-		status_l.text = tr("Micro indisponible pour le moment.")
-		return false
+	_phase = "starting"
 	_set_state("testing" if test else "recording")
-	_countdown = 5.0
-	status_l.text = tr("Parlez maintenant…")
-	tip_l.text = tr("Dites le mot une seule fois, puis attendez.")
+	status_l.text = tr("Préparation du micro…")
+	tip_l.text = tr("Attendez « Parlez maintenant » avant de dire le mot.")
+	if not Voice.record_utterance():
+		_set_state("review" if not result.is_empty() and bool(result.get("ok", false)) else "idle")
+		status_l.text = tr("Micro indisponible pour le moment.")
+		tip_l.text = tr("Réessayez dans un instant.")
+		return false
 	return true
+
+## Suit les étapes de la capture : le joueur n'est invité à parler que lorsque le micro
+## livre réellement du son et que le bruit de fond est mesuré.
+func _on_capture_state(st: String) -> void:
+	if state != "recording" and state != "testing":
+		return
+	_phase = st
+	match st:
+		"starting", "calibrating":
+			status_l.text = tr("Préparation du micro…")
+		"ready":
+			status_l.text = tr("Parlez maintenant")
+			tip_l.text = tr("Dites le mot une seule fois, puis attendez.")
+		"speech":
+			status_l.text = tr("Je vous écoute…")
+			tip_l.text = tr("Restez silencieux après le mot.")
+		"burst":
+			_phase = "ready"
+			status_l.text = tr("Parlez maintenant")
+			tip_l.text = tr("Bruit bref ignoré. Dites le mot en entier.")
 
 func _record() -> void:
 	if state == "recording" or state == "testing":
@@ -163,10 +203,9 @@ func _cancel() -> void:
 	tip_l.text = ""
 	_set_state("review" if not result.is_empty() and bool(result.get("ok", false)) else "idle")
 
-func _process(delta: float) -> void:
-	if state == "recording" or state == "testing":
-		_countdown = maxf(0.0, _countdown - delta)
-		tip_l.text = tr("Dites le mot une seule fois, puis attendez. (%d s)") % int(ceil(_countdown))
+func _process(_delta: float) -> void:
+	if (state == "recording" or state == "testing") and _phase == "ready" and Voice.is_ready():
+		status_l.text = tr("Parlez maintenant (%d s)") % int(ceil(Voice.time_left()))
 
 func _on_utterance(res: Dictionary) -> void:
 	if state != "recording" and state != "testing":
@@ -180,7 +219,7 @@ func _on_utterance(res: Dictionary) -> void:
 		_set_state("review" if not result.is_empty() and bool(result.get("ok", false)) else "idle")
 		return
 	if testing:
-		var r := Voice.recognize(res["feats"])
+		var r := Voice.recognize(res["feats"], {}, float(res.get("snr", 99.0)))
 		if r["cmd"] == cmd:
 			status_l.text = tr("Reconnu : « %s » (%d %%)") % [Voice.word(GameState.active_pet(), cmd), int(float(r["conf"]) * 100.0)]
 			Audio.play("chime")
@@ -188,15 +227,31 @@ func _on_utterance(res: Dictionary) -> void:
 			status_l.text = tr("Confondu avec « %s » : ajoutez un enregistrement plus net.") % Voice.word(GameState.active_pet(), str(r["cmd"]))
 			Audio.play("buzz", 0.0, -8.0)
 		else:
-			status_l.text = tr("Non reconnu : réenregistrez le mot plus distinctement.")
+			status_l.text = tr("Non reconnu : redites-le comme à l'enregistrement, ou ajoutez un enregistrement.")
 			Audio.play("buzz", 0.0, -8.0)
 		tip_l.text = tr("Durée : %.1f s · rapport signal/bruit : %d dB") % [float(res.get("duration", 0.0)), int(float(res.get("snr", 0.0)))]
 		_set_state("review" if not result.is_empty() and bool(result.get("ok", false)) else "idle")
 		return
 	result = res
-	status_l.text = tr("Enregistrement net. Écoutez, puis validez.")
-	tip_l.text = tr("Durée : %.1f s · rapport signal/bruit : %d dB") % [float(res.get("duration", 0.0)), int(float(res.get("snr", 0.0)))]
-	Audio.play("pop")
+	_replace = false
+	btn_ok.text = tr("Valider")
+	var chk := Voice.check_new_template(GameState.active_pet(), cmd, res["feats"])
+	if chk["reason"] == "incoherent":
+		# cohérence avec les enregistrements précédents : on explique et on laisse le choix
+		_replace = true
+		btn_ok.text = tr("Remplacer")
+		status_l.text = tr("Ce mot ne ressemble pas à vos enregistrements précédents.")
+		tip_l.text = tr("Touchez « Recommencer » pour le redire de la même façon, ou « Remplacer » pour repartir de ce nouvel enregistrement.")
+		Audio.play("buzz", 0.0, -8.0)
+	elif chk["reason"] == "confusable":
+		btn_ok.text = tr("Garder")
+		status_l.text = tr("Ce mot ressemble beaucoup à « %s ».") % Voice.word(GameState.active_pet(), str(chk["other"]))
+		tip_l.text = tr("Choisissez de préférence un mot plus différent, sinon les deux ordres seront confondus.")
+		Audio.play("buzz", 0.0, -8.0)
+	else:
+		status_l.text = tr("Enregistrement net. Écoutez, puis validez.")
+		tip_l.text = tr("Durée : %.1f s · rapport signal/bruit : %d dB") % [float(res.get("duration", 0.0)), int(float(res.get("snr", 0.0)))]
+		Audio.play("pop")
 	_set_state("review")
 
 func _play() -> void:
@@ -207,11 +262,18 @@ func _validate() -> void:
 	if state != "review" or not bool(result.get("ok", false)):
 		return
 	var p := GameState.active_pet()
+	if _replace:
+		var kept := str(p.get("voice", {}).get(cmd, {}).get("word", ""))
+		Voice.clear_cmd(p, cmd)
+		if word_edit.text.strip_edges() == "":
+			word_edit.text = kept
+		_replace = false
+	btn_ok.text = tr("Valider")
 	var n := Voice.add_template(p, cmd, result["feats"], word_edit.text)
 	GameState.set_setting("voice", true)
 	Audio.play("success", 0.0, -4.0)
 	status_l.text = tr("Mot enregistré (%d/%d).") % [n, Voice.MAX_TEMPLATES]
-	tip_l.text = tr("Répétez l'opération une ou deux fois pour renforcer la reconnaissance.") if n < Voice.MAX_TEMPLATES else tr("Un nouvel enregistrement remplacera le plus ancien.")
+	tip_l.text = tr("Répétez l'opération une ou deux fois pour renforcer la reconnaissance.") if n < Voice.MAX_TEMPLATES else tr("Fiabilité : %s. Un nouvel enregistrement remplacera le plus ancien.") % Voice.reliability_label(Voice.reliability(p, cmd))
 	result = {}
 	_update_info()
 	_set_state("idle")

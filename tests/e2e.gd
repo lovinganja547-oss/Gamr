@@ -43,6 +43,15 @@ func _syn(segs: Array, amp: float = 0.3, stretch: float = 1.0, noise: float = 0.
 		out.append(rng.randfn(0.0, 0.0015 + noise))
 	return out
 
+## Silence ambiant après un mot (la fin du mot est validée après 0,6 s de silence).
+func _hush() -> PackedFloat32Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var out := PackedFloat32Array()
+	for i in int(0.8 * Voice.SR):
+		out.append(rng.randfn(0.0, 0.0015))
+	return out
+
 func _find_voice_panel(n: Node) -> VoicePanel:
 	if n is VoicePanel:
 		return n
@@ -255,9 +264,12 @@ func _run() -> void:
 	print("VOICE panel=", vpan != null)
 	if vpan:
 		vpan._record()
+		Voice.feed(_hush())      # le micro livre du son : calibrage puis « Parlez maintenant »
 		await wait(0.3)
+		print("VOICE ready=", Voice.is_ready(), " status=", vpan.status_l.text)
 		await shot("voice_recording")
 		Voice.feed(_syn(WORD_A, 0.3, 1.0, 0.004, 0.4, 11))
+		Voice.feed(_hush())
 		await wait(0.3)
 		print("VOICE state=", vpan.state, " reason=", vpan.result.get("reason", "ok"))
 		await shot("voice_review")
@@ -269,8 +281,13 @@ func _run() -> void:
 	await wait(0.5)
 	if t.step != "wait_order":
 		await wait(3.0)
-	print("VOICE listening=", Voice.listening, " step=", t.step)
+	var on_heard := func(c: String, cf: float): print("VOICE signal heard ", c, " conf=%.2f" % cf)
+	var on_miss := func(b: String, d: float): print("VOICE signal unrecognized best=", b, " d=%.2f" % d)
+	Voice.heard.connect(on_heard)
+	Voice.unrecognized.connect(on_miss)
+	print("VOICE listening=", Voice.listening, " step=", t.step, " panel=", main.has_panel())
 	Voice.feed(_syn(WORD_A, 0.32, 1.1, 0.005, 0.4, 12))
+	Voice.feed(_hush())
 	await wait(0.5)
 	print("VOICE heard -> step=", t.step, " reps=", t.reps)
 	await shot("training_voice")
@@ -279,8 +296,11 @@ func _run() -> void:
 		t._feedback(t.last_ok, false)
 	await wait(1.0)
 	Voice.feed(_syn(WORD_D, 0.3, 1.0, 0.005, 0.4, 13))
+	Voice.feed(_hush())
 	await wait(0.4)
 	print("VOICE unknown word -> step=", t.step, " reps=", t.reps)
+	Voice.heard.disconnect(on_heard)
+	Voice.unrecognized.disconnect(on_miss)
 	t.quit()
 	await wait(0.5)
 	main.close_all_panels()

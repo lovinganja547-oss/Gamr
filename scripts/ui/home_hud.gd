@@ -113,7 +113,6 @@ func _build() -> void:
 	side.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	side.add_child(UiKit.icon_button("menu", tr("Menu"), func(): Panels.more(), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("camera", tr("Photo"), func(): Main.inst.start_activity(PhotoMode.new()), Color(1, 1, 1, 0.92), 96))
-	side.add_child(UiKit.icon_button("map", tr("Lieux"), func(): Panels.places(), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("paw", tr("Animaux"), func(): Panels.pets(), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("recenter", tr("Centrer"), func(): Main.inst.recenter_camera(0.22), Color(1, 1, 1, 0.92), 96))
 	side.add_child(UiKit.icon_button("call", tr("Appeler"), _call, Color(1, 1, 1, 0.92), 96))
@@ -144,8 +143,8 @@ func _build() -> void:
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
 	row2.add_child(UiKit.icon_button("throw", tr("Jouer"), func(): Panels.play(self), Color(0.95, 1, 0.88), 108))
 	row2.add_child(UiKit.icon_button("training", tr("Dressage"), func(): Panels.training(), Color(0.98, 0.85, 0.75), 108))
-	row2.add_child(UiKit.icon_button("activities", tr("Activités"), func(): Panels.activities(), Color(0.85, 0.95, 0.85), 108))
-	row2.add_child(UiKit.icon_button("trophy", tr("Concours"), func(): Panels.competitions(), Color(1, 0.93, 0.7), 108))
+	# Promenade : la carte du quartier donne accès aux activités, concours et à la boutique
+	row2.add_child(UiKit.icon_button("walk", tr("Promenade"), func(): Main.inst.start_activity(WalkActivity.new()), Color(0.85, 0.95, 0.85), 108))
 	row2.add_child(UiKit.icon_button("shop", tr("Boutique"), func(): Panels.shop(), Color(0.9, 0.88, 1), 108))
 	row2.add_child(UiKit.icon_button("inventory", tr("Sac"), func(): Panels.inventory(), Color(0.95, 0.9, 0.85), 108))
 	root.add_child(row2)
@@ -318,9 +317,7 @@ func _call() -> void:
 		GameState.add_relation(1)
 
 func throw_free() -> void:
-	if Main.inst.env_root.get_meta("indoor", false):
-		Main.inst.toast(tr("Pas de lancer à l'intérieur ! Allez au jardin ou au parc."))
-		return
+	# le jeu de balle se déroule toujours dans le grand pré, même depuis la maison
 	Main.inst.start_activity(FetchGame.new(true))
 
 func on_object_tapped(part: String) -> void:

@@ -698,7 +698,6 @@ static func more() -> void:
 		["paw", "Animaux", func(): pets()],
 		["map", "Lieux", func(): places()],
 		["gear", "Réglages", func(): settings()],
-		["save", "Sauver", func(): _save_now()],
 	]
 	for it in items:
 		var cb: Callable = it[2]
@@ -706,10 +705,6 @@ static func more() -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		g.add_child(b)
 	_m().open_panel(_t("Menu"), UiKit.scroll(g))
-
-static func _save_now() -> void:
-	if GameState.save_game():
-		_m().toast(_t("Partie sauvegardée."))
 
 static func daily() -> void:
 	GameState.ensure_daily()
@@ -1021,13 +1016,7 @@ static func settings() -> void:
 	v.add_child(_toggle(_t("Commandes vocales (micro)"), "voice"))
 	v.add_child(UiKit.label(_t("Sans Internet : pendant le dressage, vous associez votre propre mot à chaque ordre ; le jeu compare ensuite votre voix à ces enregistrements, propres à chaque compagnon. Tous les ordres restent disponibles au toucher."), 20, UiKit.C_SUB))
 	v.add_child(UiKit.label(_t("Langue : Français"), 24, UiKit.C_SUB))
-	v.add_child(UiKit.button("[i:save] " + _t("Sauvegarder maintenant"), func():
-		if GameState.save_game():
-			_m().toast(_t("Partie sauvegardée.")), UiKit.C_ACCENT2, 26, 80))
-	v.add_child(UiKit.button("[i:reload] " + _t("Recharger la sauvegarde"), func():
-		GameState.load_game()
-		_m().close_all_panels()
-		_m().show_screen("title"), UiKit.C_BLUE, 26, 80))
+	v.add_child(UiKit.label("[i:save] " + _t("Sauvegarde automatique : la partie est enregistrée en continu sur l'appareil, avec une copie de secours par jour."), 20, UiKit.C_SUB))
 	v.add_child(UiKit.button("[i:warning] " + _t("Recommencer une partie"), func():
 		_m().confirm(_t("Tout effacer et recommencer ? Vos animaux, pièces et objets seront perdus."), func():
 			GameState.reset_game()

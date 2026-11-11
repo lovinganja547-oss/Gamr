@@ -48,17 +48,122 @@ var home_btn: Button
 var comp := false
 var elapsed := 0.0
 
+# Promenade tracée sur la carte du quartier
+var plan: Array = []          # lieux successifs (ids de GameData.WALK_NODES), de la maison à la maison
+var pois: Array[Dictionary] = []
+var prev_env := ""
+var sub: Activity = null
+var _sub_pos := Vector3.ZERO
+var _sub_walker := Vector3.ZERO
+var _open_comp := false
+var map_ui: WalkMap
+
 func _init(params: Dictionary = {}) -> void:
 	route_id = str(params.get("route", ""))
 	comp = bool(params.get("comp", false))
+	plan = params.get("plan", []) as Array
 
 func _start() -> void:
 	make_top("[i:walk] " + tr("Promenade"))
 	pet.state = "action"
 	if route_id != "":
 		_begin_route(GameData.route(route_id))
+	elif not plan.is_empty():
+		_begin_plan(plan)
 	else:
-		_route_picker()
+		_map_picker()
+
+# ------------------------------------------------------------------ carte : tracer la promenade
+func _map_picker() -> void:
+	info_label.text = tr("Tracez la promenade du doigt, de lieu en lieu, et revenez à la maison.")
+	var p := GameState.active_pet()
+	var v := UiKit.vbox(8)
+	var endu := GameData.walk_endurance(GameState.pet_level()) * lerpf(0.55, 1.0, float(p["needs"]["energy"]) / 100.0)
+	endu = maxf(endu, 200.0)
+	var el := UiKit.label("", 22, UiKit.C_SUB)
+	el.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(el)
+	var eb := UiKit.bar(100, UiKit.C_ACCENT2, 18)
+	v.add_child(eb)
+	map_ui = WalkMap.new()
+	map_ui.endurance = endu
+	map_ui.custom_minimum_size = Vector2(0, 700)
+	map_ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(map_ui)
+	var h := UiKit.hbox(8)
+	var undo_b := UiKit.button("[i:left] " + tr("Annuler"), func(): map_ui.undo(), UiKit.C_DISABLED, 22, 70)
+	h.add_child(UiKit.expand(undo_b))
+	var back_b := UiKit.button("[i:home_go] " + tr("Retour"), func():
+		if not map_ui.auto_return():
+			main.toast(tr("Pas assez d'endurance pour revenir par là : annulez une étape."))
+		, UiKit.C_BLUE, 22, 70)
+	h.add_child(UiKit.expand(back_b))
+	var go_b := UiKit.button("[i:walk] " + tr("Partir"), func():
+		if not map_ui.is_complete():
+			return
+		var pl: Array = map_ui.route.duplicate()
+		started = true
+		main.close_panel()
+		_begin_plan(pl), UiKit.C_ACCENT2, 24, 70)
+	h.add_child(UiKit.expand(go_b))
+	v.add_child(h)
+	var refresh := func():
+		var u := map_ui.used()
+		el.text = tr("Endurance : %d m sur %d m") % [int(endu - u), int(endu)] + ("  ·  " + tr("Trajet bouclé !") if map_ui.is_complete() else "")
+		eb.value = (endu - u) / endu * 100.0
+		go_b.disabled = not map_ui.is_complete()
+		undo_b.disabled = map_ui.route.size() <= 1
+	map_ui.route_changed.connect(refresh)
+	map_ui.clear_route()
+	refresh.call()
+	main.open_panel("[i:map] " + tr("Carte du quartier"), v, func():
+		if not started:
+			finished = true
+			main.end_activity())
+
+func _begin_plan(pl: Array) -> void:
+	plan = pl
+	var total := 0.0
+	for i in range(1, plan.size()):
+		total += GameData.walk_edge_len(plan[i - 1], plan[i])
+	var diff := 1 if total < 400.0 else (2 if total < 800.0 else 3)
+	prev_env = main.env_id if main.env_id != "town" else "house"
+	_begin_route({"id": "map", "env": "town", "name": "Promenade du quartier", "length": total, "diff": diff,
+		"finds": clampi(int(total / 120.0), 2, 8), "plan": plan})
+
+## Chemin balisé qui suit les rues du trajet tracé.
+func _build_plan_path(pl: Array) -> void:
+	var pts: Array[Vector3] = []
+	for id in pl:
+		var q: Vector2 = GameData.WALK_NODES[id]["pos"]
+		pts.append(Vector3(q.x, 0, q.y))
+	home = pts[0]
+	for i in range(1, pts.size()):
+		var a := pts[i - 1]
+		var b := pts[i]
+		var n := maxi(1, int(ceil(a.distance_to(b) / 1.6)))
+		for k in range(1, n + 1):
+			path.append(a.lerp(b, float(k) / n))
+	var seen := {}
+	for id in pl:
+		var nd: Dictionary = GameData.WALK_NODES[id]
+		if nd["kind"] in ["road", "home"] or seen.has(id):
+			continue
+		seen[id] = true
+		var q2: Vector2 = nd["pos"]
+		pois.append({"id": id, "pos": Vector3(q2.x, 0, q2.y), "inside": false, "visits": 0})
+	for i in path.size():
+		if i % 2 == 0:
+			var mk := WorldBuilder.cyl(main.world, 0.07, 0.07, 0.01, path[i] + Vector3(0, 0.012, 0), Color(1, 0.95, 0.75), 10)
+			mk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			markers.append(mk)
+	flag = Node3D.new()
+	main.world.add_child(flag)
+	WorldBuilder.cyl(flag, 0.02, 0.02, 0.9, Vector3(0, 0.45, 0), Color(0.95, 0.95, 0.95), 6)
+	WorldBuilder.box(flag, Vector3(0.3, 0.18, 0.02), Vector3(0.15, 0.8, 0), Color(0.45, 0.8, 0.45), Vector3.ZERO, false)
+	var tw := flag.create_tween().set_loops()
+	tw.tween_property(flag, "scale", Vector3(1.15, 1.15, 1.15), 0.5)
+	tw.tween_property(flag, "scale", Vector3.ONE, 0.5)
 
 func can_recenter() -> bool:
 	return started
@@ -126,7 +231,10 @@ func _begin_route(r: Dictionary) -> void:
 	area = main.env_root.get_meta("walk_area", Rect2(-6, -6, 12, 10))
 	top_label.text = tr("Promenade · %s") % tr(r["name"])
 	_build_ui()
-	_build_path(float(r["length"]) / SCALE)
+	if r.has("plan"):
+		_build_plan_path(r["plan"])
+	else:
+		_build_path(float(r["length"]) / SCALE)
 	pet.bounds = area.grow(1.0)
 	pet.position = home
 	pet.state = "idle"
@@ -171,7 +279,8 @@ func _build_ui() -> void:
 	var h := UiKit.hbox(8)
 	home_btn = UiKit.button("[i:home_go] " + tr("Rentrer"), _go_home, UiKit.C_ACCENT2, 22, 72)
 	h.add_child(UiKit.expand(home_btn))
-	h.add_child(UiKit.expand(UiKit.button("[i:shop] " + tr("Boutique"), func(): Panels.shop("sell"), UiKit.C_BLUE, 22, 72)))
+	if plan.is_empty():
+		h.add_child(UiKit.expand(UiKit.button("[i:shop] " + tr("Boutique"), func(): Panels.shop("sell"), UiKit.C_BLUE, 22, 72)))
 	v.add_child(h)
 	pv.add_child(v)
 	bb.add_child(pv)
@@ -267,6 +376,8 @@ func _plan_events(diff: int) -> void:
 
 # ------------------------------------------------------------------ entrées
 func handle_input(event: InputEvent) -> bool:
+	if sub and is_instance_valid(sub):
+		return sub.handle_input(event)
 	if finished or not started:
 		return false
 	if event is InputEventScreenTouch and event.index == 0:
@@ -302,7 +413,7 @@ func handle_input(event: InputEvent) -> bool:
 
 # ------------------------------------------------------------------ boucle
 func _process(delta: float) -> void:
-	if finished or not started or pet == null:
+	if finished or not started or pet == null or (sub and is_instance_valid(sub)):
 		return
 	elapsed += delta
 	var energy: float = GameState.active_pet()["needs"]["energy"]
@@ -367,6 +478,7 @@ func _process(delta: float) -> void:
 				GameState.change_need("energy", 4.0)
 			else:
 				_collect(it)
+	_check_pois()
 	for i in npcs.size():
 		if not met.has(i) and pet.position.distance_to(npcs[i].position) < 0.9:
 			met.append(i)
@@ -412,7 +524,11 @@ func _update_info() -> void:
 	if returning:
 		txt = tr("Retour à la maison : suivez le drapeau. Trouvailles %d/%d") % [collected, finds_total]
 	obj_l.text = txt
-	info_label.text = tr("Joystick : touchez et glissez. Suivez le drapeau vert.")
+	if not plan.is_empty():
+		var nxt := _next_poi_name()
+		info_label.text = tr("Suivez le drapeau vert.") + ("  " + tr("Prochaine étape : %s") % nxt if nxt != "" else "")
+	else:
+		info_label.text = tr("Joystick : touchez et glissez. Suivez le drapeau vert.")
 
 func _set_energy(e: float) -> void:
 	energy_bar.value = e
@@ -619,6 +735,9 @@ func _finish(arrived: bool) -> void:
 	show_results("[i:walk] " + (tr("Belle promenade !") if arrived else tr("Promenade")), lines, coins, xp)
 
 func quit() -> void:
+	if sub and is_instance_valid(sub):
+		sub.quit()
+		return
 	if finished or not started:
 		finished = true
 		main.end_activity()
@@ -643,3 +762,160 @@ func _exit_tree() -> void:
 		leash.queue_free()
 	if main:
 		main._clear_extra_pets()
+		if prev_env != "" and main.env_id == "town":
+			main.call_deferred("change_env", prev_env)
+		if _open_comp:
+			main.get_tree().create_timer(0.15, false).timeout.connect(func(): Panels.competitions())
+
+# ------------------------------------------------------------------ lieux de la carte
+func _next_poi_name() -> String:
+	if next_cp >= path.size():
+		return ""
+	var best := ""
+	var best_i := 1 << 30
+	for po in pois:
+		if int(po["visits"]) > 0:
+			continue
+		for i in range(next_cp, path.size()):
+			if path[i].distance_to(po["pos"]) < 0.5:
+				if i < best_i:
+					best_i = i
+					best = tr(str(GameData.WALK_NODES[po["id"]]["name"]))
+				break
+	return best
+
+func _check_pois() -> void:
+	for po in pois:
+		var d: float = pet.position.distance_to(po["pos"])
+		if d < 1.7 and not po["inside"]:
+			po["inside"] = true
+			po["visits"] = int(po["visits"]) + 1
+			_arrive(str(po["id"]), po["pos"])
+		elif d > 3.0:
+			po["inside"] = false
+
+func _arrive(id: String, pos: Vector3) -> void:
+	var nd: Dictionary = GameData.WALK_NODES[id]
+	var kind := str(nd["kind"])
+	pet.stop_moving()
+	if kind == "water":
+		var fp: Variant = main.env_root.get_meta("fountain", pos)
+		pet.face(fp)
+		pet.eat("water", 1.6)
+		GameState.change_need("thirst", 40.0)
+		GameState.change_need("energy", 4.0)
+		main.toast(tr("%s se désaltère à la fontaine.") % pet_name())
+		return
+	if kind == "park" and npcs.size() < 2:
+		_trigger("meet")
+	var v := UiKit.vbox(12)
+	var acts: Array = []
+	match kind:
+		"shop":
+			acts.append(["shop", "Entrer dans la boutique", "", func(): Panels.shop("food")])
+		"park", "beach":
+			acts.append(["throw", "Jouer à la balle", "fetch", func(): _sub_fetch(pos, kind)])
+		"forest":
+			acts.append(["search", "Cache-cache en forêt", "search", func(): _sub_search()])
+		"center":
+			acts.append(["agility", "Parcours d'agilité", "agility", func(): _sub_agility()])
+		"comp":
+			acts.append(["trophy", "S'inscrire à un concours", "competition", func():
+				_open_comp = true
+				_finish(true)])
+	for a in acts:
+		var cb: Callable = a[3]
+		var key: String = a[2]
+		var ok := key == "" or GameState.activity_unlocked(key)
+		var b := UiKit.button("[i:%s] %s" % [a[0], tr(a[1])], func():
+			main.close_panel()
+			cb.call(), UiKit.C_ACCENT if ok else UiKit.C_DISABLED, 26, 84)
+		b.disabled = not ok
+		v.add_child(b)
+		if not ok:
+			v.add_child(UiKit.label("[i:lock] " + tr("Débloqué au niveau %d de votre compagnon") % int(GameData.ACTIVITY_LEVELS[key]), 21, UiKit.C_DANGER))
+	if kind == "comp":
+		v.add_child(UiKit.label(tr("La promenade se termine ici et compte comme réussie."), 20, UiKit.C_SUB))
+	v.add_child(UiKit.button("[i:walk] " + tr("Continuer la promenade"), func(): main.close_panel(), UiKit.C_BLUE, 24, 76))
+	Audio.play("chime", 0.05, -6.0)
+	main.open_panel("[i:%s] %s" % [nd["icon"], tr(str(nd["name"]))], v)
+
+# ------------------------------------------------------------------ activités pendant la promenade
+func _run_sub(a: Activity, env: String = "") -> void:
+	_sub_pos = pet.position
+	_sub_walker = walker
+	pet.stop_moving()
+	_set_walk_visible(false)
+	if env != "" and main.env_id != env:
+		main.change_env(env)
+		pet = main.pet_ctrl
+	sub = a
+	sub.on_done = _on_sub_done
+	add_child(sub)
+
+func _set_walk_visible(on: bool) -> void:
+	ui.visible = on
+	for n in [leash, flag]:
+		if n and is_instance_valid(n):
+			(n as Node3D).visible = on
+	for m in markers:
+		if is_instance_valid(m):
+			m.visible = on and not (returning and m is MeshInstance3D)
+	for it in items:
+		var nn: Variant = it["node"]
+		if is_instance_valid(nn) and not it["taken"]:
+			(nn as Node3D).visible = on
+	for pp in poops:
+		if is_instance_valid(pp):
+			pp.visible = on
+	for c in npcs:
+		if is_instance_valid(c):
+			c.visible = on
+
+func _on_sub_done(score: float) -> void:
+	await get_tree().create_timer(0.8, false).timeout
+	if is_instance_valid(sub):
+		sub.queue_free()
+	sub = null
+	if finished:
+		return
+	var coins := int(round(score * 0.3))
+	var xp := int(round(score * 0.4))
+	if score > 0.0:
+		GameState.add_coins(coins)
+		GameState.add_xp(xp)
+		Audio.play("coin")
+		main.toast(tr("Bravo ! +%d pièces · +%d pts d'expérience") % [coins, xp])
+	if main.env_id != "town":
+		main.change_env("town")
+		npcs.clear()
+		met.clear()
+	pet = main.pet_ctrl
+	pet.interrupt()
+	pet.busy = true
+	pet.bounds = area.grow(1.0)
+	pet.position = _sub_pos
+	pet.state = "idle"
+	walker = _sub_walker
+	_last_pos = pet.position
+	main.cam_rig.target = pet
+	main.cam_rig.follow = true
+	main.cam_rig.fixed_transform = null
+	main.cam_rig.reset_view(4.2, -0.5, main.cam_rig.yaw)
+	main.cam_rig.focus_offset = Vector3(0, 0.3, 0)
+	main.cam_rig.screen_shift = 0.15
+	main.cam_rig.snap()
+	_set_walk_visible(true)
+	_update_info()
+
+func _sub_fetch(pos: Vector3, kind: String) -> void:
+	var r := Rect2(pos.x - 2.5, pos.z - 3.6, 5.0, 4.4) if kind == "park" else Rect2(pos.x - 3.5, pos.z - 4.5, 7.0, 5.0)
+	main.env_root.set_meta("throw_area", r)
+	_run_sub(FetchGame.new(false))
+
+func _sub_search() -> void:
+	_run_sub(SearchGame.new({"comp": true, "level": int(GameState.data["search_level"])}), "forest")
+
+func _sub_agility() -> void:
+	var lv := clampi(GameState.pet_level() / 4, 0, GameData.AGILITY_LEVELS.size() - 1)
+	_run_sub(AgilityGame.new({"comp": true, "level": lv}), "center")

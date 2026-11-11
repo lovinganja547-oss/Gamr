@@ -27,6 +27,7 @@ var _jump_h := 0.35
 var _tap_count := 0
 var _tap_t := 0.0
 var _look_cam := true
+var _hold_ai := false                  # suspend l'autonomie pendant un jeu spontané
 var held: Node3D
 var env_meta := {}
 var nav: NavGrid
@@ -114,6 +115,7 @@ func interrupt() -> void:
 	var h := drop_held()
 	if h and h.name == "Toy":
 		h.queue_free()
+	_toy_cleanup()
 	if sleeping:
 		sleeping = false
 		GameState.pet_sleeping = false
@@ -195,7 +197,7 @@ func _process(delta: float) -> void:
 	_tap_t = maxf(0.0, _tap_t - delta)
 	if _tap_t <= 0.0:
 		_tap_count = 0
-	if not busy and state == "idle":
+	if not busy and not _hold_ai and state == "idle":
 		_idle_t -= delta
 		if _idle_t <= 0.0:
 			_autonomy()
@@ -455,75 +457,118 @@ func _eat_now(bp: Vector3, kind: String, dur: float, on_tick: Callable, on_done:
 	on_done.call(true)
 
 ## Jeu spontané avec le jouet actif : bond, attrape, secoue, lance et rattrape.
+## Robuste aux interruptions : le jouet est toujours retiré, l'IA autonome est suspendue pendant le jeu.
+var _toy_node: Node3D = null
+
+func _toy_cleanup() -> void:
+	_hold_ai = false
+	if _toy_node and is_instance_valid(_toy_node):
+		if held == _toy_node:
+			held = null
+		_toy_node.queue_free()
+	_toy_node = null
+
+## Court vers un point (sans annuler l'action en cours). Vrai si arrivé avant le délai.
+func _run_to(dest: Vector3, spd: float, id: int, timeout: float) -> bool:
+	_on_arrive = Callable()
+	_path = PackedVector2Array()
+	_path_target = Vector3(INF, 0, INF)
+	_target = Vector3(dest.x, 0, dest.z)
+	_move_speed = spd
+	model.set_posture("stand", 8.0)
+	state = "moving"
+	var t := 0.0
+	while t < timeout:
+		await get_tree().process_frame
+		if id != _act_id:
+			return false
+		t += get_process_delta_time()
+		if state != "moving":
+			state = "action"
+			return true
+	stop_moving()
+	state = "action"
+	return true
+
 func play_with_toy() -> void:
+	if _toy_node and is_instance_valid(_toy_node):
+		return
 	var id := _begin("toy")
+	_hold_ai = true
 	var toy := make_toy(GameState.data.get("toy", "ball"))
+	_toy_node = toy
 	get_parent().add_child(toy)
-	var p := position + Vector3(sin(rotation.y), 0, cos(rotation.y)) * 0.7
+	var p := position + Vector3(sin(rotation.y), 0, cos(rotation.y)) * 0.8
 	if nav:
 		var f := nav.nearest_free(Vector2(p.x, p.z))
 		p = Vector3(f.x, 0, f.y)
 	toy.position = p + Vector3(0, 0.06, 0)
 	Audio.play("bounce")
+	face(p)
 	model.set_posture("bow", 6.0)
 	model.expression = "happy"
 	model.wag_amp = 1.0
 	model.wag_speed = 18.0
 	model.emote("emo_playful")
 	if not await _wait(0.9, id):
-		toy.queue_free()
+		_toy_cleanup()
 		return
 	for round_i in 2:
-		state = "moving"
-		_target = Vector3(toy.position.x, 0, toy.position.z)
-		_move_speed = 1.6
-		var arrived_ok := false
-		var t := 0.0
-		while t < 4.0 and id == _act_id:
-			await get_tree().process_frame
-			t += get_process_delta_time()
-			if state != "moving":
-				arrived_ok = true
-				break
-		if id != _act_id:
-			if is_instance_valid(toy):
-				toy.queue_free()
+		if not is_instance_valid(toy):
+			_toy_cleanup()
 			return
-		state = "action"
+		# s'arrête la gueule sur le jouet (et non le corps dessus)
+		var tp := Vector3(toy.position.x, 0, toy.position.z)
+		var dir := tp - position
+		dir.y = 0
+		var reach := model.body_length() * 0.45
+		var dest := tp - dir.normalized() * reach if dir.length() > reach else position
+		if not await _run_to(dest, 1.6, id, 4.0):
+			_toy_cleanup()
+			return
+		face(tp)
 		grab(toy)
+		model.set_posture("stand", 6.0)
 		model.shake = 0.6
 		Audio.play("crunch", 0.2, -8.0)
 		if not await _wait(0.8, id):
-			drop_held()
+			_toy_cleanup()
 			return
 		model.shake = 0.0
 		# lance le jouet un peu plus loin
 		var thrown := drop_held()
 		if thrown:
-			var dest := position + Vector3(randf_range(-0.8, 0.8), 0, randf_range(-0.8, 0.8))
+			var to := position + Vector3(randf_range(-0.9, 0.9), 0, randf_range(-0.9, 0.9))
 			if nav:
-				var f2 := nav.nearest_free(Vector2(dest.x, dest.z))
-				dest = Vector3(f2.x, 0.06, f2.y)
+				var f2 := nav.nearest_free(Vector2(to.x, to.z))
+				to = Vector3(f2.x, 0, f2.y)
 			var tw := thrown.create_tween()
-			tw.tween_property(thrown, "position", Vector3(dest.x, 0.35, dest.z), 0.25).set_ease(Tween.EASE_OUT)
-			tw.tween_property(thrown, "position", Vector3(dest.x, 0.06, dest.z), 0.25).set_ease(Tween.EASE_IN)
-			toy = thrown
+			tw.tween_property(thrown, "position", Vector3(to.x, 0.35, to.z), 0.25).set_ease(Tween.EASE_OUT)
+			tw.tween_property(thrown, "position", Vector3(to.x, 0.06, to.z), 0.25).set_ease(Tween.EASE_IN)
 			Audio.play("bounce", 0.1, -6.0)
+		model.set_posture("bow", 6.0)
 		if not await _wait(0.6, id):
+			_toy_cleanup()
 			return
+	if is_instance_valid(toy):
+		var tp2 := Vector3(toy.position.x, 0, toy.position.z)
+		var d2 := tp2 - position
+		d2.y = 0
+		var r2 := model.body_length() * 0.45
+		if d2.length() > r2 and not await _run_to(tp2 - d2.normalized() * r2, 1.2, id, 3.0):
+			_toy_cleanup()
+			return
+		grab(toy)
 	model.set_posture("lie", 3.0)
-	grab(toy)
 	model.chew = 1.0
 	GameState.change_need("mood", 8.0)
 	GameState.spend_energy("calm")
 	if not await _wait(2.0, id):
 		model.chew = 0.0
-		drop_held()
+		_toy_cleanup()
 		return
 	model.chew = 0.0
-	var last := drop_held()
-	if last:
-		last.queue_free()
+	_toy_cleanup()
 	if GameState.reward_ok("toy_play", 0.5):
 		GameState.add_xp(3)
 	_end(id, "toy")

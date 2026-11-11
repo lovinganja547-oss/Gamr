@@ -3,7 +3,7 @@ extends Activity
 ## Tir à la corde : glisser vers le bas pour tirer ; l'animal tire par à-coups selon
 ## son énergie et son caractère. Gagner ou perdre rend l'animal heureux.
 
-const DURATION := 25.0
+const DURATION := 22.0
 const TOY_LEN := 0.9
 
 var balance := 0.0        # -100 (l'animal gagne) .. 100 (le joueur gagne)
@@ -11,17 +11,19 @@ var meter: ProgressBar
 var time_left := DURATION
 var rope: MeshInstance3D
 var handle := Vector3.ZERO
-var _pull := 0.0
+var _power := 0.0          # force du joueur : chaque coup de doigt vers le bas l'augmente, elle retombe doucement
 var _last_y := 0.0
 var _holding := false
 var _dog_force := 0.0
 var _burst_t := 0.0
+var _dog_rest := false     # l'animal reprend son souffle : c'est le moment de tirer
+var phase_label: Label
 var strength := 1.0
 var start_pos := Vector3.ZERO
 
 func _start() -> void:
 	make_top("[i:tug] " + tr("Tir à la corde"))
-	info_label.text = tr("Glissez le doigt vers le bas pour tirer !")
+	info_label.text = tr("Donnez des petits coups de doigt vers le bas, n'importe où sur l'écran.")
 	var bb := bottom_bar()
 	var pv := UiKit.panel(14)
 	pv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -35,6 +37,8 @@ func _start() -> void:
 	vv.add_child(h)
 	meter = UiKit.bar(50, UiKit.C_ACCENT, 26)
 	vv.add_child(meter)
+	phase_label = UiKit.label("", 26, UiKit.C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
+	vv.add_child(phase_label)
 	pv.add_child(vv)
 	bb.add_child(pv)
 	var p := GameState.active_pet()
@@ -75,12 +79,14 @@ func handle_input(event: InputEvent) -> bool:
 	if event is InputEventScreenTouch and event.index == 0:
 		_holding = event.pressed
 		_last_y = event.position.y
+		if event.pressed:
+			_power = minf(_power + 0.25, 3.0)   # un simple appui compte aussi un peu
 		return true
 	if event is InputEventScreenDrag and event.index == 0 and _holding:
 		var dy: float = event.position.y - _last_y
 		_last_y = event.position.y
 		if dy > 0.0:
-			_pull += dy
+			_power = minf(_power + dy / 260.0, 3.0)
 		return true
 	return false
 
@@ -88,18 +94,28 @@ func _process(delta: float) -> void:
 	if finished or pet == null:
 		return
 	time_left -= delta
-	# Force du joueur : glissements récents
-	var player_force := minf(_pull / maxf(delta, 0.001) / 900.0, 2.2)
-	_pull = 0.0
-	# L'animal tire par à-coups
+	_power *= exp(-2.2 * delta)
+	# L'animal alterne : il tire fort, puis reprend son souffle
 	_burst_t -= delta
 	if _burst_t <= 0.0:
-		_burst_t = randf_range(0.5, 1.2)
-		_dog_force = randf_range(0.35, 1.1) * strength
-		if randf() < 0.25:
-			pet.voice()
-	balance = clampf(balance + (player_force - _dog_force) * 24.0 * delta, -100.0, 100.0)
+		_dog_rest = not _dog_rest
+		if _dog_rest:
+			_burst_t = randf_range(0.8, 1.4)
+			_dog_force = 0.15 * strength
+			pet.model.set_posture("stand", 5.0)
+			pet.model.tongue_out = 1.0
+		else:
+			_burst_t = randf_range(1.0, 1.8)
+			_dog_force = randf_range(0.55, 0.95) * strength
+			pet.model.set_posture("bow", 5.0)
+			pet.model.tongue_out = 0.0
+			if randf() < 0.4:
+				pet.voice()
+	var k := 1.4 if _dog_rest else 1.0
+	balance = clampf(balance + (_power * k - _dog_force) * 17.0 * delta, -100.0, 100.0)
 	meter.value = (balance + 100.0) * 0.5
+	phase_label.text = tr("Il souffle : tirez !") if _dog_rest else tr("Il tire fort, tenez bon !")
+	phase_label.add_theme_color_override("font_color", UiKit.C_ACCENT2 if _dog_rest else UiKit.C_DANGER)
 	# Animation : l'animal recule ou avance, secoue la tête
 	var dir := (pet.player_pos - start_pos).normalized()
 	pet.position = start_pos + dir * (balance / 100.0) * 0.35
@@ -122,6 +138,7 @@ func _finish() -> void:
 	finished = true
 	pet.model.shake = 0.0
 	pet.model.head_extra.y = 0.0
+	pet.model.tongue_out = 0.0
 	var won := balance > 0.0
 	GameState.spend_energy("tug")
 	GameState.change_need("mood", 12.0)

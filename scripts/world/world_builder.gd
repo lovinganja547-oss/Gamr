@@ -294,6 +294,8 @@ static func build(env_id: String, quality: int) -> Node3D:
 		"forest": _forest(root, quality)
 		"center": _center(root, quality)
 		"shelter": _shelter(root, quality)
+		"field": _field(root, quality)
+		"town": _town(root, quality)
 	return root
 
 static func _density(q: int) -> float:
@@ -515,6 +517,180 @@ static func _park(r: Node3D, q: int) -> void:
 	r.set_meta("walk_area", Rect2(-8, -8, 16, 12))
 	r.set_meta("spots_area", Rect2(-4, -3, 8, 5))
 	r.set_meta("throw_area", Rect2(-4, -9, 8, 9))
+
+## Grand pré dégagé pour le jeu de balle : rien de gênant dans la zone de lancer,
+## décor (arbres, rochers, clôture) seulement en bordure, au-delà de la portée d'un lancer.
+static func _field(r: Node3D, q: int) -> void:
+	var d := _density(q)
+	ground(r, Vector2(90, 90), Color(0.95, 0.98, 0.92), tex("grass"), 18.0)
+	var tuft := _cone_mesh(0.05, 0.0, 0.2)
+	scatter(r, tuft, Color(0.42, 0.7, 0.3), int(1100 * d), Rect2(-16, -26, 32, 32), 31, Vector2(0.7, 1.4), Rect2(-1.2, 0.8, 2.4, 2.4))
+	var flower := SphereMesh.new()
+	flower.radius = 0.045; flower.height = 0.09; flower.radial_segments = 6; flower.rings = 3
+	scatter(r, flower, Color.WHITE, int(260 * d), Rect2(-16, -26, 32, 32), 32, Vector2(0.8, 1.2), Rect2(-1.2, 0.8, 2.4, 2.4), [Color(1, 1, 1), Color(1, 0.9, 0.3), Color(0.9, 0.5, 0.9)])
+	# Clôture basse en bois tout autour (limite visible du terrain)
+	var fence_c := Color(0.62, 0.46, 0.3)
+	var hw := 15.0
+	var z0 := -24.0
+	var z1 := 6.0
+	var step := 3.0
+	var x := -hw
+	while x <= hw + 0.01:
+		for zz in [z0, z1]:
+			cyl(r, 0.06, 0.06, 0.8, Vector3(x, 0.4, zz), fence_c, 6)
+		x += step
+	var z := z0
+	while z <= z1 + 0.01:
+		for xx in [-hw, hw]:
+			cyl(r, 0.06, 0.06, 0.8, Vector3(xx, 0.4, z), fence_c, 6)
+		z += step
+	for zz in [z0, z1]:
+		for yy in [0.35, 0.65]:
+			box(r, Vector3(hw * 2.0, 0.06, 0.04), Vector3(0, yy, zz), fence_c)
+	for xx in [-hw, hw]:
+		for yy in [0.35, 0.65]:
+			box(r, Vector3(0.04, 0.06, z1 - z0), Vector3(xx, yy, (z0 + z1) * 0.5), fence_c)
+	r.set_meta("fence", Rect2(-hw, z0, hw * 2.0, z1 - z0))
+	# Arbres et rochers hors de la clôture (décor lointain)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 91
+	var n_trees := int(lerpf(10.0, 24.0, d))
+	for i in n_trees:
+		var side := i % 3
+		var pos := Vector3.ZERO
+		match side:
+			0: pos = Vector3(rng.randf_range(-hw - 6.0, hw + 6.0), 0, z0 - rng.randf_range(2.0, 7.0))
+			1: pos = Vector3(-hw - rng.randf_range(2.0, 6.0), 0, rng.randf_range(z0, z1))
+			_: pos = Vector3(hw + rng.randf_range(2.0, 6.0), 0, rng.randf_range(z0, z1))
+		tree(r, pos, rng.randf_range(3.0, 4.6), Color(0.3, 0.6, 0.28).lightened(rng.randf() * 0.15), i)
+	for i in 4:
+		bush(r, Vector3(-hw + 1.2 + i * 9.0, 0, z1 + 1.5), 0.9, Color(0.32, 0.58, 0.3))
+	r.set_meta("sky", Color(0.6, 0.8, 0.97))
+	r.set_meta("bounds", Rect2(-hw + 0.4, z0 + 0.4, hw * 2.0 - 0.8, z1 - z0 - 0.8))
+	r.set_meta("throw_area", Rect2(-hw + 1.0, z0 + 1.0, hw * 2.0 - 2.0, z1 - z0 - 4.0))
+
+## Panneau flottant avec le nom d'un lieu (lisible de loin).
+static func sign_label(parent: Node3D, pos: Vector3, text: String) -> void:
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = 72
+	l.pixel_size = 0.006
+	l.outline_size = 14
+	l.modulate = Color(1, 1, 1)
+	l.outline_modulate = Color(0.25, 0.16, 0.1)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.position = pos
+	parent.add_child(l)
+
+## Distance (m) d'un point à la rue la plus proche du quartier.
+static func _road_dist(q: Vector2) -> float:
+	var best := INF
+	for e in GameData.WALK_EDGES:
+		var a: Vector2 = GameData.WALK_NODES[e[0]]["pos"]
+		var b: Vector2 = GameData.WALK_NODES[e[1]]["pos"]
+		var ab := b - a
+		var t := clampf((q - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+		best = minf(best, q.distance_to(a + ab * t))
+	return best
+
+## Décalage autour d'un lieu qui laisse les rues dégagées (essaie 8 directions).
+static func _free_offset(base: Vector3, off: Vector3, clearance: float) -> Vector3:
+	var o := off
+	for i in 8:
+		var p := base + o
+		if _road_dist(Vector2(p.x, p.z)) >= clearance:
+			return o
+		o = o.rotated(Vector3.UP, TAU / 8.0)
+	return off
+
+## Quartier des promenades : rues et lieux de GameData.WALK_NODES, à l'échelle de la carte.
+static func _town(r: Node3D, q: int) -> void:
+	var d := _density(q)
+	ground(r, Vector2(70, 70), Color(0.95, 0.98, 0.92), tex("grass"), 14.0)
+	var nodes: Dictionary = GameData.WALK_NODES
+	var rm := tex_mat(Color(1, 1, 1), "dirt", 1.2)
+	for e in GameData.WALK_EDGES:
+		var a: Vector2 = nodes[e[0]]["pos"]
+		var b: Vector2 = nodes[e[1]]["pos"]
+		var road := MeshInstance3D.new()
+		var pm := PlaneMesh.new()
+		pm.size = Vector2(1.5, a.distance_to(b) + 1.2)
+		road.mesh = pm
+		road.material_override = rm
+		road.position = Vector3((a.x + b.x) * 0.5, 0.006, (a.y + b.y) * 0.5)
+		road.rotation.y = atan2(b.x - a.x, b.y - a.y)
+		road.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		r.add_child(road)
+	for id in nodes.keys():
+		var n: Dictionary = nodes[id]
+		var p := Vector3((n["pos"] as Vector2).x, 0, (n["pos"] as Vector2).y)
+		var plaza := cyl(r, 1.3, 1.3, 0.012, p + Vector3(0, 0.008, 0), Color(0.86, 0.8, 0.68), 20)
+		plaza.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		match str(n["kind"]):
+			"home":
+				# maison sur le côté : la caméra, derrière l'animal au départ, reste dehors
+				var h := p + _free_offset(p, Vector3(-3.4, 0, 1.2), 2.2)
+				box(r, Vector3(3.0, 2.0, 2.2), h + Vector3(0, 1.0, 0), Color(0.96, 0.9, 0.8))
+				box(r, Vector3(3.3, 0.25, 2.6), h + Vector3(0, 2.1, 0), Color(0.75, 0.35, 0.3))
+				box(r, Vector3(0.7, 1.2, 0.05), h + Vector3(0, 0.6, -1.12), Color(0.55, 0.35, 0.22))
+				obs_rect(r, h, 3.1, 2.3)
+				obs_circle(r, h, 1.7)
+			"water":
+				var fo := p + _free_offset(p, Vector3(1.4, 0, 0), 1.2)
+				obs_circle(r, fo, 0.3)
+				cyl(r, 0.2, 0.15, 0.9, fo + Vector3(0, 0.45, 0), Color(0.6, 0.62, 0.66), 10)
+				cyl(r, 0.25, 0.22, 0.1, fo + Vector3(0, 0.95, 0), Color(0.6, 0.62, 0.66), 12)
+				cyl(r, 0.2, 0.2, 0.02, fo + Vector3(0, 1.0, 0), Color(0.5, 0.75, 1.0), 12)
+				r.set_meta("fountain", fo)
+			"shop":
+				var k := p + _free_offset(p, Vector3(2.0, 0, 0), 1.9)
+				box(r, Vector3(1.8, 1.5, 1.6), k + Vector3(0, 0.75, 0), Color(0.98, 0.95, 0.88))
+				for i in 4:
+					box(r, Vector3(0.48, 0.08, 1.9), k + Vector3(-0.72 + i * 0.48, 1.62, -0.1), Color(0.9, 0.35, 0.35) if i % 2 == 0 else Color(1, 1, 1), Vector3.ZERO, false)
+				obs_rect(r, k, 1.9, 1.7)
+				obs_circle(r, k, 1.1)
+			"park":
+				var rng := RandomNumberGenerator.new()
+				rng.seed = 5
+				for i in 7:
+					var a2 := TAU * float(i) / 7.0 + 0.3
+					var tp := p + Vector3(cos(a2) * 4.2, 0, sin(a2) * 3.4 - 0.8)
+					var th := rng.randf_range(2.6, 3.6)
+					if _road_dist(Vector2(tp.x, tp.z)) > 1.6:
+						tree(r, tp, th, Color(0.3, 0.6, 0.28).lightened(rng.randf() * 0.15), i + 40)
+				bench(r, p + Vector3(-1.6, 0, 1.6), 0.6)
+			"center":
+				for i in 2:
+					var hp := p + _free_offset(p, Vector3(1.8, 0, -0.8 + i * 1.6), 1.3)
+					cyl(r, 0.03, 0.03, 0.5, hp + Vector3(-0.4, 0.25, 0), Color(0.95, 0.95, 0.95), 6)
+					cyl(r, 0.03, 0.03, 0.5, hp + Vector3(0.4, 0.25, 0), Color(0.95, 0.95, 0.95), 6)
+					box(r, Vector3(0.85, 0.05, 0.05), hp + Vector3(0, 0.42, 0), Color(0.95, 0.4, 0.3))
+					obs_circle(r, hp, 0.45)
+			"comp":
+				var t := p + _free_offset(p, Vector3(0, 0, -2.3), 2.5)
+				cyl(r, 1.6, 0.05, 2.2, t + Vector3(0, 1.1, 0), Color(0.95, 0.85, 0.4), 16)
+				cyl(r, 1.6, 1.6, 0.9, t + Vector3(0, 0.45, 0), Color(0.98, 0.96, 0.9), 16)
+				obs_circle(r, t, 1.65)
+			"forest":
+				var rng2 := RandomNumberGenerator.new()
+				rng2.seed = 9
+				for i in int(lerpf(8.0, 16.0, d)):
+					var a3 := rng2.randf() * TAU
+					var dd := rng2.randf_range(2.4, 5.5)
+					var pp := p + Vector3(cos(a3) * dd - 1.5, 0, sin(a3) * dd - 1.5)
+					var ph := rng2.randf_range(2.4, 3.8)
+					if _road_dist(Vector2(pp.x, pp.z)) > 1.5 and pp.distance_to(p) > 2.0:
+						pine(r, pp, ph, Color(0.2, 0.42, 0.25))
+			"beach":
+				var sand := cyl(r, 5.0, 5.0, 0.02, p + Vector3(0, 0.012, -1.5), Color(0.95, 0.88, 0.66), 32)
+				sand.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var sea := cyl(r, 14.0, 14.0, 0.02, p + Vector3(0, 0.02, -19.0), Color(0.4, 0.68, 0.92), 32)
+				sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				obs_circle(r, p + Vector3(0, 0, -19.0), 14.0)
+		if str(n["kind"]) != "road":
+			sign_label(r, p + Vector3(0, 2.6, 0), str(n["name"]))
+	r.set_meta("bounds", Rect2(-14, -19, 28, 31))
+	r.set_meta("walk_area", Rect2(-14, -19, 28, 31))
 
 static func pine(parent: Node3D, pos: Vector3, h: float, c: Color) -> void:
 	obs_circle(parent, pos, 0.14 * h)

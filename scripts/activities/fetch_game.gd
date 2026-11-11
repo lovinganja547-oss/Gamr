@@ -25,13 +25,24 @@ var _phase := "ready"   # ready, flying, chasing, returning, playing
 var aim_line: Line2D
 var call_btn: Button
 var throw_area := Rect2(-4, -9, 8, 9)
+var prev_env := ""          # lieu à retrouver en sortant du grand pré
+var marker: TextureRect     # indique la balle quand elle est hors de l'écran
+var obstacles: Array = []
 
 func _init(is_free: bool = true) -> void:
 	free_mode = is_free
 
 func _start() -> void:
 	toy_id = str(GameState.data.get("toy", "ball"))
+	# Jeu libre : grand pré dédié, assez vaste pour suivre le chien partout
+	if free_mode and main.env_id != "field":
+		prev_env = main.env_id
+		main.change_env("field")
+		pet = main.pet_ctrl
+		pet.interrupt()
+		pet.busy = true
 	throw_area = main.env_root.get_meta("throw_area", Rect2(-3.5, -3.0, 7.0, 4.5))
+	obstacles = main.env_root.get_meta("obstacles", [])
 	make_top(("[i:throw] " + tr("Jeu de balle")) if free_mode else ("[i:throw] " + tr("Lancer de balle")))
 	_update_info()
 	var bb := bottom_bar()
@@ -44,17 +55,25 @@ func _start() -> void:
 	aim_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 	aim_line.end_cap_mode = Line2D.LINE_CAP_ROUND
 	ui.add_child(aim_line)
-	player_spot = Vector3(0, 0, throw_area.end.y + 0.3)
+	player_spot = Vector3(throw_area.get_center().x, 0, throw_area.end.y + 0.3)
 	pet.bounds = Rect2(throw_area.position.x - 1, throw_area.position.y - 1, throw_area.size.x + 2, throw_area.size.y + 3)
 	pet.position = player_spot + Vector3(0.5, 0, -0.4)
 	pet.player_pos = player_spot
 	pet.face(player_spot + Vector3(0, 0, -3))
 	pet.model.set_posture("sit")
 	pet.state = "action"
-	main.cam_rig.follow = false
-	main.cam_rig.target = null
-	main.cam_rig.focus = Vector3(0, 0.3, (throw_area.position.y + throw_area.end.y) * 0.5)
-	main.cam_rig.reset_view(throw_area.size.y * 0.5 + 3.2, -0.42, 0.0)
+	# Caméra : toujours centrée sur l'animal, placée derrière lui (côté joueur)
+	var r := main.cam_rig
+	r.reset_view(clampf(r.fit_distance(pet.model.top_height(), pet.model.body_length(), 0.35), 3.0, 5.0), -0.38, 0.0)
+	r.target = pet
+	r.follow = true
+	r.focus_offset = Vector3(0, pet.model.top_height() * 0.4, 0)
+	r.screen_shift = 0.12
+	r.snap()
+	marker = UiKit.icon_rect(str(GameData.item(toy_id).get("icon", "ball")), 64)
+	marker.visible = false
+	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(marker)
 	toy = PetController.make_toy(toy_id)
 	main.world.add_child(toy)
 	_reset_toy()
@@ -150,6 +169,7 @@ func _throw(swipe: Vector2) -> void:
 func _process(delta: float) -> void:
 	if finished:
 		return
+	_update_marker()
 	_throw_t += delta
 	if flying:
 		var drag := 0.25 if GameData.item(toy_id).get("toy", "") == "disc" else 0.0
@@ -171,12 +191,56 @@ func _process(delta: float) -> void:
 			else:
 				vel = Vector3.ZERO
 				flying = false
-		var a := throw_area.grow(2.0)
+		for o in obstacles:
+			if o.has("c"):
+				var q := Vector2(toy.position.x, toy.position.z)
+				var c: Vector2 = o["c"]
+				var rr := float(o["r"]) + 0.06
+				if toy.position.y < 1.2 and q.distance_to(c) < rr:
+					var nrm := (q - c).normalized()
+					var p2 := c + nrm * rr
+					toy.position.x = p2.x
+					toy.position.z = p2.y
+					var v2 := Vector2(vel.x, vel.z)
+					v2 = v2.bounce(nrm) * 0.5
+					vel.x = v2.x
+					vel.z = v2.y
+		var a := throw_area.grow(1.0)
 		if toy.position.x < a.position.x or toy.position.x > a.end.x or toy.position.z < a.position.y or toy.position.z > a.end.y:
 			toy.position.x = clampf(toy.position.x, a.position.x, a.end.x)
 			toy.position.z = clampf(toy.position.z, a.position.y, a.end.y)
 			vel.x = -vel.x * 0.3
 			vel.z = -vel.z * 0.3
+
+## Repère la balle au bord de l'écran quand elle sort du champ de vision.
+func _update_marker() -> void:
+	if marker == null:
+		return
+	var cam := main.cam_rig.cam
+	var held := pet != null and pet.held == toy
+	if toy == null or not toy.visible or held or _phase == "ready":
+		marker.visible = false
+		return
+	var wp := toy.global_position
+	var vp := main.get_viewport().get_visible_rect().size
+	var sp := cam.unproject_position(wp)
+	var behind := cam.is_position_behind(wp)
+	var inside := not behind and Rect2(Vector2.ZERO, vp).grow(-40.0).has_point(sp)
+	if inside:
+		marker.visible = false
+		return
+	var c := vp * 0.5
+	var dvec := sp - c
+	if behind:
+		dvec = -dvec
+	if dvec.length() < 1.0:
+		dvec = Vector2(0, -1)
+	var m := 70.0
+	var kx := (c.x - m) / maxf(absf(dvec.x), 0.001)
+	var ky := (c.y - m - 120.0) / maxf(absf(dvec.y), 0.001)
+	var pos := c + dvec * minf(kx, ky)
+	marker.visible = true
+	marker.position = pos - marker.size * 0.5
 
 func _send_pet() -> void:
 	_phase = "chasing"
@@ -285,6 +349,8 @@ func _on_quit() -> void:
 
 func _exit_tree() -> void:
 	super._exit_tree()
+	if prev_env != "" and is_instance_valid(main):
+		main.call_deferred("change_env", prev_env)
 	if toy and is_instance_valid(toy):
 		if pet and pet.held == toy:
 			pet.held = null

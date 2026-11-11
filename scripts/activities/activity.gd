@@ -51,6 +51,7 @@ func make_top(title: String, show_quit: bool = true) -> VBoxContainer:
 	top_label = UiKit.label(title, 32)
 	pv.add_child(top_label)
 	info_label = UiKit.label("", 24, UiKit.C_SUB)
+	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # textes longs : retour à la ligne, jamais hors écran
 	pv.add_child(info_label)
 	p.add_child(pv)
 	h.add_child(p)
@@ -127,3 +128,152 @@ func show_results(title: String, lines: Array, coins: int, xp: int) -> void:
 
 func pet_name() -> String:
 	return str(GameState.active_pet().get("name", ""))
+
+# ================================================================== Soins (bain, brossage)
+## Caméra de soin : un doigt sur l'animal = frotter, un doigt à côté = tourner autour,
+## deux doigts = zoom. Les boutons de zone placent la caméra face à la partie choisie.
+var _care_mode := ""
+var _care_touches := {}
+var _care_pinch := 0.0
+var _care_saved_offset := Vector3.ZERO
+var _care_zone_btns := {}
+
+## Place l'animal dans un endroit dégagé pour que la caméra puisse tourner tout autour.
+func care_setup() -> void:
+	if pet == null:
+		return
+	var b: Rect2 = pet.bounds
+	var c := b.get_center()
+	var want := Vector2(lerpf(pet.position.x, c.x, 0.7), lerpf(pet.position.z, c.y, 0.7))
+	if main.nav:
+		want = main.nav.nearest_free(want)
+	pet.position = Vector3(want.x, 0, want.y)
+	pet.model.set_leg_hit(true)
+	_care_saved_offset = main.cam_rig.focus_offset
+
+func care_teardown() -> void:
+	if pet and is_instance_valid(pet) and pet.model:
+		pet.model.set_leg_hit(false)
+
+## Panneau des zones : bouton (vue de la zone) + barre de progression. Renvoie {zone: ProgressBar}.
+func care_zone_panel(zones: Dictionary, col: Color) -> Dictionary:
+	var bars := {}
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 8)
+	for z in zones.keys():
+		var cell := UiKit.vbox(4)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var zz: String = z
+		var btn := UiKit.button("[i:recenter] " + tr(zones[z]), func(): care_view(zz), UiKit.C_BLUE, 22, 62)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_care_zone_btns[z] = btn
+		cell.add_child(btn)
+		var bar := UiKit.bar(0, col, 16)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_child(bar)
+		bars[z] = bar
+		grid.add_child(cell)
+	var rot := UiKit.hbox(10)
+	rot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rot.add_child(UiKit.expand(UiKit.button("[i:left] " + tr("Tourner"), func(): care_rotate(-1.0), UiKit.C_DISABLED, 22, 60)))
+	rot.add_child(UiKit.expand(UiKit.button(tr("Tourner") + " [i:right]", func(): care_rotate(1.0), UiKit.C_DISABLED, 22, 60)))
+	var box := UiKit.vbox(8)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(grid)
+	box.add_child(rot)
+	return {"grid": box, "bars": bars}
+
+## Oriente la caméra pour bien voir une zone du corps.
+func care_view(zone: String) -> void:
+	var r := main.cam_rig
+	var m := pet.model
+	var fy := pet.rotation.y
+	var top := m.top_height()
+	r.fixed_transform = null
+	r.follow = true
+	r.screen_shift = 0.22
+	match zone:
+		"head":
+			r.yaw = fy + 0.45
+			r.pitch = -0.22
+			r.focus_offset = Vector3(0, top * 0.62, 0) + Vector3(sin(fy), 0, cos(fy)) * m.body_length() * 0.3
+		"back":
+			r.yaw = fy + PI * 0.5 + 0.2
+			r.pitch = -0.95
+			r.focus_offset = Vector3(0, top * 0.45, 0)
+		"legs":
+			r.yaw = fy + PI * 0.5 - 0.15
+			r.pitch = -0.08
+			r.focus_offset = Vector3(0, top * 0.22, 0)
+		"tail":
+			r.yaw = fy + PI - 0.45
+			r.pitch = -0.32
+			r.focus_offset = Vector3(0, top * 0.4, 0) - Vector3(sin(fy), 0, cos(fy)) * m.body_length() * 0.3
+	# assez de recul pour laisser de la place autour de l'animal (glisser à côté = tourner)
+	r.distance = clampf(r.fit_distance(top, m.body_length() * 0.9, 0.48), r.min_dist, r.max_dist)
+	Audio.play("click", 0.05, -8.0)
+
+## Tourne la caméra d'un huitième de tour autour de l'animal.
+func care_rotate(dir: float) -> void:
+	main.cam_rig.yaw += dir * PI * 0.25
+	Audio.play("click", 0.05, -10.0)
+
+## Gère les gestes de soin. on_rub(event, hit) est appelé pour chaque glissement sur l'animal.
+func care_input(event: InputEvent, on_rub: Callable) -> bool:
+	if event is InputEventScreenTouch:
+		var e := event as InputEventScreenTouch
+		if e.pressed:
+			_care_touches[e.index] = e.position
+			if _care_touches.size() >= 2:
+				var ps: Array = _care_touches.values()
+				_care_pinch = (ps[0] as Vector2).distance_to(ps[1])
+				_care_mode = "pinch"
+				return true
+			if e.index == 0:
+				var hit := main.raycast(e.position, 2)
+				_care_mode = "rub" if not hit.is_empty() else "orbit"
+		else:
+			_care_touches.erase(e.index)
+			if _care_touches.is_empty():
+				_care_mode = ""
+		return true
+	if event is InputEventScreenDrag:
+		var d := event as InputEventScreenDrag
+		_care_touches[d.index] = d.position
+		match _care_mode:
+			"pinch":
+				if _care_touches.size() >= 2:
+					var ps2: Array = _care_touches.values()
+					var nd := (ps2[0] as Vector2).distance_to(ps2[1])
+					if _care_pinch > 10.0:
+						main.cam_rig.zoom(_care_pinch / maxf(nd, 1.0))
+					_care_pinch = nd
+			"orbit":
+				if d.index == 0:
+					var k := float(GameState.setting("sensitivity")) if GameState.data.has("settings") else 1.0
+					main.cam_rig.yaw -= d.relative.x * 0.006 * k
+					main.cam_rig.pitch = clampf(main.cam_rig.pitch - d.relative.y * 0.004 * k, -1.2, -0.03)
+			"rub":
+				if d.index == 0:
+					var hit2 := main.raycast(d.position, 2)
+					if not hit2.is_empty():
+						on_rub.call(d, hit2)
+		return true
+	return false
+
+## Zone du corps touchée (tête, dos, pattes et ventre, queue).
+func care_zone(hit: Dictionary) -> String:
+	var col: Object = hit.get("collider")
+	if col and col.has_meta("zone"):
+		return str(col.get_meta("zone"))
+	if main.hit_part(hit) == "head":
+		return "head"
+	var lp: Vector3 = pet.model.to_local(hit["position"])
+	if lp.z < -pet.model.bz * 0.36:
+		return "tail"
+	if lp.y < pet.model.L + pet.model.hy * 0.3 + pet.model.by * 0.15:
+		return "legs"
+	return "back"

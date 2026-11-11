@@ -153,6 +153,24 @@ func _ready() -> void:
 	var mig := GS.sanitize({"version": 2, "finds": {"shell Coquillage": 3}, "pets": []})
 	ok(int(mig["inventory"].get("shell", 0)) == 3 and int(mig["version"]) == GameData.SAVE_VERSION, "migration v2 -> v3 des trouvailles")
 	ok(GameData.COMP_ORDER.has("walk") and GameData.route("park_pond")["length"] == 300, "défi de promenade et itinéraires")
+	# Carte de promenade
+	ok(GameData.walk_endurance(1) < GameData.walk_endurance(10), "endurance de promenade croissante avec le niveau")
+	for we in GameData.WALK_EDGES:
+		ok(GameData.WALK_NODES.has(we[0]) and GameData.WALK_NODES.has(we[1]), "rue %s-%s valide" % [we[0], we[1]])
+	ok(GameData.walk_neighbors("home") == ["cross"], "la maison donne sur le carrefour")
+	var wm := WalkMap.new()
+	wm.endurance = 2000.0
+	wm.route.assign(["home", "cross", "fountain", "shop"])
+	ok(wm.auto_return() and wm.is_complete() and wm.route[wm.route.size() - 1] == "home", "retour automatique à la maison")
+	wm.route.assign(["home", "cross", "fountain", "shop"])
+	wm.endurance = wm.used() + 10.0
+	ok(not wm.auto_return(), "retour refusé sans assez d'endurance")
+	wm.free()
+	# Sauvegarde : clés futures conservées, copie du jour
+	var fut := GS.sanitize({"version": 99, "nouvelle_option": 3, "pets": []})
+	ok(fut.has("nouvelle_option"), "clés d'une version plus récente conservées")
+	GS.save_game()
+	ok(DirAccess.dir_exists_absolute(GS.SNAP_DIR) and DirAccess.get_files_at(GS.SNAP_DIR).size() >= 1, "copie de sauvegarde du jour")
 	# Nettoyage
 	GS.reset_game()
 	print("TESTS: %d OK, %d ECHECS" % [passes, fails])

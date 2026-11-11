@@ -22,27 +22,14 @@ var shower: CPUParticles3D
 
 func _start() -> void:
 	make_top("[i:wash] " + tr("Bain de %s") % pet_name())
-	info_label.text = tr("Frottez chaque partie du corps du bout du doigt.")
+	info_label.text = tr("Frottez l'animal du doigt. Glissez à côté pour tourner, ou touchez une zone.")
 	var bb := bottom_bar()
 	var pv := UiKit.panel(14)
 	pv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var vv := UiKit.vbox(6)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	for z in ZONES.keys():
-		var h := UiKit.hbox(6)
-		var l := UiKit.label(tr(ZONES[z]), 22, UiKit.C_SUB)
-		l.custom_minimum_size = Vector2(150, 0)
-		h.add_child(l)
-		var b := UiKit.bar(0, Color(0.55, 0.85, 0.95), 20)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(b)
-		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		zone_bars[z] = b
-		grid.add_child(h)
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vv.add_child(grid)
+	var zp := care_zone_panel(ZONES, Color(0.55, 0.85, 0.95))
+	zone_bars = zp["bars"]
+	vv.add_child(zp["grid"])
 	var h2 := UiKit.hbox(10)
 	shampoo_btn = UiKit.button("[i:shampoo] " + tr("Shampooing (×%d)") % GameState.item_count("shampoo"), _use_shampoo, UiKit.C_BLUE, 22, 76)
 	shampoo_btn.disabled = GameState.item_count("shampoo") <= 0
@@ -55,67 +42,63 @@ func _start() -> void:
 	bb.add_child(pv)
 	clean_before = float(GameState.active_pet()["needs"]["clean"])
 	# Baquet
+	care_setup()
 	tub = Node3D.new()
 	tub.position = pet.position
 	main.world.add_child(tub)
 	var r := maxf(0.55, pet.model.body_length() * 0.62)
-	WorldBuilder.cyl(tub, r, r * 1.1, 0.3, Vector3(0, 0.15, 0), Color(0.6, 0.78, 0.95), 28)
-	var water := WorldBuilder.cyl(tub, r * 0.97, r * 0.97, 0.02, Vector3(0, 0.22, 0), Color(0.75, 0.9, 1.0), 28)
+	# bassin plat : rebord bas pour que les pattes restent visibles et accessibles
+	var rim := WorldBuilder.cyl(tub, r * 1.05, r * 1.12, 0.07, Vector3(0, 0.035, 0), Color(0.6, 0.78, 0.95), 28)
+	rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var water := WorldBuilder.cyl(tub, r, r, 0.012, Vector3(0, 0.05, 0), Color(0.75, 0.9, 1.0), 28)
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	WorldBuilder.torus(tub, r * 0.97, r * 1.12, Vector3(0, 0.3, 0), Color(0.95, 0.95, 1.0))
 	pet.face(pet.player_pos)
 	pet.model.set_posture("stand", 3.0)
 	pet.state = "action"
-	main.recenter_camera(0.32)
-	main.cam_rig.pitch = -0.3
+	care_view("back")
 	Audio.play("splash")
 
 func can_recenter() -> bool:
 	return true
 
 func recenter() -> void:
-	main.recenter_camera(0.32)
-
-func _zone(hit: Dictionary) -> String:
-	if main.hit_part(hit) == "head":
-		return "head"
-	var lp: Vector3 = pet.model.to_local(hit["position"]) / pet.model.scale.x
-	if lp.z < -pet.model.bz * 0.38:
-		return "tail"
-	if lp.y < pet.model.L + pet.model.hy * 0.5:
-		return "legs"
-	return "back"
+	care_view("back")
 
 func handle_input(event: InputEvent) -> bool:
 	if finished or _rinsing:
 		return false
-	if event is InputEventScreenTouch and event.index == 0:
-		_rubbing = event.pressed
-		return true
-	if event is InputEventScreenDrag and event.index == 0 and _rubbing:
-		var hit := main.raycast(event.position, 2)
-		if hit.is_empty():
-			return true
-		_acc += event.relative.length()
-		if _acc > 40.0:
-			_acc = 0.0
-			var z := _zone(hit)
-			zone_done[z] = minf(NEEDED, zone_done[z] + (1.5 if shampoo else 1.0))
-			(zone_bars[z] as ProgressBar).value = zone_done[z] / NEEDED * 100.0
-			_add_bubble(hit["position"])
-			if randf() < 0.3:
-				Audio.play("bubble", 0.1, -8.0)
-			if z == "head" and randf() < 0.15:
-				pet.model.head_extra.z = randf_range(-0.3, 0.3)
-			pet.model.expression = "happy" if randf() < 0.7 else "closed"
-			pet.model.wag_amp = 0.5
-			var p := progress()
-			pet.model.set_dirt(lerpf(pet.model.dirt, 0.0, 0.04))
-			if p >= 0.6:
-				rinse_btn.disabled = false
-			info_label.text = tr("Mousse : %d %%") % int(p * 100.0)
-		return true
-	return false
+	return care_input(event, _rub)
+
+func _rub(event: InputEventScreenDrag, hit: Dictionary) -> void:
+	_acc += event.relative.length()
+	if _acc < 32.0:
+		return
+	_acc = 0.0
+	var z := care_zone(hit)
+	zone_done[z] = minf(NEEDED, zone_done[z] + (1.5 if shampoo else 1.0))
+	(zone_bars[z] as ProgressBar).value = zone_done[z] / NEEDED * 100.0
+	_add_bubble(hit["position"])
+	if randf() < 0.3:
+		Audio.play("bubble", 0.1, -8.0)
+	if z == "head" and randf() < 0.15:
+		pet.model.head_extra.z = randf_range(-0.3, 0.3)
+	pet.model.expression = "happy" if randf() < 0.7 else "closed"
+	pet.model.wag_amp = 0.5
+	var p := progress()
+	pet.model.set_dirt(lerpf(pet.model.dirt, 0.0, 0.04))
+	if p >= 0.6:
+		rinse_btn.disabled = false
+	if zone_done[z] >= NEEDED:
+		var nx := _next_zone()
+		info_label.text = (tr("Mousse : %d %%") % int(p * 100.0)) + ("   " + tr("Reste : %s") % tr(ZONES[nx]) if nx != "" else "")
+	else:
+		info_label.text = tr("Mousse : %d %%") % int(p * 100.0)
+
+func _next_zone() -> String:
+	for z in ZONES.keys():
+		if zone_done[z] < NEEDED:
+			return z
+	return ""
 
 func progress() -> float:
 	var t := 0.0
@@ -216,6 +199,7 @@ func _rinse() -> void:
 
 func _exit_tree() -> void:
 	super._exit_tree()
+	care_teardown()
 	for b in bubbles:
 		if is_instance_valid(b):
 			b.queue_free()

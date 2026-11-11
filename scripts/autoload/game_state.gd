@@ -17,7 +17,10 @@ const VoiceScript := preload("res://scripts/autoload/voice.gd")
 const SAVE_PATH := "user://save.json"
 const BACKUP_PATH := "user://save.bak.json"
 const TMP_PATH := "user://save.tmp.json"
-const AUTOSAVE_INTERVAL := 30.0
+const AUTOSAVE_INTERVAL := 20.0
+const DIRTY_DELAY := 1.5          # sauvegarde automatique peu après chaque changement
+const SNAP_DIR := "user://saves"  # copies quotidiennes (7 derniers jours) : la partie survit à tout incident
+const SNAP_KEEP := 7
 const OFFLINE_MAX_HOURS := 48.0
 const OFFLINE_FLOOR := 20.0
 const HEALTH_FLOOR := 10.0
@@ -34,6 +37,7 @@ var _autosave_t := 0.0
 var _tick_t := 0.0
 var _pet_stroke_budget := 6.0
 var _dirty := false
+var _dirty_t := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -80,10 +84,17 @@ func load_game() -> void:
 		d = _read_save(BACKUP_PATH)
 		if d is Dictionary:
 			load_status = "backup"
-		elif FileAccess.file_exists(SAVE_PATH):
-			load_status = "corrupt"
 		else:
-			load_status = "new"
+			d = _read_latest_snapshot()
+			if d is Dictionary:
+				load_status = "backup"
+			elif FileAccess.file_exists(SAVE_PATH):
+				load_status = "corrupt"
+			else:
+				load_status = "new"
+		# jamais d'effacement : un fichier illisible est mis de côté, pas écrasé
+		if FileAccess.file_exists(SAVE_PATH):
+			DirAccess.copy_absolute(SAVE_PATH, "user://save.unreadable.%d.json" % int(Time.get_unix_time_from_system()))
 	data = sanitize(d if d is Dictionary else {})
 	apply_offline()
 	ensure_daily()
@@ -111,6 +122,41 @@ func _read_save(path: String) -> Variant:
 		return null
 	return payload
 
+func _read_latest_snapshot() -> Variant:
+	var dir := DirAccess.open(SNAP_DIR)
+	if dir == null:
+		return null
+	var files: Array = []
+	for f in dir.get_files():
+		if f.begins_with("auto_") and f.ends_with(".json"):
+			files.append(f)
+	files.sort()
+	files.reverse()
+	for f in files:
+		var d: Variant = _read_save(SNAP_DIR + "/" + str(f))
+		if d is Dictionary:
+			return d
+	return null
+
+## Copie du jour (une par jour, 7 jours gardés).
+func _snapshot(wrapped: String) -> void:
+	DirAccess.make_dir_recursive_absolute(SNAP_DIR)
+	var day := Time.get_date_string_from_system()
+	var f := FileAccess.open(SNAP_DIR + "/auto_%s.json" % day, FileAccess.WRITE)
+	if f:
+		f.store_string(wrapped)
+		f.close()
+	var dir := DirAccess.open(SNAP_DIR)
+	if dir == null:
+		return
+	var files: Array = []
+	for fn in dir.get_files():
+		if fn.begins_with("auto_") and fn.ends_with(".json"):
+			files.append(fn)
+	files.sort()
+	while files.size() > SNAP_KEEP:
+		dir.remove(str(files.pop_front()))
+
 func save_game() -> bool:
 	if data.is_empty():
 		return false
@@ -132,6 +178,10 @@ func save_game() -> bool:
 		dir.rename("save.json", "save.bak.json")
 	var err := dir.rename("save.tmp.json", "save.json")
 	_dirty = false
+	_dirty_t = 0.0
+	_autosave_t = 0.0
+	if err == OK:
+		_snapshot(wrapped)
 	return err == OK
 
 func reset_game() -> void:
@@ -150,6 +200,14 @@ func reset_game() -> void:
 
 ## Valide et complète des données chargées (types, bornes, clés manquantes).
 func sanitize(src: Dictionary) -> Dictionary:
+	var d := _sanitize_known(src)
+	# clés inconnues (sauvegarde d'une version plus récente) conservées telles quelles
+	for k in src.keys():
+		if not d.has(k):
+			d[k] = src[k]
+	return d
+
+func _sanitize_known(src: Dictionary) -> Dictionary:
 	var d := default_data()
 	for k in d.keys():
 		if src.has(k) and typeof(src[k]) == typeof(d[k]):
@@ -344,8 +402,11 @@ func _process(delta: float) -> void:
 		for p in data.get("pets", []):
 			_decay_pet(p, dt / 3600.0, p["id"] == data["active_pet"] and pet_sleeping, false)
 		needs_changed.emit()
-	if _autosave_t >= AUTOSAVE_INTERVAL:
+	if _dirty:
+		_dirty_t += delta
+	if (_dirty and _dirty_t >= DIRTY_DELAY) or _autosave_t >= AUTOSAVE_INTERVAL:
 		_autosave_t = 0.0
+		_dirty_t = 0.0
 		if has_save():
 			save_game()
 
@@ -510,6 +571,7 @@ func add_relation(amount: int) -> void:
 	mark_dirty()
 
 func change_need(key: String, amount: float) -> void:
+	mark_dirty()
 	var p := active_pet()
 	if p.is_empty():
 		return
@@ -545,6 +607,7 @@ func coins() -> int:
 	return int(data.get("coins", 0))
 
 func add_coins(n: int) -> void:
+	mark_dirty()
 	if n <= 0:
 		return
 	data["coins"] = coins() + n
@@ -612,6 +675,7 @@ func spend_energy(kind: String, mult: float = 1.0) -> void:
 	change_need("energy", -base * k)
 
 func add_xp(n: int) -> void:
+	mark_dirty()
 	if n <= 0:
 		return
 	add_pet_xp(n)
@@ -640,6 +704,7 @@ static func CONSUMABLE_CAT(it: Dictionary) -> bool:
 	return GameData.CONSUMABLE_CATS.has(str(it.get("cat", "")))
 
 func consume(id: String, n: int = 1) -> bool:
+	mark_dirty()
 	if item_count(id) < n:
 		return false
 	data["inventory"][id] = item_count(id) - n
@@ -1140,6 +1205,7 @@ func board_add(key: String, score: float) -> int:
 
 ## Ajoute un objet empilable (consommable ou objet de collection) au sac.
 func add_item(id: String, n: int = 1) -> void:
+	mark_dirty()
 	var it := GameData.item(id)
 	if it.is_empty() or n <= 0 or not CONSUMABLE_CAT(it):
 		return

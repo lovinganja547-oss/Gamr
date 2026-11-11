@@ -279,8 +279,47 @@ const ENVIRONMENTS := {
 	"beach": {"name": "Plage", "icon": "beach", "price": 400, "level": 4, "amb": "amb_beach", "walk": true},
 	"center": {"name": "Terrain d'entraînement", "icon": "center", "price": 0, "level": 1, "amb": "amb_center", "walk": false},
 	"shelter": {"name": "Refuge", "icon": "shelter", "price": 0, "level": 1, "amb": "amb_shelter", "walk": false},
+	"town": {"name": "Quartier", "icon": "map", "price": 0, "level": 1, "amb": "amb_park", "walk": false, "hidden": true},
+	"field": {"name": "Grand pré", "icon": "field", "price": 0, "level": 1, "amb": "amb_park", "walk": false, "hidden": true},
 }
 const ENV_ORDER: Array[String] = ["house", "garden", "park", "forest", "beach", "center", "shelter"]
+
+# ------------------------------------------------------------------ Carte des promenades
+## Quartier parcouru en promenade (coordonnées en mètres de jeu, ×10 affichés).
+## kind : home, road, water, shop, park, beach, forest, center, comp. env : lieu à débloquer.
+const WALK_NODES := {
+	"home": {"name": "Maison", "icon": "house", "kind": "home", "pos": Vector2(0, 8)},
+	"cross": {"name": "Carrefour", "icon": "route", "kind": "road", "pos": Vector2(0, 3)},
+	"fountain": {"name": "Fontaine", "icon": "water", "kind": "water", "pos": Vector2(3.5, 1.5)},
+	"shop": {"name": "Boutique", "icon": "shop", "kind": "shop", "pos": Vector2(7, 2)},
+	"park": {"name": "Parc à chiens", "icon": "park", "kind": "park", "pos": Vector2(-6, 0), "env": "park"},
+	"crossn": {"name": "Place du marché", "icon": "route", "kind": "road", "pos": Vector2(0, -3)},
+	"center": {"name": "Terrain d'agilité", "icon": "agility", "kind": "center", "pos": Vector2(7, -5)},
+	"comp": {"name": "Salle des concours", "icon": "trophy", "kind": "comp", "pos": Vector2(3, -9)},
+	"forest": {"name": "Lisière de la forêt", "icon": "forest", "kind": "forest", "pos": Vector2(-7, -7), "env": "forest"},
+	"beach": {"name": "Plage", "icon": "beach", "kind": "beach", "pos": Vector2(-2, -13), "env": "beach"},
+}
+const WALK_EDGES := [
+	["home", "cross"], ["cross", "fountain"], ["cross", "park"], ["fountain", "shop"], ["cross", "crossn"],
+	["crossn", "park"], ["crossn", "center"], ["shop", "center"], ["crossn", "comp"], ["comp", "center"],
+	["crossn", "forest"], ["forest", "park"], ["forest", "beach"], ["comp", "beach"],
+]
+const WALK_SCALE := 10.0
+## Endurance de promenade (mètres affichés) : grandit avec le niveau du compagnon.
+static func walk_endurance(level: int) -> float:
+	return minf(350.0 + 50.0 * float(maxi(1, level) - 1), 1800.0)
+
+static func walk_neighbors(id: String) -> Array:
+	var out: Array = []
+	for e in WALK_EDGES:
+		if e[0] == id:
+			out.append(e[1])
+		elif e[1] == id:
+			out.append(e[0])
+	return out
+
+static func walk_edge_len(a: String, b: String) -> float:
+	return (WALK_NODES[a]["pos"] as Vector2).distance_to(WALK_NODES[b]["pos"]) * WALK_SCALE
 
 # ------------------------------------------------------------------ Compétitions
 const COMP_CATS := {

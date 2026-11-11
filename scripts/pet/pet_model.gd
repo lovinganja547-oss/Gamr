@@ -42,6 +42,7 @@ var legs: Array[Dictionary] = []
 var acc_root: Node3D
 var hit_body: StaticBody3D
 var hit_head: StaticBody3D
+var hit_legs: StaticBody3D   # zone des pattes et du ventre, active seulement pendant les soins
 var emote_label: Sprite3D
 var held_anchor: Node3D
 
@@ -491,6 +492,17 @@ func _build() -> void:
 	cs2.shape = sph
 	hit_head.add_child(cs2)
 	head_pivot.add_child(hit_head)
+	hit_legs = StaticBody3D.new()
+	hit_legs.collision_layer = 0
+	hit_legs.set_meta("part", "body")
+	hit_legs.set_meta("zone", "legs")
+	var cs3 := CollisionShape3D.new()
+	var bxs := BoxShape3D.new()
+	bxs.size = Vector3(hx * 2.0 + 0.14, L * 0.95, (zf - zr) + 0.16)
+	cs3.shape = bxs
+	cs3.position = Vector3(0, L * 0.5, (zf + zr) * 0.5)
+	hit_legs.add_child(cs3)
+	add_child(hit_legs)
 	emote_label = Sprite3D.new()
 	emote_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	emote_label.pixel_size = 0.0022
@@ -881,6 +893,11 @@ func set_dirt(d: float) -> void:
 ## Distance du centre de l'animal au bout du museau.
 func head_reach() -> float:
 	return (bz * 0.46 + hr * 1.35 + (bd["snout"] as Vector2).x) * scale.x
+
+## Active la zone de toucher des pattes (bain, brossage : animal debout).
+func set_leg_hit(on: bool) -> void:
+	if hit_legs:
+		hit_legs.collision_layer = 2 if on else 0
 
 func body_length() -> float:
 	return (bz * 1.1 + hr * 1.4) * scale.x

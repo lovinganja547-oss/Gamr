@@ -584,6 +584,7 @@ func play_with_toy() -> void:
 		return
 	model.chew = 0.0
 	_toy_cleanup()
+	GameState.inc_stat("toy_play", 1)
 	if GameState.reward_ok("toy_play", 0.5):
 		GameState.add_xp(3)
 	_end(id, "toy")

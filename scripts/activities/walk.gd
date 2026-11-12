@@ -129,7 +129,7 @@ func _begin_plan(pl: Array) -> void:
 	var diff := 1 if total < 400.0 else (2 if total < 800.0 else 3)
 	prev_env = main.env_id if main.env_id != "town" else "house"
 	_begin_route({"id": "map", "env": "town", "name": "Promenade du quartier", "length": total, "diff": diff,
-		"finds": clampi(int(total / 110.0), 2, 12), "plan": plan})
+		"finds": clampi(int(total / 160.0), 2, 14), "plan": plan})
 
 ## Chemin balisé qui suit les rues du trajet tracé.
 func _build_plan_path(pl: Array) -> void:
@@ -141,7 +141,7 @@ func _build_plan_path(pl: Array) -> void:
 	for i in range(1, pts.size()):
 		var a := pts[i - 1]
 		var b := pts[i]
-		var n := maxi(1, int(ceil(a.distance_to(b) / 3.2)))
+		var n := maxi(1, int(ceil(a.distance_to(b) / 4.8)))
 		for k in range(1, n + 1):
 			path.append(a.lerp(b, float(k) / n))
 	var seen := {}
@@ -548,6 +548,7 @@ func _collect(it: Dictionary) -> void:
 		tw.tween_callback(n.queue_free)
 
 func _meet(c: PetController) -> void:
+	GameState.inc_stat("meet", 1)
 	pet.stop_moving()
 	pet.face(c.position)
 	c.stop_moving()
@@ -605,6 +606,7 @@ func _pick_poop(i: int) -> void:
 	if i < 0 or i >= poops.size() or not is_instance_valid(poops[i]):
 		return
 	poops[i].queue_free()
+	GameState.inc_stat("poop", 1)
 	picked += 1
 	bonus_coins += 5
 	Audio.play("pop")
@@ -711,6 +713,7 @@ func _finish(arrived: bool) -> void:
 		xp = int(length / 15.0 * frac) + 10
 		if frac >= 0.5:
 			GameState.inc_stat("walk", 1)
+		GameState.inc_stat("walk_m", int(dist_done * SCALE))
 		GameState.change_need("outside", 60.0 * frac)
 		GameState.change_need("mood", 10.0)
 		GameState.change_need("hunger", -6.0 * frac)
@@ -806,6 +809,7 @@ func _arrive(id: String, pos: Vector3) -> void:
 	var nd: Dictionary = GameData.WALK_NODES[id]
 	var kind := str(nd["kind"])
 	pet.stop_moving()
+	GameState.inc_stat("poi", 1)
 	if kind == "water":
 		var fp: Variant = main.env_root.get_meta("fountain", pos)
 		pet.face(fp)

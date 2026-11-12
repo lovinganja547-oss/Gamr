@@ -128,6 +128,7 @@ func change_env(id: String, keep_pet_pos: bool = false) -> void:
 	cam_rig.reset_view(3.2, -0.32, 0.0)
 	cam_rig.bounds_box = env_root.get_meta("cam_box", AABB())
 	cam_rig.obstacles = env_root.get_meta("obstacles", []).filter(func(o): return o.has("c") and float(o["r"]) >= 0.6 and bool(o.get("cam", true)))
+	cam_rig.obstacles.append_array(env_root.get_meta("cam_obstacles", []))
 	cam_rig.follow = true
 	cam_rig.focus_offset = Vector3(0, 0.3, 0)
 	if pet_ctrl and pet_ctrl.visible:
@@ -278,18 +279,39 @@ func open_panel(title: String, content: Control, on_close: Callable = Callable()
 	m.add_theme_constant_override("margin_top", safe.get_theme_constant("margin_top") + 110)
 	m.add_theme_constant_override("margin_bottom", safe.get_theme_constant("margin_bottom") + 6)
 	overlay.add_child(m)
-	var pnl := UiKit.panel(26)
+	var pnl := UiKit.panel(22)
 	m.add_child(pnl)
-	var v := UiKit.vbox(16)
+	# motif de pattes très discret en fond
+	var deco := TextureRect.new()
+	deco.texture = UiKit.skin("paws")
+	deco.stretch_mode = TextureRect.STRETCH_TILE
+	deco.modulate = Color(1, 1, 1, 0.055)
+	deco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pnl.add_child(deco)
+	var v := UiKit.vbox(14)
 	pnl.add_child(v)
-	var head := UiKit.hbox()
-	var t := UiKit.label(title, 40, UiKit.C_TEXT)
+	# bandeau de titre coloré avec bouton de fermeture
+	var band := PanelContainer.new()
+	band.add_theme_stylebox_override("panel", UiKit.sbt("header", UiKit.C_ACCENT, 22))
+	var head := UiKit.hbox(8)
+	var t := UiKit.label(title, 36, Color.WHITE)
+	t.add_theme_color_override("font_outline_color", Color(0.55, 0.26, 0.12, 0.55))
+	t.add_theme_constant_override("outline_size", 6)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var tico: TextureRect = t.get_node_or_null("Ico")
+	if tico:
+		tico.modulate = Color(1, 1, 1)
 	head.add_child(t)
-	var close := UiKit.button("[i:close]", func(): close_panel(), UiKit.C_DANGER, 34, 80)
-	close.custom_minimum_size = Vector2(80, 80)
+	var close := UiKit.button("[i:close]", func(): close_panel(), Color(1.0, 0.98, 0.95), 30, 68)
+	close.custom_minimum_size = Vector2(72, 68)
+	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	close.add_theme_color_override("icon_normal_color", UiKit.C_DANGER)
+	close.add_theme_color_override("icon_pressed_color", UiKit.C_DANGER)
+	close.add_theme_color_override("icon_hover_color", UiKit.C_DANGER)
 	head.add_child(close)
-	v.add_child(head)
+	band.add_child(head)
+	v.add_child(band)
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(content)
 	overlay.set_meta("on_close", on_close)

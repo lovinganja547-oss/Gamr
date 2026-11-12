@@ -208,6 +208,8 @@ func _finish() -> void:
 	GameState.change_need("affection", 6.0)
 	GameState.add_relation(5)
 	GameState.inc_stat("tug", 1)
+	if won:
+		GameState.inc_stat("tug_win", 1)
 	pet.model.expression = "happy"
 	pet.model.hearts(2)
 	pet.play_bow()

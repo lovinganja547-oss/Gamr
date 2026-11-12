@@ -78,8 +78,14 @@ static func emoji_font() -> Font:
 static func font() -> Font:
 	if _font == null:
 		var fv := FontVariation.new()
-		fv.base_font = emoji_font()
-		fv.variation_embolden = 0.55
+		var ff := load("res://assets/fonts/nunito-800.woff") as Font
+		if ff != null:
+			# police arrondie du jeu ; les signes absents retombent sur la police système
+			fv.base_font = ff
+			fv.fallbacks = [emoji_font()]
+		else:
+			fv.base_font = emoji_font()
+			fv.variation_embolden = 0.55
 		_font = fv
 	return _font
 
@@ -107,6 +113,44 @@ static func sb(c: Color, radius: int = 28, border: int = 0, border_c: Color = Co
 		s.border_color = Color(c.r * 0.82, c.g * 0.8, c.b * 0.78, c.a)
 	return s
 
+static var _skins := {}
+
+## Texture d'habillage (assets/ui/skin/<nom>.png), chargée une seule fois.
+static func skin(name: String) -> Texture2D:
+	if not _skins.has(name):
+		_skins[name] = load("res://assets/ui/skin/%s.png" % name)
+	return _skins[name]
+
+## Style texturé étirable, teinté à la couleur voulue. kind : "btn", "tile", "panel", "header", "bar_fill", "bar_bg".
+static func sbt(kind: String, color: Color = Color.WHITE, pad: int = 18, pressed: bool = false) -> StyleBoxTexture:
+	var st := StyleBoxTexture.new()
+	st.texture = skin(kind + ("_pressed" if pressed else ""))
+	st.modulate_color = color
+	match kind:
+		"btn", "tile":
+			st.set_texture_margin_all(44)
+			st.texture_margin_bottom = 52
+			st.set_expand_margin_all(8)
+			st.expand_margin_bottom = 20
+			st.content_margin_left = pad
+			st.content_margin_right = pad
+			st.content_margin_top = pad * 0.6 + (5 if pressed else 0)
+			st.content_margin_bottom = pad * 0.6 - (5 if pressed else 0)
+		"panel":
+			st.set_texture_margin_all(50)
+			st.set_expand_margin_all(10)
+			st.expand_margin_bottom = 14
+			st.set_content_margin_all(pad)
+		"header":
+			st.set_texture_margin_all(36)
+			st.content_margin_left = pad
+			st.content_margin_right = pad * 0.5
+			st.content_margin_top = pad * 0.5
+			st.content_margin_bottom = pad * 0.5
+		_:
+			st.set_texture_margin_all(15)
+	return st
+
 static func theme() -> Theme:
 	if _theme:
 		return _theme
@@ -117,13 +161,13 @@ static func theme() -> Theme:
 	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		t.set_color(k, "Button", Color.WHITE)
 	t.set_color("font_disabled_color", "Button", Color(1, 1, 1, 0.8))
-	t.set_stylebox("normal", "Button", sb(C_ACCENT))
-	t.set_stylebox("hover", "Button", sb(C_ACCENT.lightened(0.08)))
-	t.set_stylebox("pressed", "Button", sb(C_ACCENT.darkened(0.12), 28, 0, Color.TRANSPARENT, false))
-	t.set_stylebox("hover_pressed", "Button", sb(C_ACCENT.darkened(0.12), 28, 0, Color.TRANSPARENT, false))
-	t.set_stylebox("disabled", "Button", sb(C_DISABLED, 28, 0, Color.TRANSPARENT, false))
+	t.set_stylebox("normal", "Button", sbt("btn", C_ACCENT))
+	t.set_stylebox("hover", "Button", sbt("btn", C_ACCENT.lightened(0.08)))
+	t.set_stylebox("pressed", "Button", sbt("btn", C_ACCENT.darkened(0.06), 18, true))
+	t.set_stylebox("hover_pressed", "Button", sbt("btn", C_ACCENT.darkened(0.06), 18, true))
+	t.set_stylebox("disabled", "Button", sbt("btn", C_DISABLED, 18, true))
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
-	t.set_stylebox("panel", "PanelContainer", sb(C_PANEL, 36, 0, Color.TRANSPARENT, true, 24))
+	t.set_stylebox("panel", "PanelContainer", sbt("panel", Color.WHITE, 24))
 	t.set_stylebox("panel", "Panel", sb(C_PANEL, 36))
 	var le := sb(Color.WHITE, 22, 3, C_ACCENT, false, 18)
 	t.set_stylebox("normal", "LineEdit", le)
@@ -225,10 +269,10 @@ static func button(txt: String, cb: Callable, color: Color = C_ACCENT, size: int
 	b.custom_minimum_size = Vector2(0, min_h)
 	b.add_theme_font_size_override("font_size", ts(size))
 	if color != C_ACCENT:
-		b.add_theme_stylebox_override("normal", sb(color))
-		b.add_theme_stylebox_override("hover", sb(color.lightened(0.08)))
-		b.add_theme_stylebox_override("pressed", sb(color.darkened(0.12), 28, 0, Color.TRANSPARENT, false))
-		b.add_theme_stylebox_override("hover_pressed", sb(color.darkened(0.12), 28, 0, Color.TRANSPARENT, false))
+		b.add_theme_stylebox_override("normal", sbt("btn", color))
+		b.add_theme_stylebox_override("hover", sbt("btn", color.lightened(0.08)))
+		b.add_theme_stylebox_override("pressed", sbt("btn", color.darkened(0.06), 18, true))
+		b.add_theme_stylebox_override("hover_pressed", sbt("btn", color.darkened(0.06), 18, true))
 	b.focus_mode = Control.FOCUS_NONE
 	b.pressed.connect(func(): Audio.play("click", 0.05, -4.0))
 	if cb.is_valid():
@@ -240,11 +284,12 @@ static func icon_button(icon_name: String, caption: String, cb: Callable, color:
 	b.custom_minimum_size = Vector2(w, w + 10)
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = ""
-	var st := sb(color, 30, 0, Color.TRANSPARENT, true, 6)
-	b.add_theme_stylebox_override("normal", st)
-	b.add_theme_stylebox_override("hover", sb(color.lightened(0.05), 30, 0, Color.TRANSPARENT, true, 6))
-	b.add_theme_stylebox_override("pressed", sb(color.darkened(0.1), 30, 0, Color.TRANSPARENT, false, 6))
-	b.add_theme_stylebox_override("hover_pressed", sb(color.darkened(0.1), 30, 0, Color.TRANSPARENT, false, 6))
+	var tint := Color(color.r, color.g, color.b, 1.0)
+	b.add_theme_stylebox_override("normal", sbt("tile", tint, 6))
+	b.add_theme_stylebox_override("hover", sbt("tile", tint.lightened(0.05), 6))
+	b.add_theme_stylebox_override("pressed", sbt("tile", tint.darkened(0.05), 6, true))
+	b.add_theme_stylebox_override("hover_pressed", sbt("tile", tint.darkened(0.05), 6, true))
+	b.add_theme_stylebox_override("disabled", sbt("tile", C_DISABLED, 6, true))
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -284,7 +329,8 @@ static func bar(value: float, color: Color, h: int = 22) -> ProgressBar:
 	p.value = value
 	p.show_percentage = false
 	p.custom_minimum_size = Vector2(0, h)
-	p.add_theme_stylebox_override("fill", sb(color, 12, 0, Color.TRANSPARENT, false, 0))
+	p.add_theme_stylebox_override("fill", sbt("bar_fill", color, 0))
+	p.add_theme_stylebox_override("background", sbt("bar_bg", Color.WHITE, 0))
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return p
 
@@ -323,7 +369,7 @@ static func set_need(b: ProgressBar, pct: Label, value: float) -> void:
 
 static func panel(pad: int = 24, color: Color = C_PANEL) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", sb(color, 36, 0, Color.TRANSPARENT, true, pad))
+	p.add_theme_stylebox_override("panel", sbt("panel", Color(color.r, color.g, color.b, maxf(color.a, 0.9)), pad))
 	return p
 
 static func hbox(sep: int = 12) -> HBoxContainer:

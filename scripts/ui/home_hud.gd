@@ -286,6 +286,7 @@ func give_water() -> void:
 	_fill(bowl, 1.0)
 	Audio.play("splash", 0.1, -6.0)
 	GameState.give_water(false)
+	GameState.inc_stat("water", 1)
 	var given := {"k": 0.0}
 	pet.eat_from(bowl, "water", 2.6, func(frac: float):
 		GameState.change_need("thirst", 60.0 * (frac - given["k"]))
@@ -350,6 +351,7 @@ func order(cmd: String) -> void:
 		ok = false
 	if ok:
 		pet.perform(cmd)
+		GameState.inc_stat("order_ok", 1)
 	else:
 		pet.fail_behaviour(cmd)
 	_last_cmd = {"cmd": cmd, "ok": ok, "t": Time.get_ticks_msec()}

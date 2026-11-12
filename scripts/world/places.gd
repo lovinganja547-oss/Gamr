@@ -575,7 +575,7 @@ static func _site(id: String, dist: float, clearance: float, placed: Array, hint
 		for extra in [0.0, 1.2, 2.4, 3.6]:
 			var p: Vector3 = base + d * (dist + extra)
 			var p2 := Vector2(p.x, p.z)
-			if absf(p.x) > 42.0 or p.z > 31.0 or p.z < -30.5:
+			if absf(p.x) > 63.0 or p.z > 46.5 or p.z < -46.0:
 				continue
 			var margin: float = minf(WorldBuilder._road_dist(p2) - clearance, _river_dist(p2) - clearance - 1.6)
 			for o in placed:
@@ -591,10 +591,10 @@ static func _site(id: String, dist: float, clearance: float, placed: Array, hint
 
 static func town(r: Node3D, _q: int) -> void:
 	r.set_meta("look", "afternoon")
-	r.set_meta("fog_begin", 22.0)
-	r.set_meta("fog_end", 130.0)
+	r.set_meta("fog_begin", 24.0)
+	r.set_meta("fog_end", 190.0)
 	var nodes: Dictionary = GameData.WALK_NODES
-	var gp := Kit.ground(r, 280.0, {"rect": Rect2(-48, -60, 96, 96), "res": 1024, "r": "cobble", "g": "dirt", "g2": "sand", "g2_z": -32.0,
+	var gp := Kit.ground(r, 420.0, {"rect": Rect2(-72, -90, 144, 144), "res": 1024, "r": "cobble", "g": "dirt", "g2": "sand", "g2_z": -48.0,
 		"uv_r": 0.5, "uv_g": 0.6, "tint_r": Color(1.0, 0.97, 0.93), "tint_g": Color(0.98, 0.93, 0.86), "tint_g2": Color(1.1, 1.08, 1.04), "macro_amount": 0.34})
 	var b := MeshBatch.new()
 	var placed: Array = []
@@ -611,14 +611,14 @@ static func town(r: Node3D, _q: int) -> void:
 			gp.disc(p2, 3.6 if id == "fountain" else (1.5 if nd["kind"] == "road" else 2.3), 0)
 		else:
 			gp.disc(p2, 1.2 if nd["kind"] == "road" else 1.9, 1)
-	gp.area(Rect2(-48, -60, 96, 26.6), 1)
-	for i in 21:
-		gp.soft(Vector2(-46.0 + i * 4.6, -33.2 + sin(i * 1.9) * 0.9), 3.4, 1, 1.0)
-	Kit.sea(r, Rect2(-140, -160, 280, 116.5), -43.5, {"shallow": Color(0.40, 0.78, 0.84), "deep": Color(0.12, 0.42, 0.72), "scale": 0.8})
-	for i in 24:
-		gp.shade(Vector2(-47.0 + i * 4.2, -44.1), 3.0, 0.3)   # sable mouillé près de l'eau
-	for i in 60:
-		WorldBuilder.obs_circle(r, Vector3(-46.0 + i * 1.55, 0, -44.9), 1.3, false)
+	gp.area(Rect2(-72, -90, 144, 40.6), 1)
+	for i in 32:
+		gp.soft(Vector2(-70.0 + i * 4.5, -49.2 + sin(i * 1.9) * 0.9), 3.4, 1, 1.0)
+	Kit.sea(r, Rect2(-210, -240, 420, 174.75), -65.25, {"shallow": Color(0.40, 0.78, 0.84), "deep": Color(0.12, 0.42, 0.72), "scale": 0.8})
+	for i in 36:
+		gp.shade(Vector2(-71.0 + i * 4.1, -65.85), 3.0, 0.3)   # sable mouillé près de l'eau
+	for i in 92:
+		WorldBuilder.obs_circle(r, Vector3(-70.0 + i * 1.55, 0, -66.65), 1.3, false)
 	# ---------------------------------------------------------------- rivière et ponts
 	var rv := GameData.WALK_RIVER
 	var crossings: Array[Vector2] = []
@@ -652,7 +652,7 @@ static func town(r: Node3D, _q: int) -> void:
 		var steps := int(a3.distance_to(c3) / 0.9)
 		for s in steps + 1:
 			var q2 := a3.lerp(c3, float(s) / maxf(1.0, float(steps)))
-			if absf(q2.x) > 46.0:
+			if absf(q2.x) > 70.0:
 				continue
 			var near_bridge := false
 			for cr in crossings:
@@ -671,14 +671,14 @@ static func town(r: Node3D, _q: int) -> void:
 	wmi.material_override = Kit.water_mat({"shallow": Color(0.44, 0.76, 0.82), "deep": Color(0.20, 0.50, 0.68), "scale": 1.6})
 	wmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	r.add_child(wmi)
-	for i in 24:
-		var t := (i + 0.5) / 24.0
+	for i in 36:
+		var t := (i + 0.5) / 36.0
 		var seg := int(t * (rv.size() - 1))
 		var q3 := rv[seg].lerp(rv[seg + 1], t * (rv.size() - 1) - seg)
 		var side := 1.0 if i % 2 == 0 else -1.0
 		var nrm2 := (rv[seg + 1] - rv[seg]).orthogonal().normalized()
 		var rp := q3 + nrm2 * side * (1.5 + (i % 3) * 0.2)
-		if absf(rp.x) < 46.0 and WorldBuilder._road_dist(rp) > 1.6:
+		if absf(rp.x) < 70.0 and WorldBuilder._road_dist(rp) > 1.6:
 			Kit.rock(r, Vector3(rp.x, 0, rp.y), 0.3 + (i % 3) * 0.14, "a" if i % 2 else "b", false)
 	# ---------------------------------------------------------------- lieux
 	var cream := Color(0.98, 0.93, 0.83)
@@ -845,16 +845,16 @@ static func town(r: Node3D, _q: int) -> void:
 	var fn := _n("forest")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
-	var n_pines: int = [16, 26, 36][Kit.q]
+	var n_pines: int = [18, 30, 42][Kit.q]
 	var tries := 0
 	var pines := 0
 	while pines < n_pines and tries < 400:
 		tries += 1
 		var a7 := rng.randf() * TAU
-		var dd := rng.randf_range(3.2, 15.0)
+		var dd := rng.randf_range(3.2, 20.0)
 		var pp2 := fn + Vector3(cos(a7) * dd - 4.0, 0, sin(a7) * dd - 1.0)
 		var q4 := Vector2(pp2.x, pp2.z)
-		if WorldBuilder._road_dist(q4) < 2.0 or _river_dist(q4) < 3.0 or pp2.z < -31.0 or absf(pp2.x) > 46.0:
+		if WorldBuilder._road_dist(q4) < 2.0 or _river_dist(q4) < 3.0 or pp2.z < -47.0 or absf(pp2.x) > 70.0:
 			continue
 		var close := false
 		for o in placed:
@@ -873,7 +873,7 @@ static func town(r: Node3D, _q: int) -> void:
 	# Grand pré : barrière, fleurs, panneau
 	var md2 := _n("meadow")
 	Kit.signpost(b, r, md2 + _away("meadow", Vector3(1, 0, 0)).rotated(Vector3.UP, 1.4) * 2.4, 0.0, "Grand pré")
-	Kit.flowers(r, Rect2(md2.x - 6, md2.z - 4.2, 12, 6.5), 260, 91, func(p: Vector2) -> bool: return WorldBuilder._road_dist(p) > 1.2 and p.y > -31.5)
+	Kit.flowers(r, Rect2(md2.x - 6, md2.z - 4.2, 12, 6.5), 260, 91, func(p: Vector2) -> bool: return WorldBuilder._road_dist(p) > 1.2 and p.y > -47.5)
 	# Belvédère : terrasse en bois, longue-vue, banc
 	var vp := _n("viewpoint")
 	var vdir := _away("viewpoint", Vector3(1, 0, 0))
@@ -920,7 +920,7 @@ static func town(r: Node3D, _q: int) -> void:
 	var lh := _n("lighthouse")
 	var ldir := _away("lighthouse", Vector3(1, 0, -0.4))
 	var lc := lh + ldir * 4.2
-	lc.z = minf(lc.z, -41.5)
+	lc.z = minf(lc.z, -63.0)
 	Kit.rock(r, lc + Vector3(0, -0.2, 0), 3.4, "a", false, Color(0.76, 0.74, 0.70))
 	Kit.rock(r, lc + Vector3(2.2, 0, 0.8), 1.3, "b", false, Color(0.76, 0.74, 0.70))
 	Kit.rock(r, lc + Vector3(-2.4, 0, -0.4), 1.5, "a", false, Color(0.76, 0.74, 0.70))
@@ -939,8 +939,8 @@ static func town(r: Node3D, _q: int) -> void:
 		{"wall_c": Color(0.98, 0.86, 0.80), "roof_c": Color(0.70, 0.38, 0.32), "shutter_c": Color(0.30, 0.44, 0.60)},
 		{"wall": "t:stone_wall:0.5", "wall_c": Color(0.96, 0.94, 0.9), "roof_c": Color(0.46, 0.44, 0.48), "shutter_c": Color(0.40, 0.56, 0.42)},
 	]
-	var lots: Array[Vector3] = [Vector3(-15.75, 0, 18.75), Vector3(8.25, 0, 21.75), Vector3(15.75, 0, 19.5), Vector3(24.75, 0, 15.75), Vector3(25.5, 0, 5.25), Vector3(17.25, 0, 1.8),
-		Vector3(-17.25, 0, 12.75), Vector3(5.4, 0, 0.9), Vector3(-6.6, 0, 0.3), Vector3(26.25, 0, -4.5), Vector3(-5.4, 0, 10.5), Vector3(15, 0, 5.85), Vector3(-14.25, 0, 24.75), Vector3(19.5, 0, 24.75)]
+	var lots: Array[Vector3] = [Vector3(-23.625, 0, 28.125), Vector3(12.375, 0, 32.625), Vector3(23.625, 0, 29.25), Vector3(37.125, 0, 23.625), Vector3(38.25, 0, 7.875), Vector3(25.875, 0, 2.7),
+		Vector3(-25.875, 0, 19.125), Vector3(8.1, 0, 1.35), Vector3(-9.9, 0, 0.45), Vector3(39.375, 0, -6.75), Vector3(-8.1, 0, 15.75), Vector3(22.5, 0, 8.775), Vector3(-21.375, 0, 37.125), Vector3(29.25, 0, 37.125)]
 	for i in lots.size():
 		var lp := lots[i]
 		var l2 := Vector2(lp.x, lp.z)
@@ -980,13 +980,13 @@ static func town(r: Node3D, _q: int) -> void:
 		if lok:
 			Kit.lamp(b, r, Vector3(lp2.x, 0, lp2.y), true)
 	# ---------------------------------------------------------------- arbres, buissons, herbe
-	var n_trees: int = [22, 40, 54][Kit.q]
+	var n_trees: int = [28, 52, 70][Kit.q]
 	rng.seed = 23
 	tries = 0
 	var count := 0
 	while count < n_trees and tries < 900:
 		tries += 1
-		var tp3 := Vector2(rng.randf_range(-44, 44), rng.randf_range(-31.0, 31))
+		var tp3 := Vector2(rng.randf_range(-67, 67), rng.randf_range(-47.0, 47))
 		if WorldBuilder._road_dist(tp3) < 2.4 or _river_dist(tp3) < 3.0:
 			continue
 		if tp3.distance_to(nodes["park"]["pos"]) < 5.0 or tp3.distance_to(nodes["meadow"]["pos"]) < 6.5:
@@ -1005,9 +1005,9 @@ static func town(r: Node3D, _q: int) -> void:
 		else:
 			Kit.tree(r, Vector3(tp3.x, 0, tp3.y), rng.randf_range(4.6, 6.6), ["a", "b", "c"][count % 3], _green(count), count, near)
 	b.commit(r)
-	var keep := func(p: Vector2) -> bool: return p.y > -31.2
-	Kit.grass(r, Rect2(-46, -31.5, 92, 64), 9000, 51, keep)
-	Kit.flowers(r, Rect2(-45, -31, 90, 62), 800, 52, keep)
-	Kit.backdrop(r, {"radius": 76.0, "gap_from": 3.5, "gap_to": 5.95})
-	r.set_meta("bounds", Rect2(-46, -45, 92, 78))
-	r.set_meta("walk_area", Rect2(-46, -45, 92, 78))
+	var keep := func(p: Vector2) -> bool: return p.y > -47.2
+	Kit.grass(r, Rect2(-69, -47.5, 138, 96), 14000, 51, keep)
+	Kit.flowers(r, Rect2(-68, -47, 136, 94), 1300, 52, keep)
+	Kit.backdrop(r, {"radius": 112.0, "gap_from": 3.5, "gap_to": 5.95})
+	r.set_meta("bounds", Rect2(-69, -67, 138, 116))
+	r.set_meta("walk_area", Rect2(-69, -67, 138, 116))

@@ -69,3 +69,14 @@ Compilé via l'export Gradle (Gradle 8.11.1, gabarit Android de Godot 4.5.1 dans
 - **Carte** : 22 lieux (boulangerie, marché, café, toiletteur, vétérinaire, école du chiot, étang, ferme, belvédère, phare…), rivière et ponts, endurance de 450 m (+80 m par niveau), actions propres à chaque lieu dont 4 quotidiennes.
 - **Interface** : boutons en relief, socle des actions, carte illustrée.
 - **Tests** : 154 tests unitaires OK, parcours complet sans erreur de script. Quartier, par qualité : Faible 183 appels / 142 000 primitives, Moyen 313 / 471 000, Élevé 377 / 618 000. Non mesuré sur téléphone.
+
+## Version 2.5.0
+
+- Nom : « Truffe & Compagnie ». Écran de chargement illustré (`scenes/boot.tscn`, `scripts/boot.gd`) : toutes les ressources sont chargées une seule fois et gardées en mémoire, les shaders sont précompilés avant l'écran titre.
+- Nouvelle icône (classique + adaptative), image de démarrage et logo : `tools/gen_brand.py` à partir des rendus `tools/art/`.
+- Police d'interface Nunito ExtraBold et logo en Baloo 2 (licence SIL OFL, textes dans `assets/fonts/` et `tools/art/`).
+- 69 accessoires (`scripts/pet/accessories.gd`), placés à partir des mesures de chaque race ; planche de contrôle : `tests/acc_sheet.tscn -- <race> [angle]`.
+- Maison : 17 objets de décoration supplémentaires, mobilier refait, étagère à trophées déplacée hors de la fenêtre.
+- Missions et objectifs quotidiens et hebdomadaires, tirés uniquement parmi les fonctions débloquées.
+- Balades : carte, espacement des drapeaux et endurance augmentés de 50 %.
+- Interfaces habillées (cadres, bandeaux, boutons texturés).

@@ -40,8 +40,13 @@ var ears: Array[Node3D] = []
 var tail_segs: Array[Node3D] = []
 var legs: Array[Dictionary] = []
 var acc_root: Node3D
+var fluff := 1.0
 var hit_body: StaticBody3D
 var hit_head: StaticBody3D
+## Repères pour les accessoires : hauteur du dessus de la tête, position et rayon des yeux (repère de la tête).
+var top_y := 0.16
+var eye_pos := Vector3(0.06, 0.02, 0.13)
+var eye_r := 0.035
 var hit_legs: StaticBody3D   # zone des pattes et du ventre, active seulement pendant les soins
 var emote_label: Sprite3D
 var held_anchor: Node3D
@@ -382,10 +387,13 @@ func _build() -> void:
 	var collar_it := GameData.item(str(pet_data.get("collar", "collar_red")))
 	var cc: Color = collar_it.get("color", Color.RED)
 	var collar_pos := neck_base.lerp(head_pos, 0.5)
-	var collar := _mi(_torus(hr * 0.62, hr * 0.8), cc, body_pivot, collar_pos, Vector3(1, 1, 1), Vector3(0.75, 0, 0), 0.5, 0.1, 0.6 if collar_it.get("metal", false) else 0.0)
+	# Pelage épais (caniche) : tout ce qui se porte au cou ou sur le dos est élargi pour rester visible.
+	fluff = 1.34 if bd["pattern"] == "poodle" else 1.0
+	var collar := _mi(_torus(hr * 0.62, hr * 0.8), cc, body_pivot, collar_pos, Vector3.ONE * fluff, Vector3(0.75, 0, 0), 0.5, 0.1, 0.6 if collar_it.get("metal", false) else 0.0)
 	collar.name = "Collar"
-	_mi(_sphere(), Color(0.95, 0.8, 0.3), body_pivot, collar_pos + Vector3(0, -hr * 0.58, hr * 0.52), Vector3.ONE * hr * 0.26, Vector3.ZERO, 0.25, 0.1, 0.85)
+	_mi(_sphere(), Color(0.95, 0.8, 0.3), body_pivot, collar_pos + Vector3(0, -hr * 0.58, hr * 0.52) * fluff, Vector3.ONE * hr * 0.26, Vector3.ZERO, 0.25, 0.1, 0.85)
 	acc_root = _pivot(body_pivot, collar_pos, "AccNeck")
+	acc_root.scale = Vector3.ONE * fluff
 	# Tête sculptée
 	head_pivot = _pivot(body_pivot, head_pos, "Head")
 	_fur("head", head_pivot)
@@ -414,6 +422,9 @@ func _build() -> void:
 	# Yeux : globe, iris, pupille, reflets, paupière
 	var er: float = float(meta.get("eye_r", hr * 0.2))
 	var ep0 := _v3("eye", Vector3(hr * 0.4, hr * 0.12, hr * 0.76))
+	eye_pos = ep0
+	eye_r = er
+	top_y = hr * (1.22 if bd["pattern"] == "poodle" else 0.9)
 	var lid_c := c_second if bd["pattern"] == "shiba" else c_main
 	if bd["pattern"] == "saddle":
 		lid_c = c_main.lerp(c_second, 0.5)
@@ -562,39 +573,38 @@ func _build_tail() -> void:
 		parent = seg
 	tail_root.set_meta("type", bd["tail"])
 
+## Matière « tissu » (trame fine) pour les accessoires en étoffe.
+static func fab(c: Color, scale: float = 14.0) -> StandardMaterial3D:
+	var key := "fab_%s_%.1f" % [c.to_html(), scale]
+	if _mat_cache.has(key):
+		return _mat_cache[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.albedo_texture = load("res://assets/textures/fabric.png")
+	m.uv1_triplanar = true
+	m.uv1_scale = Vector3.ONE * scale
+	m.roughness = 0.95
+	m.metallic_specular = 0.05
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_mat_cache[key] = m
+	return m
+
+## Pièce d'accessoire en tissu.
+func _cloth(mesh: Mesh, c: Color, parent: Node3D, pos: Vector3, scl: Vector3 = Vector3.ONE, rot: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var m := _mi(mesh, c, parent, pos, scl, rot)
+	m.material_override = fab(c)
+	return m
+
 func _build_accessory() -> void:
-	var id := str(pet_data.get("accessory", "acc_none"))
-	var it := GameData.item(id)
-	var c: Color = it.get("color", Color.WHITE)
-	match id:
-		"bandana":
-			var m := _mi(_cone(hr * 0.75, 0.005, hr * 0.9), c, acc_root, Vector3(0, -hr * 0.35, hr * 0.3), Vector3(1, 1, 0.25), Vector3(PI + 0.5, 0, 0), 0.9, 0.1)
-			m.name = "Bandana"
-		"scarf":
-			_mi(_torus(hr * 0.62, hr * 0.9), c, acc_root, Vector3(0, -hr * 0.05, 0), Vector3(1, 1.4, 1), Vector3(0.75, 0, 0), 0.9, 0.1)
-			_ell(c, acc_root, Vector3(hr * 0.3, -hr * 0.6, hr * 0.5), Vector3(hr * 0.35, hr * 0.9, hr * 0.15), Vector3(0.3, 0, 0.2))
-		"bow":
-			var p := _pivot(head_pivot, Vector3(hr * 0.35, hr * 0.85, 0.0))
-			for sx in [-1.0, 1.0]:
-				_ell(c, p, Vector3(sx * hr * 0.2, 0, 0), Vector3(hr * 0.35, hr * 0.25, hr * 0.12), Vector3(0, 0, sx * 0.4))
-			_ell(c.darkened(0.2), p, Vector3.ZERO, Vector3.ONE * hr * 0.14)
-		"hat":
-			var p2 := _pivot(head_pivot, Vector3(0, hr * 0.85, -hr * 0.05))
-			_mi(_cone(hr * 1.2, hr * 1.2, hr * 0.06), c, p2, Vector3.ZERO, Vector3.ONE, Vector3(-0.1, 0, 0), 0.95, 0.1)
-			_mi(_cone(hr * 0.6, hr * 0.5, hr * 0.5), c, p2, Vector3(0, hr * 0.25, 0), Vector3.ONE, Vector3(-0.1, 0, 0), 0.95, 0.1)
-			_mi(_cone(hr * 0.61, hr * 0.61, hr * 0.12), Color(0.9, 0.35, 0.35), p2, Vector3(0, hr * 0.08, 0), Vector3.ONE, Vector3(-0.1, 0, 0), 0.8, 0.1)
-		"crown":
-			var p3 := _pivot(head_pivot, Vector3(0, hr * 0.9, 0))
-			_mi(_cone(hr * 0.5, hr * 0.55, hr * 0.25), c, p3, Vector3.ZERO, Vector3.ONE, Vector3.ZERO, 0.3, 0.1, 0.9)
-			for k in 5:
-				var a := TAU * k / 5.0
-				_mi(_cone(hr * 0.1, 0.003, hr * 0.3), c, p3, Vector3(sin(a) * hr * 0.5, hr * 0.25, cos(a) * hr * 0.5), Vector3.ONE, Vector3.ZERO, 0.3, 0.1, 0.9)
-			_ell(Color(0.9, 0.2, 0.3), p3, Vector3(0, hr * 0.05, hr * 0.53), Vector3.ONE * hr * 0.12).material_override = mat(Color(0.9, 0.2, 0.3), 0.1, 0.0)
-		"glasses":
-			var p4 := _pivot(head_pivot, Vector3(0, hr * 0.12, hr * 0.92))
-			for sx in [-1.0, 1.0]:
-				_mi(_cone(hr * 0.27, hr * 0.27, hr * 0.05), c, p4, Vector3(sx * hr * 0.4, 0, 0), Vector3.ONE, Vector3(PI / 2, 0, 0), 0.15, 0.0, 0.3)
-			_mi(_cone(hr * 0.03, hr * 0.03, hr * 0.3), c, p4, Vector3(0, hr * 0.05, 0), Vector3.ONE, Vector3(0, 0, PI / 2), 0.2, 0.0)
+	Accessories.build(self, str(pet_data.get("accessory", "acc_none")))
+
+func _box(size: Vector3) -> BoxMesh:
+	var key := "box_%.3f_%.3f_%.3f" % [size.x, size.y, size.z]
+	if not _mesh_cache.has(key):
+		var bm := BoxMesh.new()
+		bm.size = size
+		_mesh_cache[key] = bm
+	return _mesh_cache[key]
 
 # ================================================================== Postures
 func _bxf(h: float, pitch: float, roll: float) -> Transform3D:
@@ -751,7 +761,7 @@ func _apply(p: Dictionary, delta: float) -> void:
 		open *= 1.0 - _blink * 0.92
 	# paupière haute : au repos elle couvre le haut de l'œil (regard doux)
 	for lid in lids:
-		lid.rotation.x = lerpf(PI * 0.52, -0.78, clampf(open, 0.0, 1.0))
+		lid.rotation.x = lerpf(PI * 0.52, -1.12, clampf(open, 0.0, 1.0))
 	# paupière basse : remonte quand l'animal est content (yeux plissés)
 	var low_a := 0.95
 	match expression:

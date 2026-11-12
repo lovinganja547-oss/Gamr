@@ -302,6 +302,15 @@ static func build(env_id: String, quality: int) -> Node3D:
 	Kit.flush(root)
 	return root
 
+## Matière lumineuse (abat-jour, lanterne, étoiles).
+static func _emit_mat(c: Color, energy: float) -> StandardMaterial3D:
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = c
+	sm.emission_enabled = true
+	sm.emission = c
+	sm.emission_energy_multiplier = energy
+	return sm
+
 ## Rectangle vertical tourné vers l'intérieur de la pièce (normale -Z), invisible de l'extérieur.
 static func _inq(b: MeshBatch, key: String, x0: float, y0: float, x1: float, y1: float, z: float, c_lo: Color, c_hi: Color) -> void:
 	b.quad(key, Vector3(x1, y0, z), Vector3(x1, y1, z), Vector3(x0, y1, z), Vector3(x0, y0, z), c_lo, c_hi, c_hi, c_lo, Vector3(-1, 0, 0))
@@ -315,7 +324,7 @@ static func _house(r: Node3D, q: int) -> void:
 	r.set_meta("bounds", Rect2(-2.3, -1.9, 4.6, 4.0))
 	r.set_meta("indoor", true)
 	r.set_meta("look", "indoor")
-	var fl := ground(r, Vector2(7, 7), Color(1, 1, 1), tex("wood_planks"), 1.7)
+	var fl := ground(r, Vector2(7, 7), Color(1, 1, 1), tex("wood_planks"), 2.2)
 	var fm := fl.material_override as StandardMaterial3D
 	fm.roughness = 0.55
 	fm.metallic_specular = 0.35
@@ -403,13 +412,24 @@ static func _house(r: Node3D, q: int) -> void:
 	rug.position = Vector3(0, 0.012, 0.2)
 	rug.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	r.add_child(rug)
-	# Canapé
+	var d := MeshBatch.new()   # tout le mobilier fusionné (ombres portées)
+	var wood := Color(0.80, 0.60, 0.42)
+	var gold := Color(0.92, 0.76, 0.34)
+	# Canapé : assise sculptée, pieds en bois, deux coussins et un plaid
 	var sofa_c: Color = GameData.item(str(deco.get("sofa", "sofa_coral"))).get("color", Color(0.95, 0.55, 0.45))
 	var sofa := Node3D.new()
 	sofa.position = Vector3(-1.6, 0, -1.9)
 	obs_rect(r, sofa.position, 2.15, 0.85)
 	r.add_child(sofa)
-	prop(sofa, "sofa", Vector3.ZERO, sofa_c, 0.0, "fabric", 3.0)
+	prop(sofa, "sofa", Vector3(0, 0.05, 0), sofa_c, 0.0, "fabric", 3.0)
+	var sxf := Transform3D(Basis(), sofa.position)
+	for fx in [-0.92, 0.92]:
+		for fz in [-0.3, 0.3]:
+			d.cyl("t:wood_planks:0.5", sxf, 0.045, 0.03, 0.09, Vector3(fx, 0, fz), wood.darkened(0.3), 6)
+	for k in 2:
+		var cu := prop(sofa, "cushion_bed", Vector3(-0.55 + k * 1.1, 0.5, -0.06), sofa_c.lightened(0.35) if k == 0 else Color(0.98, 0.9, 0.7), 0.0, "fabric", 4.0)
+		cu.scale = Vector3(0.5, 0.75, 0.55)
+		cu.rotation = Vector3(-0.9, 0.2 - k * 0.4, 0)
 	# Couchage
 	var bed_id := str(deco.get("bed", "bed_basic"))
 	var bed_c: Color = GameData.item(bed_id).get("color", Color(0.7, 0.45, 0.3))
@@ -417,48 +437,92 @@ static func _house(r: Node3D, q: int) -> void:
 	bed.position = Vector3(1.85, 0, -1.6)
 	bed.name = "Bed"
 	r.add_child(bed)
+	var bxf := Transform3D(Basis(), bed.position)
 	if bed_id == "bed_royal":
-		box(bed, Vector3(1.0, 0.25, 0.8), Vector3(0, 0.12, 0), Color(0.85, 0.7, 0.35))
-		box(bed, Vector3(0.9, 0.12, 0.7), Vector3(0, 0.3, 0), bed_c)
-		box(bed, Vector3(1.0, 0.6, 0.08), Vector3(0, 0.4, -0.38), Color(0.85, 0.7, 0.35))
+		# lit royal : cadre doré, matelas de velours, tête de lit et colonnes à boules
+		d.box("t:wood_planks:0.5", bxf, Vector3(1.08, 0.2, 0.86), Vector3(0, 0.1, 0), gold, 0.2)
+		d.box("flat", bxf, Vector3(1.12, 0.05, 0.9), Vector3(0, 0.2, 0), gold.lightened(0.15))
+		var mat_r := prop(bed, "cushion_bed", Vector3(0, 0.2, 0), bed_c, 0.0, "fabric", 3.0)
+		mat_r.scale = Vector3(1.05, 1.0, 0.95)
+		d.box("t:fabric:1.5", bxf, Vector3(1.0, 0.62, 0.08), Vector3(0, 0.52, -0.42), bed_c.darkened(0.1))
+		d.box("flat", bxf, Vector3(1.1, 0.07, 0.11), Vector3(0, 0.85, -0.42), gold)
+		for px in [-0.52, 0.52]:
+			for pz in [-0.42, 0.42]:
+				d.cyl("flat", bxf, 0.04, 0.035, 0.75 if pz < 0 else 0.34, Vector3(px, 0, pz), gold, 8)
+				ball(bed, 0.055, Vector3(px, (0.79 if pz < 0 else 0.38), pz), gold.lightened(0.1), Vector3.ONE, 10)
+		for k in 3:
+			d.cyl("flat", bxf, 0.05, 0.005, 0.11, Vector3(-0.12 + k * 0.12, 0.89, -0.42), gold, 4, 0.0, false)
 	elif bed_id == "bed_cloud":
 		prop(bed, "cushion_bed", Vector3.ZERO, bed_c, 0.0, "fabric", 3.0)
+		var top := prop(bed, "cushion_bed", Vector3(0, 0.1, -0.12), Color(1, 1, 1), 0.0, "fabric", 3.0)
+		top.scale = Vector3(0.62, 0.8, 0.5)
 	else:
-		prop(bed, "bed_basket", Vector3.ZERO, bed_c, 0.0, "fabric", 3.0)
-		ball(bed, 0.34, Vector3(0, 0.07, 0), Color(0.96, 0.92, 0.84), Vector3(1, 0.18, 1), 14)
+		prop(bed, "bed_basket", Vector3.ZERO, bed_c, 0.0, "wood_planks", 5.0)
+		var cs2 := prop(bed, "cushion_bed", Vector3(0, 0.03, 0), Color(0.96, 0.92, 0.84), 0.0, "fabric", 3.0)
+		cs2.scale = Vector3(0.82, 0.7, 0.82)
 	interactive(bed, "bed", Vector3(0.9, 0.4, 0.8), Vector3(0, 0.2, 0))
 	r.set_meta("bed", Vector3(1.85, 0, -1.55))
-	# Plante, lampe, tableau, coffre
+	# Plante en pot
 	var plant := str(deco.get("plant", ""))
 	if plant != "":
 		var pc: Color = GameData.item(plant).get("color", Color.GREEN)
-		prop(r, "pot", Vector3(-2.55, 0, 0.9), Color(0.88, 0.52, 0.36))
-		obs_circle(r, Vector3(-2.55, 0, 0.9), 0.3)
+		var pp := Vector3(-2.55, 0, 0.9)
+		var pxf := Transform3D(Basis(), pp)
+		prop(r, "pot", pp, Color(0.88, 0.52, 0.36), 0.0, "plaster", 4.0)
+		d.disc("t:dirt:1.5", pxf, 0.165, Vector3(0, 0.335, 0), Color(0.5, 0.4, 0.32), 12)
+		obs_circle(r, pp, 0.3)
 		match plant:
 			"plant_cactus":
-				cyl(r, 0.1, 0.1, 0.6, Vector3(-2.55, 0.6, 0.9), pc, 10)
-				cyl(r, 0.06, 0.06, 0.25, Vector3(-2.42, 0.62, 0.9), pc, 8, Vector3(0, 0, -0.9))
+				d.cyl("flat", pxf, 0.1, 0.085, 0.55, Vector3(0, 0.33, 0), pc, 10, 0.15)
+				d.cyl("flat", pxf, 0.085, 0.02, 0.1, Vector3(0, 0.88, 0), pc.lightened(0.06), 10, 0.0, false)
+				for sdx in [-1.0, 1.0]:
+					var af := pxf * Transform3D(Basis(Vector3(0, 0, 1), -sdx * 0.9), Vector3(sdx * 0.1, 0.55 + sdx * 0.06, 0))
+					d.cyl("flat", af, 0.05, 0.045, 0.2, Vector3.ZERO, pc.darkened(0.05), 8)
+					d.cyl("flat", pxf, 0.045, 0.02, 0.2, Vector3(sdx * 0.26, 0.66 + sdx * 0.06, 0), pc, 8, 0.0, false)
+				d.cyl("flat", pxf, 0.04, 0.005, 0.05, Vector3(0, 0.97, 0), Color(1.0, 0.5, 0.7), 6, 0.0, false)
 			"plant_flowers":
-				for k in 6:
-					ball(r, 0.08, Vector3(-2.55 + cos(k) * 0.12, 0.6 + (k % 3) * 0.06, 0.9 + sin(k) * 0.12), [Color(0.95, 0.4, 0.5), Color(1, 0.85, 0.3), Color(0.7, 0.5, 0.95)][k % 3])
-				ball(r, 0.18, Vector3(-2.55, 0.45, 0.9), Color(0.35, 0.65, 0.3))
+				var fpal: Array = [Color(0.95, 0.4, 0.5), Color(1, 0.85, 0.3), Color(0.7, 0.5, 0.95), Color(1, 1, 1)]
+				for k in 9:
+					var fa := k * 0.7
+					var fr := 0.04 + (k % 3) * 0.045
+					var fh := 0.36 + (k % 4) * 0.07
+					d.cyl("flat", pxf, 0.009, 0.007, fh, Vector3(cos(fa) * fr, 0.33, sin(fa) * fr), Color(0.35, 0.6, 0.3), 5, 0.0, false)
+					ball(r, 0.05, pp + Vector3(cos(fa) * fr, 0.34 + fh, sin(fa) * fr), fpal[k % 4], Vector3(1, 0.75, 1), 8)
+					ball(r, 0.022, pp + Vector3(cos(fa) * fr, 0.365 + fh, sin(fa) * fr), Color(1.0, 0.8, 0.25), Vector3.ONE, 6)
+				Kit.inst("bush", Kit.foliage_mat(), Transform3D(Basis().scaled(Vector3(0.22, 0.2, 0.22)), pp + Vector3(0, 0.3, 0)), Color(0.38, 0.62, 0.3), false)
+			"plant_monstera":
+				d.cyl("t:bark:1.5", pxf, 0.03, 0.022, 0.75, Vector3(0, 0.33, 0), Color(0.7, 0.58, 0.46), 6)
+				for k in 4:
+					var ma := k * 1.6
+					Kit.inst("canopy_c", Kit.foliage_mat(), Transform3D(Basis(Vector3.UP, ma).scaled(Vector3(0.26, 0.16, 0.22)), pp + Vector3(cos(ma) * 0.17, 0.75 + k * 0.14, sin(ma) * 0.17)), pc.lightened(k * 0.04), false)
 			_:
-				for k in 5:
-					ball(r, 0.2, Vector3(-2.55 + cos(k * 1.3) * 0.15, 0.55 + k * 0.05, 0.9 + sin(k * 1.3) * 0.15), pc.lightened(k * 0.04), Vector3(1, 1.4, 1))
+				for k in 3:
+					Kit.inst("bush", Kit.foliage_mat(), Transform3D(Basis(Vector3.UP, k * 2.1).scaled(Vector3(0.36 - k * 0.05, 0.5 - k * 0.06, 0.36 - k * 0.05)), pp + Vector3(cos(k * 2.1) * 0.05, 0.3 + k * 0.1, sin(k * 2.1) * 0.05)), pc.lightened(k * 0.06), false)
+	# Lampe sur pied
 	var lamp := str(deco.get("lamp", ""))
 	if lamp != "":
 		var lc: Color = GameData.item(lamp).get("color", Color(1, 0.9, 0.6))
-		cyl(r, 0.18, 0.18, 0.04, Vector3(2.5, 0.02, 0.6), Color(0.3, 0.3, 0.3))
-		obs_circle(r, Vector3(2.5, 0, 0.6), 0.22)
-		cyl(r, 0.025, 0.025, 1.5, Vector3(2.5, 0.75, 0.6), Color(0.3, 0.3, 0.3), 8)
-		var shade := cyl(r, 0.32, 0.18, 0.35, Vector3(2.5, 1.55, 0.6), lc)
-		var sm := m(lc).duplicate() as StandardMaterial3D
-		sm.emission_enabled = true
-		sm.emission = lc
-		sm.emission_energy_multiplier = 0.6
-		shade.material_override = sm
-		if lamp == "lamp_star":
-			ball(r, 0.08, Vector3(2.5, 1.8, 0.6), Color(1, 0.95, 0.4))
+		var lp := Vector3(2.5, 0, 0.6)
+		var lxf := Transform3D(Basis(), lp)
+		d.cyl("metal", lxf, 0.19, 0.16, 0.035, Vector3.ZERO, Color(0.32, 0.3, 0.3), 14)
+		d.cyl("metal", lxf, 0.022, 0.018, 1.42, Vector3(0, 0.035, 0), gold if lamp == "lamp_star" else Color(0.32, 0.3, 0.3), 8)
+		obs_circle(r, lp, 0.22)
+		if lamp == "lamp_paper":
+			var lan := ball(r, 0.26, lp + Vector3(0, 1.58, 0), lc, Vector3(1, 1.1, 1), 16)
+			lan.material_override = _emit_mat(lc, 0.75)
+			for k in 4:
+				d.cyl("flat", lxf, 0.262 - absf(k - 1.5) * 0.04, 0.262 - absf(k - 1.5) * 0.04, 0.008, Vector3(0, 1.4 + k * 0.12, 0), lc.darkened(0.25), 14, 0.0, false)
+		else:
+			var shade := cyl(r, 0.33, 0.19, 0.36, lp + Vector3(0, 1.56, 0), lc)
+			shade.material_override = _emit_mat(lc, 0.6)
+			d.cyl("flat", lxf, 0.335, 0.335, 0.02, Vector3(0, 1.37, 0), lc.darkened(0.3), 16, 0.0, false)
+			d.cyl("flat", lxf, 0.195, 0.195, 0.02, Vector3(0, 1.73, 0), lc.darkened(0.3), 14, 0.0, false)
+			if lamp == "lamp_star":
+				for k in 5:
+					var sa := TAU * k / 5.0
+					var star := ball(r, 0.05, lp + Vector3(cos(sa) * 0.24, 1.2 + (k % 2) * 0.1, sin(sa) * 0.24), Color(1, 0.95, 0.5), Vector3.ONE, 8)
+					star.material_override = _emit_mat(Color(1, 0.95, 0.5), 1.0)
+					d.cyl("flat", lxf, 0.003, 0.003, 0.2 - (k % 2) * 0.1, Vector3(cos(sa) * 0.24, 1.2 + (k % 2) * 0.1, sin(sa) * 0.24), Color(0.9, 0.9, 0.85), 4, 0.0, false)
 		if q >= 1:
 			var ol := OmniLight3D.new()
 			ol.position = Vector3(2.4, 1.4, 0.7)
@@ -466,29 +530,141 @@ static func _house(r: Node3D, q: int) -> void:
 			ol.light_energy = 0.35
 			ol.omni_range = 3.0
 			r.add_child(ol)
+	# Tableau encadré (mur du fond)
 	var frame := str(deco.get("frame", ""))
 	if frame != "":
 		var fc: Color = GameData.item(frame).get("color", Color.ORANGE)
-		box(r, Vector3(0.9, 0.7, 0.05), Vector3(-1.4, 1.75, -2.47), Color(0.55, 0.35, 0.2))
-		box(r, Vector3(0.78, 0.58, 0.05), Vector3(-1.4, 1.75, -2.44), Color(0.95, 0.95, 0.92))
-		if frame == "frame_sun":
-			cyl(r, 0.15, 0.15, 0.02, Vector3(-1.4, 1.8, -2.41), fc, 16, Vector3(PI / 2, 0, 0))
-		else:
-			box(r, Vector3(0.78, 0.25, 0.04), Vector3(-1.4, 1.58, -2.41), fc)
+		var ff: Transform3D = faces[0][0]
+		d.box("t:wood_planks:0.6", ff, Vector3(0.98, 0.78, 0.05), Vector3(-1.4, 1.95, 0.025), Color(0.62, 0.42, 0.26))
+		d.box("flat", ff, Vector3(0.84, 0.64, 0.02), Vector3(-1.4, 1.95, 0.055), Color(0.97, 0.96, 0.92))
+		match frame:
+			"frame_sun":
+				d.box("flat", ff, Vector3(0.76, 0.56, 0.01), Vector3(-1.4, 1.95, 0.068), Color(0.62, 0.84, 0.98))
+				d.box("flat", ff, Vector3(0.76, 0.18, 0.012), Vector3(-1.4, 1.76, 0.07), Color(0.52, 0.76, 0.42))
+				d.cyl("flat", ff * Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(-1.2, 2.07, 0.072)), 0.12, 0.12, 0.01, Vector3.ZERO, fc, 16)
+			"frame_sea":
+				d.box("flat", ff, Vector3(0.76, 0.56, 0.01), Vector3(-1.4, 1.95, 0.068), Color(0.72, 0.88, 0.98))
+				d.box("flat", ff, Vector3(0.76, 0.26, 0.012), Vector3(-1.4, 1.8, 0.07), fc)
+				d.box("flat", ff, Vector3(0.76, 0.05, 0.014), Vector3(-1.4, 1.69, 0.072), Color(0.95, 0.88, 0.66))
+				d.tri("flat", ff * Vector3(-1.5, 1.89, 0.074), ff * Vector3(-1.5, 2.15, 0.074), ff * Vector3(-1.3, 1.89, 0.074), Color(1, 1, 1), Vector3.RIGHT)
+			_:
+				d.box("flat", ff, Vector3(0.76, 0.56, 0.01), Vector3(-1.4, 1.95, 0.068), fc.lightened(0.5))
+				d.cyl("flat", ff * Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(-1.4, 1.9, 0.072)), 0.13, 0.13, 0.01, Vector3.ZERO, fc, 14)
+				for k in 4:
+					d.cyl("flat", ff * Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(-1.58 + k * 0.12, 2.07, 0.072)), 0.045, 0.045, 0.01, Vector3.ZERO, fc, 10)
+	# Coffre à jouets
 	if str(deco.get("box", "")) == "toybox":
-		prop(r, "toybox", Vector3(-2.5, 0, -0.5), Color(0.55, 0.75, 0.95), 0.0, "wood_planks", 2.0)
+		prop(r, "toybox", Vector3(-2.5, 0, -0.5), Color(0.62, 0.82, 1.0), 0.0, "plaster", 3.0)
 		obs_rect(r, Vector3(-2.5, 0, -0.5), 0.75, 0.5)
 		ball(r, 0.08, Vector3(-2.4, 0.6, -0.45), Color(0.9, 0.2, 0.2))
+		ball(r, 0.065, Vector3(-2.62, 0.58, -0.52), Color(0.98, 0.8, 0.25))
+		var txf := Transform3D(Basis(), Vector3(-2.5, 0, -0.5))
+		d.box("flat", txf, Vector3(0.05, 0.16, 0.05), Vector3(0.18, 0.6, 0.08), Color(0.97, 0.95, 0.9))
+		d.box("flat", txf, Vector3(0.13, 0.05, 0.05), Vector3(0.18, 0.69, 0.08), Color(0.97, 0.95, 0.9))
+		d.box("flat", txf, Vector3(0.3, 0.03, 0.02), Vector3(0, 0.3, 0.255), gold)
+	# Bibliothèque (mur de droite)
+	var shelf := str(deco.get("shelf", ""))
+	if shelf != "":
+		var sc: Color = GameData.item(shelf).get("color", wood)
+		var sf2: Transform3D = faces[2][0] * Transform3D(Basis(), Vector3(-2.2, 0, 0))
+		var skey := "t:wood_planks:0.5" if shelf != "shelf_white" else "flat"
+		d.box(skey, sf2, Vector3(1.1, 1.7, 0.04), Vector3(0, 0.85, 0.02), sc.darkened(0.12))
+		for sx2 in [-0.53, 0.53]:
+			d.box(skey, sf2, Vector3(0.04, 1.7, 0.3), Vector3(sx2, 0.85, 0.15), sc, 0.1)
+		for k in 5:
+			d.box(skey, sf2, Vector3(1.1, 0.04, 0.3), Vector3(0, 0.02 + k * 0.415, 0.15), sc)
+		var rngb := RandomNumberGenerator.new()
+		rngb.seed = 12
+		for row in 4:
+			var x := -0.48
+			while x < 0.42:
+				var bw := rngb.randf_range(0.045, 0.08)
+				var bh := rngb.randf_range(0.24, 0.34)
+				if row == 1 and x > 0.1:
+					break
+				d.box("flat", sf2, Vector3(bw, bh, 0.2), Vector3(x + bw * 0.5, 0.04 + row * 0.415 + bh * 0.5, 0.14), Color.from_hsv(rngb.randf(), 0.42, 0.86))
+				x += bw + 0.006
+		d.cyl("metal", sf2, 0.05, 0.07, 0.04, Vector3(0.3, 0.455, 0.15), gold, 8)
+		d.cyl("metal", sf2, 0.02, 0.02, 0.1, Vector3(0.3, 0.495, 0.15), gold, 6)
+		d.cyl("metal", sf2, 0.045, 0.075, 0.12, Vector3(0.3, 0.59, 0.15), gold, 10)
+		var so: Vector3 = sf2 * Vector3(0, 0, 0.15)
+		obs_rect(r, so, 0.42, 1.2)
+	# Table d'appoint (coin avant gauche) : vase de fleurs ou aquarium
+	var table := str(deco.get("table", ""))
+	if table != "":
+		var tp := Vector3(-2.45, 0, 2.5)
+		var tx2 := Transform3D(Basis(), tp)
+		d.cyl("t:wood_planks:0.5", tx2, 0.36, 0.36, 0.045, Vector3(0, 0.56, 0), wood, 18)
+		d.cyl("t:wood_planks:0.5", tx2, 0.05, 0.04, 0.56, Vector3.ZERO, wood.darkened(0.15), 8)
+		d.cyl("t:wood_planks:0.5", tx2, 0.22, 0.2, 0.03, Vector3.ZERO, wood.darkened(0.15), 12)
+		obs_circle(r, tp, 0.42)
+		if table == "table_aquarium":
+			var aq := box(r, Vector3(0.5, 0.34, 0.34), tp + Vector3(0, 0.79, 0), Color(0.5, 0.8, 0.95), Vector3.ZERO, false)
+			var am := StandardMaterial3D.new()
+			am.albedo_color = Color(0.45, 0.78, 0.95, 0.55)
+			am.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			am.roughness = 0.05
+			am.metallic_specular = 0.8
+			aq.material_override = am
+			d.box("flat", tx2, Vector3(0.54, 0.03, 0.38), Vector3(0, 0.62, 0), Color(0.25, 0.27, 0.3))
+			d.box("flat", tx2, Vector3(0.54, 0.03, 0.38), Vector3(0, 0.975, 0), Color(0.25, 0.27, 0.3))
+			d.box("t:sand:2.0", tx2, Vector3(0.48, 0.03, 0.32), Vector3(0, 0.65, 0), Color(1, 0.95, 0.85))
+			for k in 3:
+				var fp2 := Vector3(-0.14 + k * 0.14, 0.76 + (k % 2) * 0.09, -0.04 + (k % 2) * 0.08)
+				d.box("flat", tx2, Vector3(0.07, 0.04, 0.02), fp2, [Color(1.0, 0.55, 0.2), Color(1.0, 0.85, 0.3), Color(0.95, 0.4, 0.5)][k])
+				d.tri("flat", tx2 * (fp2 + Vector3(-0.035, 0, 0)), tx2 * (fp2 + Vector3(-0.075, 0.03, 0)), tx2 * (fp2 + Vector3(-0.075, -0.03, 0)), Color(1.0, 0.7, 0.3), Vector3.RIGHT)
+			d.cyl("flat", tx2, 0.012, 0.004, 0.16, Vector3(0.17, 0.66, 0.05), Color(0.35, 0.65, 0.35), 5, 0.0, false)
+		else:
+			d.cyl("t:plaster:2.0", tx2, 0.07, 0.1, 0.22, Vector3(0, 0.605, 0), Color(0.62, 0.8, 0.9), 12)
+			var vpal: Array = [Color(1.0, 0.6, 0.7), Color(1, 1, 1), Color(1.0, 0.85, 0.35)]
+			for k in 6:
+				var va := k * 1.05
+				d.cyl("flat", tx2, 0.006, 0.005, 0.22, Vector3(cos(va) * 0.04, 0.82, sin(va) * 0.04), Color(0.35, 0.6, 0.3), 5, 0.0, false)
+				ball(r, 0.045, tp + Vector3(cos(va) * 0.07, 1.06 + (k % 2) * 0.05, sin(va) * 0.07), vpal[k % 3], Vector3(1, 0.8, 1), 8)
+	# Pouf
+	var pouf := str(deco.get("pouf", ""))
+	if pouf != "":
+		var pfc: Color = GameData.item(pouf).get("color", Color(0.95, 0.6, 0.7))
+		var pfp := Vector3(2.0, 0, 2.3)
+		var pm2 := prop(r, "cushion_bed", pfp, pfc, 0.0, "fabric", 3.0)
+		pm2.scale = Vector3(0.78, 1.9, 0.86)
+		ball(r, 0.04, pfp + Vector3(0, 0.36, 0), pfc.darkened(0.2), Vector3(1, 0.5, 1), 8)
+		obs_circle(r, pfp, 0.36)
+	# Horloge murale
+	var clock := str(deco.get("clock", ""))
+	if clock != "":
+		var ckc: Color = GameData.item(clock).get("color", wood)
+		var cf: Transform3D = faces[0][0] * Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(2.25, 2.3, 0.03))
+		d.cyl("t:wood_planks:0.6" if clock == "clock_wood" else "flat", cf, 0.3, 0.3, 0.05, Vector3.ZERO, ckc, 20)
+		d.cyl("flat", cf, 0.25, 0.25, 0.012, Vector3(0, 0.05, 0), Color(0.99, 0.98, 0.94), 20)
+		for k in 12:
+			var ha := TAU * k / 12.0
+			d.box("flat", cf, Vector3(0.018, 0.006, 0.04 if k % 3 == 0 else 0.022), Vector3(sin(ha) * 0.21, 0.064, cos(ha) * 0.21), Color(0.3, 0.24, 0.2))
+		d.box("flat", cf * Transform3D(Basis(Vector3.UP, 0.9), Vector3(0, 0.07, 0)), Vector3(0.022, 0.008, 0.15), Vector3(0, 0, -0.06), Color(0.25, 0.2, 0.18))
+		d.box("flat", cf * Transform3D(Basis(Vector3.UP, -1.2), Vector3(0, 0.075, 0)), Vector3(0.016, 0.008, 0.21), Vector3(0, 0, -0.09), Color(0.25, 0.2, 0.18))
+		d.cyl("flat", cf, 0.022, 0.022, 0.02, Vector3(0, 0.065, 0), gold, 8)
 	# Étagère à trophées
 	var trophies: Array = GameState.data.get("trophies", [])
-	box(r, Vector3(1.2, 0.06, 0.3), Vector3(-0.3, 1.35, -2.4), Color(0.6, 0.4, 0.25))
+	var tf: Transform3D = faces[0][0]
+	# sous le tableau, à gauche de la fenêtre (jamais devant la vitre ni les rideaux)
+	d.box("t:wood_planks:0.5", tf, Vector3(1.2, 0.05, 0.26), Vector3(-1.4, 1.2, 0.13), Color(0.66, 0.46, 0.3))
+	for sx3 in [-1.9, -0.9]:
+		d.box("t:wood_planks:0.5", tf, Vector3(0.04, 0.16, 0.2), Vector3(sx3, 1.1, 0.1), Color(0.6, 0.42, 0.28))
 	for i in mini(trophies.size(), 6):
 		var t: Dictionary = trophies[trophies.size() - 1 - i]
 		var tc: Color = [Color(1, 0.82, 0.25), Color(0.8, 0.82, 0.86), Color(0.8, 0.5, 0.3)][clampi(int(t.get("place", 3)) - 1, 0, 2)]
-		var x := -0.75 + i * 0.18
-		cyl(r, 0.04, 0.05, 0.04, Vector3(x, 1.4, -2.4), Color(0.3, 0.25, 0.2), 8)
-		cyl(r, 0.012, 0.012, 0.08, Vector3(x, 1.46, -2.4), tc, 6)
-		cyl(r, 0.035, 0.06, 0.09, Vector3(x, 1.54, -2.4), tc, 10)
+		var tx3 := -1.85 + i * 0.18
+		d.cyl("flat", tf, 0.045, 0.055, 0.04, Vector3(tx3, 1.225, 0.13), Color(0.3, 0.25, 0.2), 8)
+		d.cyl("metal", tf, 0.012, 0.012, 0.07, Vector3(tx3, 1.265, 0.13), tc, 6)
+		d.cyl("metal", tf, 0.03, 0.06, 0.1, Vector3(tx3, 1.335, 0.13), tc, 10)
+	d.commit(r, q >= 1, "Furniture")
+	# volumes que la caméra contourne (sans gêner la marche de l'animal)
+	var cam_only: Array = [{"c": Vector2(-2.2, -1.9), "r": 0.75}, {"c": Vector2(-1.0, -1.9), "r": 0.75}, {"c": Vector2(1.85, -1.6), "r": 0.7}]
+	if shelf != "":
+		cam_only.append({"c": Vector2(2.6, 2.2), "r": 0.7})
+	if table != "":
+		cam_only.append({"c": Vector2(-2.45, 2.5), "r": 0.6})
+	r.set_meta("cam_obstacles", cam_only)
 	# Gamelles
 	var bowls: Dictionary = GameState.data.get("bowls", {})
 	var bf := make_bowl(r, Vector3(0.05, 0, -2.05), Color(0.95, 0.45, 0.45), "food")

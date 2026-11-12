@@ -55,11 +55,12 @@ func default_data() -> Dictionary:
 		"owned": ["ball", "collar_red", "collar_blue", "collar_green", "acc_none", "bandana", "bow",
 			"rug_round", "bed_basic", "sofa_coral", "wall_cream"],
 		"deco": {"wall": "wall_cream", "rug": "rug_round", "sofa": "sofa_coral", "bed": "bed_basic",
-			"plant": "", "lamp": "", "frame": "", "box": ""},
+			"plant": "", "lamp": "", "frame": "", "box": "", "shelf": "", "table": "", "pouf": "", "clock": ""},
 		"toy": "ball",
 		"envs": ["house", "garden", "center", "shelter"],
 		"achievements": [], "stats": {},
-		"daily": {"day": "", "list": []},
+		"daily": {"day": "", "list": [], "goals": [], "bonus": false},
+		"weekly": {"week": "", "list": [], "goals": [], "bonus": false},
 		"days_played": [],
 		"comp": {"obedience": -1, "agility": -1, "search": -1, "tricks": -1, "walk": -1},
 		"login": {"last": "", "streak": 0, "claimed": ""},
@@ -626,6 +627,8 @@ func coins() -> int:
 
 func add_coins(n: int) -> void:
 	mark_dirty()
+	if n > 0:
+		_progress_daily("coins_gain", n)
 	if n <= 0:
 		return
 	data["coins"] = coins() + n
@@ -694,6 +697,8 @@ func spend_energy(kind: String, mult: float = 1.0) -> void:
 
 func add_xp(n: int) -> void:
 	mark_dirty()
+	if n > 0:
+		_progress_daily("xp_gain", n)
 	if n <= 0:
 		return
 	add_pet_xp(n)
@@ -757,6 +762,7 @@ func buy(id: String) -> String:
 			set_stat_max("decos", n)
 	inventory_changed.emit()
 	mark_dirty()
+	inc_stat("bought", 1)
 	return ""
 
 func buy_env(id: String) -> String:
@@ -1068,6 +1074,10 @@ func get_stat(key: String) -> int:
 func inc_stat(key: String, n: int) -> void:
 	data["stats"][key] = get_stat(key) + n
 	_progress_daily(key, n)
+	if key in ["feed", "water", "bath", "brush", "cuddle"]:
+		_progress_daily("care_any", n)
+	elif key in ["tug", "toy_play", "fetch_game", "agility_run", "search_game", "comp"]:
+		_progress_daily("play_any", n)
 	_check_achievements(key)
 	mark_dirty()
 
@@ -1087,33 +1097,72 @@ func _check_achievements(key: String) -> void:
 			toast.emit(tr("[i:trophy] Succès : %s (+%d)") % [tr(a["name"]), int(a["reward"])])
 			add_coins(int(a["reward"]))
 
+## Numéro de semaine (lundi à dimanche) depuis une date fixe : identifie les missions hebdomadaires.
+func week_id() -> String:
+	var days := int(Time.get_unix_time_from_system() / 86400.0) + 3   # le 1er janvier 1970 était un jeudi
+	return "s%d" % (days / 7)
+
+## La mission n'utilise-t-elle que des fonctions déjà débloquées ?
+func quest_available(d: Dictionary) -> bool:
+	var need := str(d.get("need", ""))
+	if need == "":
+		return true
+	if need.begins_with("act:"):
+		return activity_unlocked(need.substr(4))
+	if need.begins_with("env:"):
+		return env_unlocked(need.substr(4))
+	if need == "cmd":
+		for c in GameData.COMMAND_ORDER:
+			if command_available(c) and skill(c) >= 20.0:
+				return true
+		return false
+	return true
+
+## Tire n missions variées (catégories différentes tant que possible) parmi celles disponibles.
+func _draw_quests(pool: Array, n: int, seed_txt: String, tier: int) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(seed_txt)
+	var avail: Array = []
+	for d in pool:
+		if quest_available(d):
+			avail.append(d)
+	var list: Array = []
+	var used_cat := {}
+	while list.size() < n and not avail.is_empty():
+		var cands: Array = avail.filter(func(d): return int(used_cat.get(str(d.get("cat", "")), 0)) <= list.size() / 4)
+		if cands.is_empty():
+			cands = avail
+		var d: Dictionary = cands[rng.randi_range(0, cands.size() - 1)]
+		avail.erase(d)
+		used_cat[str(d.get("cat", ""))] = int(used_cat.get(str(d.get("cat", "")), 0)) + 1
+		list.append({"id": d["id"], "progress": 0, "claimed": false, "tier": tier})
+	return list
+
 func ensure_daily() -> void:
 	if data.is_empty():
 		return
-	var day := today()
-	if data["daily"].get("day", "") == day and data["daily"].get("list", []).size() == 3:
-		return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(day + str(data.get("active_pet", "")))
 	var lv := pet_level()
 	var tier := 0 if lv < 4 else (1 if lv < 8 else 2)
-	var pool: Array = []
-	for i in GameData.DAILY_POOL.size():
-		if int(GameData.DAILY_POOL[i].get("min", 1)) <= lv:
-			pool.append(i)
-	var list: Array = []
-	for i in mini(3, pool.size()):
-		var j := rng.randi_range(0, pool.size() - 1)
-		var d: Dictionary = GameData.DAILY_POOL[pool[j]]
-		pool.remove_at(j)
-		list.append({"id": d["id"], "progress": 0, "claimed": false, "tier": tier})
-	data["daily"] = {"day": day, "list": list, "bonus": false}
-	daily_changed.emit()
+	var day := today()
+	var dd: Dictionary = data["daily"]
+	if not (dd.get("day", "") == day and dd.get("list", []).size() > 0 and dd.get("goals") is Array and dd.get("goals", []).size() > 0):
+		data["daily"] = {"day": day, "bonus": false,
+			"list": _draw_quests(GameData.DAILY_POOL, GameData.DAILY_COUNT, day + str(data.get("active_pet", "")), tier),
+			"goals": _draw_quests(GameData.DAILY_GOALS, GameData.GOAL_COUNT, day + "g", tier)}
+		daily_changed.emit()
+	var wk := week_id()
+	var ww: Variant = data.get("weekly")
+	if not (ww is Dictionary and ww.get("week", "") == wk and ww.get("list", []).size() > 0):
+		data["weekly"] = {"week": wk, "bonus": false,
+			"list": _draw_quests(GameData.WEEKLY_POOL, GameData.WEEKLY_COUNT, wk + str(data.get("active_pet", "")), tier),
+			"goals": _draw_quests(GameData.WEEKLY_GOALS, GameData.GOAL_COUNT, wk + "g", tier)}
+		daily_changed.emit()
 
 func daily_def(id: String) -> Dictionary:
-	for d in GameData.DAILY_POOL:
-		if d["id"] == id:
-			return d
+	for pool in [GameData.DAILY_POOL, GameData.DAILY_GOALS, GameData.WEEKLY_POOL, GameData.WEEKLY_GOALS]:
+		for d in pool:
+			if d["id"] == id:
+				return d
 	return {}
 
 ## Cible d'une mission selon son palier.
@@ -1133,19 +1182,39 @@ func daily_text(e: Dictionary) -> String:
 	var t := tr(str(d.get("text", "")))
 	return t % daily_target(e) if t.find("%d") >= 0 else t
 
+## Liste de missions : scope = "daily" ou "weekly", kind = "list" (missions) ou "goals" (objectifs).
+func quest_list(scope: String, kind: String) -> Array:
+	var b: Variant = data.get(scope)
+	if b is Dictionary and b.get(kind) is Array:
+		return b[kind]
+	return []
+
 func _progress_daily(stat: String, n: int) -> void:
-	for e in data["daily"].get("list", []):
-		var d := daily_def(e["id"])
-		if d.get("stat", "") == stat and not e["claimed"]:
-			var before := int(e["progress"])
-			var target := daily_target(e)
-			e["progress"] = mini(target, before + n)
-			if before < target and int(e["progress"]) >= target:
-				toast.emit("[i:calendar] " + tr("Mission du jour terminée ! Récupérez la récompense."))
-			daily_changed.emit()
+	var changed := false
+	for scope in ["daily", "weekly"]:
+		for kind in ["list", "goals"]:
+			for e in quest_list(scope, kind):
+				var d := daily_def(e["id"])
+				if d.get("stat", "") == stat and not e["claimed"]:
+					var before := int(e["progress"])
+					var target := daily_target(e)
+					e["progress"] = mini(target, before + n)
+					changed = true
+					if before < target and int(e["progress"]) >= target:
+						if kind == "goals":
+							toast.emit("[i:daily_star] " + tr("Objectif atteint ! Récupérez la récompense."))
+						elif scope == "weekly":
+							toast.emit("[i:calendar] " + tr("Mission de la semaine terminée ! Récupérez la récompense."))
+						else:
+							toast.emit("[i:calendar] " + tr("Mission du jour terminée ! Récupérez la récompense."))
+	if changed:
+		daily_changed.emit()
 
 func claim_daily(idx: int) -> bool:
-	var list: Array = data["daily"].get("list", [])
+	return claim_quest("daily", "list", idx)
+
+func claim_quest(scope: String, kind: String, idx: int) -> bool:
+	var list := quest_list(scope, kind)
 	if idx < 0 or idx >= list.size():
 		return false
 	var e: Dictionary = list[idx]
@@ -1153,18 +1222,35 @@ func claim_daily(idx: int) -> bool:
 		return false
 	e["claimed"] = true
 	add_coins(daily_reward(e))
-	add_xp(15 + int(e.get("tier", 0)) * 10)
-	var all_done := true
-	for x in list:
-		if not x["claimed"]:
-			all_done = false
-	if all_done and not data["daily"].get("bonus", false):
-		data["daily"]["bonus"] = true
-		add_coins(40)
-		inc_stat("daily_all", 1)
-		toast.emit("[i:daily_star] " + tr("Toutes les missions du jour : bonus +40 pièces !"))
+	add_xp((15 + int(e.get("tier", 0)) * 10) * (3 if scope == "weekly" else 1))
+	if kind == "list" and scope == "daily":
+		inc_stat("mission", 1)
+	if kind == "list":
+		var all_done := true
+		for x in list:
+			if not x["claimed"]:
+				all_done = false
+		if all_done and not data[scope].get("bonus", false):
+			data[scope]["bonus"] = true
+			if scope == "daily":
+				add_coins(40)
+				inc_stat("daily_all", 1)
+				toast.emit("[i:daily_star] " + tr("Toutes les missions du jour : bonus +40 pièces !"))
+			else:
+				add_coins(200)
+				toast.emit("[i:daily_star] " + tr("Toutes les missions de la semaine : bonus +200 pièces !"))
 	daily_changed.emit()
 	return true
+
+## Nombre de récompenses prêtes à être récupérées (pastille du bouton « Chaque jour »).
+func quests_ready() -> int:
+	var n := 0
+	for scope in ["daily", "weekly"]:
+		for kind in ["list", "goals"]:
+			for e in quest_list(scope, kind):
+				if not e["claimed"] and int(e["progress"]) >= daily_target(e):
+					n += 1
+	return n
 
 # ================================================================== Connexion quotidienne
 ## Met à jour la série de jours ; retourne l'indice (0..6) de la récompense du jour si elle n'est pas encore réclamée, sinon -1.

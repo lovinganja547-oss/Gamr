@@ -500,3 +500,85 @@ func sc_ui() -> void:
 		main.close_all_panels()
 		main.end_activity()
 		await wait(0.4)
+
+func sc_deco() -> void:
+	main.close_all_panels()
+	main.screen.visible = false
+	main.apply_quality(2)
+	var sets: Array = [
+		{"wall": "wall_cream", "rug": "rug_round", "sofa": "sofa_coral", "bed": "bed_basic", "plant": "plant_fern", "lamp": "lamp_warm", "frame": "frame_sun", "box": "toybox", "shelf": "shelf_oak", "table": "table_vase", "pouf": "pouf_pink", "clock": "clock_wood"},
+		{"wall": "wall_sky", "rug": "rug_plum", "sofa": "sofa_slate", "bed": "bed_royal", "plant": "plant_monstera", "lamp": "lamp_paper", "frame": "frame_sea", "box": "toybox", "shelf": "shelf_white", "table": "table_aquarium", "pouf": "pouf_teal", "clock": "clock_mint"},
+		{"wall": "wall_butter", "rug": "rug_sand", "sofa": "sofa_rose", "bed": "bed_cloud", "plant": "plant_flowers", "lamp": "lamp_star", "frame": "frame_paw", "box": "", "shelf": "", "table": "table_vase", "pouf": "", "clock": "clock_wood"},
+	]
+	for i in sets.size():
+		GameState.data["deco"] = sets[i]
+		main.rebuild_env()
+		main.close_all_panels()
+		for v in [[0.0, -0.42, 5.0], [0.9, -0.3, 4.6], [-0.9, -0.3, 4.6], [PI, -0.25, 4.0]]:
+			main.cam_rig.yaw = v[0]
+			main.cam_rig.pitch = v[1]
+			main.cam_rig.distance = v[2]
+			await wait(1.3)
+			await shot("deco%d" % i)
+
+## Illustrations rendues par le jeu : fond de l'écran de chargement et portrait de l'icône.
+func sc_art() -> void:
+	main.close_all_panels()
+	main.screen.visible = false
+	main.apply_quality(2)
+	main.change_env("garden")
+	main.close_all_panels()
+	await wait(0.5)
+	main.pet_ctrl.visible = false
+	var cast: Array = [
+		["labrador", 0, Vector3(-0.6, 0, 3.6), 0.2, "stand", "happy", 1.0, 1.3],
+		["shiba", 0, Vector3(1.0, 0, 3.0), -0.3, "sit", "happy", 0.0, 1.05],
+		["cat", 0, Vector3(0.05, 0, 1.5), 0.25, "sit", "focus", 0.0, 1.05],
+		["beagle", 0, Vector3(-0.5, 0, 0.5), 0.1, "stand", "focus", 0.0, 1.0],
+		["poodle", 1, Vector3(0.6, 0, 1.0), -0.1, "sit", "focus", 0.0, 1.0],
+	]
+	var pets: Array = []
+	for cdef in cast:
+		var c := main.add_extra_pet({"breed": cdef[0], "palette": cdef[1], "eyes": 0, "collar": "collar_red" if cdef[0] != "cat" else "collar_blue", "accessory": "acc_none", "name": "x"}, cdef[2])
+		c.busy = true
+		c.bounds = Rect2(-9, -9, 18, 18)
+		c.rotation.y = cdef[3]
+		c._yaw_target = cdef[3]
+		c.scale = Vector3.ONE * float(cdef[7])
+		c._look_cam = false
+		c.model.set_posture(cdef[4], 100.0)
+		c.model.expression = cdef[5]
+		c.model.tongue_out = cdef[6]
+		c.model.wag_amp = 0.0
+		pets.append(c)
+	var ball := PetController.make_toy("ball")
+	main.world.add_child(ball)
+	ball.position = Vector3(0.25, 0.09, 3.9)
+	ball.scale = Vector3.ONE * 1.5
+	var rig := main.cam_rig
+	rig.follow = false
+	rig.target = null
+	rig.fixed_transform = Transform3D(Basis(), Vector3(0.1, 1.25, 7.4)).looking_at(Vector3(0.0, 0.95, 0.0), Vector3.UP)
+	await wait(2.0)
+	for c in pets:
+		(c as PetController).model.set_posture((c as PetController).model.posture, 100.0)
+	await wait(0.6)
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(out_dir + "/loading_bg.png")
+	# portrait pour l'icône : le chiot de face
+	var lab: PetController = pets[0]
+	var hp := lab.model.head_pivot.global_position
+	var fwd := Vector3(sin(lab.rotation.y), 0, cos(lab.rotation.y))
+	var aim := hp + Vector3(0, 0.03, 0) + fwd * 0.08
+	rig.fixed_transform = Transform3D(Basis(), aim + fwd * 2.3 + Vector3(0.3, 0.5, 0)).looking_at(aim, Vector3.UP)
+	rig.cam.fov = 22.0
+	for i in 1:
+		pass
+	for c2 in pets.slice(1):
+		(c2 as PetController).visible = false
+	ball.visible = false
+	await wait(2.0)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out_dir + "/icon_face.png")
+	print("ART ok")

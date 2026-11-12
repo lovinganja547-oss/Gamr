@@ -288,7 +288,7 @@ static func shop(tab: String = "food") -> void:
 			if it.has("fx"):
 				var parts: Array[String] = []
 				for k in it["fx"].keys():
-					parts.append("%s+%d" % [GameData.NEED_ICONS.get(k, ""), int(it["fx"][k])])
+					parts.append("%s +%d" % [_t(str(GameData.NEED_NAMES.get(k, k))), int(it["fx"][k])])
 				desc += "  " + " ".join(parts)
 			if int(it.get("level", 1)) > GameState.level():
 				desc += "  · " + _t("verrouillé, niveau %d") % int(it["level"])
@@ -413,7 +413,7 @@ static func deco() -> void:
 		g.add_theme_constant_override("v_separation", 10)
 		var cur: String = GameState.data["deco"].get(slot, "")
 		var sl: String = slot
-		if slot in ["plant", "lamp", "frame", "box"]:
+		if slot in ["plant", "lamp", "frame", "box", "shelf", "table", "pouf", "clock"]:
 			g.add_child(UiKit.icon_button("acc_none", _t("Aucun"), func():
 				GameState.set_deco(sl, "")
 				_after_deco(), UiKit.C_GOLD if cur == "" else Color(1, 1, 1, 0.95), 140))
@@ -735,14 +735,13 @@ static func more() -> void:
 	var g := GridContainer.new()
 	g.columns = 3
 	var items := [
-		["daily_star", "Chaque jour", func(): daily()],
+		["daily_star", "Missions", func(): daily()],
 		["album", "Collection", func(): collection()],
 		["medal", "Succès", func(): achievements()],
 		["camera", "Album photo", func(): album()],
 		["house", "Décorer", func(): deco()],
 		["style", "Style", func(): customize()],
 		["paw", "Animaux", func(): pets()],
-		["map", "Lieux", func(): places()],
 		["gear", "Réglages", func(): settings()],
 	]
 	for it in items:
@@ -752,33 +751,57 @@ static func more() -> void:
 		g.add_child(b)
 	_m().open_panel(_t("Menu"), UiKit.scroll(g))
 
-static func daily() -> void:
+static func daily(tab: String = "daily") -> void:
 	GameState.ensure_daily()
 	var v := UiKit.vbox(12)
-	v.add_child(_login_strip())
-	v.add_child(UiKit.label("[i:calendar] " + _t("Missions du jour"), 30))
-	var list: Array = GameState.data["daily"]["list"]
+	var tabs := UiKit.hbox(8)
+	for t in [["daily", "Aujourd'hui", "calendar"], ["weekly", "Cette semaine", "daily_star"]]:
+		var tt: String = t[0]
+		var ready := 0
+		for kind in ["list", "goals"]:
+			for e in GameState.quest_list(tt, kind):
+				if not e["claimed"] and int(e["progress"]) >= GameState.daily_target(e):
+					ready += 1
+		var b := UiKit.button("[i:%s] %s%s" % [t[2], _t(t[1]), (" (%d)" % ready) if ready > 0 else ""], func():
+			_m().close_panel()
+			daily(tt), UiKit.C_ACCENT if tt == tab else UiKit.C_DISABLED, 24, 70)
+		tabs.add_child(UiKit.expand(b))
+	v.add_child(tabs)
+	if tab == "daily":
+		v.add_child(_login_strip())
+	v.add_child(UiKit.label("[i:daily_star] " + (_t("Objectifs du jour") if tab == "daily" else _t("Objectifs de la semaine")), 30))
+	_quest_cards(v, tab, "goals", Color(1.0, 0.95, 0.80))
+	v.add_child(UiKit.label("[i:calendar] " + (_t("Missions du jour") if tab == "daily" else _t("Missions de la semaine")), 30))
+	_quest_cards(v, tab, "list", Color(1, 0.99, 0.96))
+	if tab == "daily":
+		v.add_child(UiKit.label(_t("Terminez toutes les missions du jour pour un bonus de 40 pièces. Elles changent chaque jour et n'utilisent que ce que votre compagnon a déjà débloqué."), 21, UiKit.C_SUB))
+	else:
+		v.add_child(UiKit.label(_t("Terminez toutes les missions de la semaine pour un bonus de 200 pièces. Elles changent chaque lundi."), 21, UiKit.C_SUB))
+	_m().open_panel("[i:daily_star] " + _t("Missions"), UiKit.scroll(v))
+
+static func _quest_cards(v: VBoxContainer, scope: String, kind: String, col: Color) -> void:
+	var list := GameState.quest_list(scope, kind)
 	for i in list.size():
 		var e: Dictionary = list[i]
 		var target := GameState.daily_target(e)
-		var c := _card()
+		var c := UiKit.panel(14, col)
 		var info := UiKit.vbox(4)
-		info.add_child(UiKit.label(GameState.daily_text(e), 26))
-		info.add_child(UiKit.bar(float(e["progress"]) / float(maxi(1, target)) * 100.0, UiKit.C_ACCENT2, 16))
+		var tl := UiKit.label(GameState.daily_text(e), 25)
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		info.add_child(tl)
+		info.add_child(UiKit.bar(float(e["progress"]) / float(maxi(1, target)) * 100.0, UiKit.C_GOLD if kind == "goals" else UiKit.C_ACCENT2, 16))
 		info.add_child(UiKit.label("[i:coin] " + "%d / %d   ·   +%d " % [int(e["progress"]), target, GameState.daily_reward(e)] + _t("pièces"), 21, UiKit.C_SUB))
 		var ii := i
 		var done := int(e["progress"]) >= target
 		var btn := UiKit.button(_t("Reçu") if e["claimed"] else _t("Récupérer"), func():
-			if GameState.claim_daily(ii):
+			if GameState.claim_quest(scope, kind, ii):
 				Audio.play("coin")
 				_m().close_panel()
-				daily(), UiKit.C_GOLD, 24, 76)
+				daily(scope), UiKit.C_GOLD, 24, 76)
 		btn.disabled = e["claimed"] or not done
 		btn.custom_minimum_size = Vector2(170, 76)
 		c.add_child(_row(info, btn))
 		v.add_child(c)
-	v.add_child(UiKit.label(_t("Terminez les 3 missions pour un bonus de 40 pièces. Nouvelles missions chaque jour, adaptées au niveau de votre compagnon."), 21, UiKit.C_SUB))
-	_m().open_panel("[i:daily_star] " + _t("Chaque jour"), UiKit.scroll(v))
 
 ## Bandeau des 7 jours de connexion avec bouton de réclamation.
 static func _login_strip() -> Control:
@@ -809,7 +832,7 @@ static func _login_strip() -> Control:
 			Audio.play("coin")
 			_m().toast("[i:daily_star] " + _t("Récompense du jour récupérée !"))
 			_m().close_panel()
-			daily(), UiKit.C_GOLD, 22, 68)
+			daily("daily"), UiKit.C_GOLD, 22, 68)
 	b.disabled = idx < 0
 	v.add_child(b)
 	pnl.add_child(v)
@@ -1071,7 +1094,7 @@ static func settings() -> void:
 			_m().env_id = ""
 			_m().change_env("shelter")
 			_m().show_screen("title"), "Effacer"), UiKit.C_DANGER, 26, 80))
-	v.add_child(UiKit.label(_t("Truffe & Co v%s — graphismes, sons et musiques originaux générés procéduralement.") % str(ProjectSettings.get_setting("application/config/version", "1.0")), 20, UiKit.C_SUB))
+	v.add_child(UiKit.label(_t("Truffe & Compagnie v%s — graphismes, sons et musiques originaux générés procéduralement.") % str(ProjectSettings.get_setting("application/config/version", "1.0")), 20, UiKit.C_SUB))
 	_m().open_panel("[i:gear] " + _t("Paramètres"), UiKit.scroll(v))
 
 static func _toggle(txt: String, key: String) -> Control:

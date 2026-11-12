@@ -3,10 +3,10 @@ config_version=5
 
 [application]
 
-config/name="Truffe & Co"
-config/description="Truffe & Co – compagnons virtuels"
-config/version="2.4.1"
-run/main_scene="res://scenes/main.tscn"
+config/name="Truffe & Compagnie"
+config/description="Truffe & Compagnie – compagnons virtuels"
+config/version="2.5.0"
+run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://assets/icons/icon.png"
 run/low_processor_mode=false

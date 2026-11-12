@@ -66,7 +66,7 @@ func _ready() -> void:
 	ok(r["ranking"].size() == 8 and r["place"] >= 1 and r["place"] <= 8, "classement 8")
 	# Objectifs du jour
 	GS.ensure_daily()
-	ok(GS.data["daily"]["list"].size() == 3, "3 objectifs")
+	ok(GS.data["daily"]["list"].size() == GameData.DAILY_COUNT and GS.data["daily"]["goals"].size() == GameData.GOAL_COUNT, "missions et objectifs du jour")
 	var e: Dictionary = GS.data["daily"]["list"][0]
 	var d := GS.daily_def(e["id"])
 	GS.inc_stat(d["stat"], GS.daily_target(e))
@@ -121,15 +121,16 @@ func _ready() -> void:
 	for x in GS.data["daily"]["list"]:
 		if int(x["tier"]) != 2:
 			tiers_ok = false
-	ok(tiers_ok and GS.data["daily"]["list"].size() == 3, "missions au palier 2")
+	ok(tiers_ok and GS.data["daily"]["list"].size() == GameData.DAILY_COUNT, "missions au palier 2")
 	ok(GS.daily_target({"id": "d_pet", "tier": 2}) == 40 and GS.daily_target({"id": "d_pet", "tier": 0}) == 20, "cible selon palier")
 	ok(GS.daily_text({"id": "d_pet", "tier": 1}).find("30") >= 0, "texte de mission")
-	for k in 3:
+	for k in GameData.DAILY_COUNT:
 		var ee: Dictionary = GS.data["daily"]["list"][k]
 		GS.inc_stat(GS.daily_def(ee["id"])["stat"], GS.daily_target(ee))
 	var c_before := GS.coins()
-	GS.claim_daily(0); GS.claim_daily(1); GS.claim_daily(2)
-	ok(GS.data["daily"]["bonus"] == true and GS.coins() > c_before + 40, "bonus 3 missions")
+	for k in GameData.DAILY_COUNT:
+		GS.claim_daily(k)
+	ok(GS.data["daily"]["bonus"] == true and GS.coins() > c_before + 40, "bonus de toutes les missions du jour")
 	GS.data["login"] = {"last": "", "streak": 0, "claimed": ""}
 	ok(GS.login_check() == 0, "connexion jour 1")
 	var lc := GS.coins()
@@ -153,6 +154,25 @@ func _ready() -> void:
 	var mig := GS.sanitize({"version": 2, "finds": {"shell Coquillage": 3}, "pets": []})
 	ok(int(mig["inventory"].get("shell", 0)) == 3 and int(mig["version"]) == GameData.SAVE_VERSION, "migration v2 -> v3 des trouvailles")
 	ok(GameData.COMP_ORDER.has("walk") and GameData.route("park_pond")["length"] == 300, "défi de promenade et itinéraires")
+	# Missions : hebdomadaires, objectifs, uniquement des fonctions débloquées
+	GS.active_pet()["level"] = 1
+	GS.data["daily"] = {"day": "", "list": [], "goals": [], "bonus": false}
+	GS.data["weekly"] = {"week": "", "list": [], "goals": [], "bonus": false}
+	GS.ensure_daily()
+	ok(GS.data["weekly"]["list"].size() == GameData.WEEKLY_COUNT and GS.data["weekly"]["goals"].size() == GameData.GOAL_COUNT, "missions et objectifs de la semaine")
+	var locked_ok := true
+	for scope in ["daily", "weekly"]:
+		for q in GS.quest_list(scope, "list"):
+			var need := str(GS.daily_def(q["id"]).get("need", ""))
+			if need.begins_with("act:") and not GS.activity_unlocked(need.substr(4)):
+				locked_ok = false
+	ok(locked_ok, "au niveau 1, aucune mission sur une activité verrouillée")
+	var wq: Dictionary = GS.quest_list("weekly", "list")[0]
+	GS.inc_stat(str(GS.daily_def(wq["id"])["stat"]), GS.daily_target(wq))
+	var cw := GS.coins()
+	ok(GS.claim_quest("weekly", "list", 0) and GS.coins() > cw and not GS.claim_quest("weekly", "list", 0), "récompense de mission hebdomadaire")
+	ok(GS.quests_ready() >= 0, "compteur de récompenses prêtes")
+	GS.active_pet()["level"] = 8
 	# Carte de promenade
 	ok(GameData.walk_endurance(1) < GameData.walk_endurance(10), "endurance de promenade croissante avec le niveau")
 	for we in GameData.WALK_EDGES:

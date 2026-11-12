@@ -14,20 +14,23 @@ func _ready() -> void:
 		main.change_env("garden")
 		var i := 0
 		for b in ["labrador", "cat", "shiba"]:
-			var c := main.add_extra_pet({"breed": b, "palette": 0, "eyes": i, "collar": "collar_blue", "accessory": "acc_none"}, Vector3(-0.9 + i * 0.9, 0, 0.0))
+			var c := main.add_extra_pet({"breed": b, "palette": 0, "eyes": i, "collar": "collar_blue", "accessory": "acc_none"}, Vector3(-0.62 + i * 0.62, 0, 0.0))
 			c.bounds = Rect2(-2, -1.5, 4, 2.5)
 			i += 1
 		main.cam_rig.target = null
 		main.cam_rig.focus = Vector3(0, 0.3, 0)
-		main.cam_rig.reset_view(3.4, -0.25, 0.0)
+		main.cam_rig.reset_view(4.3, -0.22, 0.0)
 	var v := UiKit.vbox(18)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(v)
-	v.add_child(UiKit.spacer(60))
-	var title := UiKit.label("Truffe & Co", 120, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	title.add_theme_color_override("font_outline_color", Color(0.85, 0.42, 0.25))
-	title.add_theme_constant_override("outline_size", 26)
+	v.add_child(UiKit.spacer(30))
+	var title := TextureRect.new()
+	title.texture = load("res://assets/ui/logo.png")
+	title.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	title.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	title.custom_minimum_size = Vector2(0, 360)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(title)
 	var sub := UiKit.label(tr("Des compagnons à aimer, soigner et dresser"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	sub.add_theme_color_override("font_outline_color", Color(0.4, 0.25, 0.15, 0.8))

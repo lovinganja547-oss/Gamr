@@ -201,13 +201,76 @@ const ITEMS := {
 	"collar_purple": {"name": "Collier violet", "cat": "collar", "icon": "collar_purple", "price": 60, "color": Color(0.55, 0.3, 0.8), "desc": "Majestueux."},
 	# Accessoires
 	"acc_none": {"name": "Aucun", "cat": "accessory", "icon": "acc_none", "price": 0, "desc": "Rien du tout."},
-	"bandana": {"name": "Bandana", "cat": "accessory", "icon": "bandana", "price": 0, "color": Color(0.9, 0.3, 0.3), "desc": "Style aventurier."},
-	"bow": {"name": "Nœud", "cat": "accessory", "icon": "bow", "price": 0, "color": Color(0.95, 0.45, 0.65), "desc": "Adorable."},
-	"hat": {"name": "Chapeau de paille", "cat": "accessory", "icon": "hat", "price": 80, "color": Color(0.92, 0.8, 0.5), "desc": "Idéal pour la plage."},
-	"crown": {"name": "Couronne", "cat": "accessory", "icon": "crown", "price": 300, "color": Color(1.0, 0.82, 0.2), "desc": "Réservée aux stars.", "level": 6},
-	"glasses": {"name": "Lunettes de soleil", "cat": "accessory", "icon": "glasses", "price": 120, "color": Color(0.1, 0.1, 0.12), "desc": "Trop cool."},
-	"scarf": {"name": "Écharpe", "cat": "accessory", "icon": "scarf", "price": 70, "color": Color(0.3, 0.55, 0.85), "desc": "Toute douce."},
-	# Décorations (maison)
+	"hat": {"name": "Chapeau de paille", "cat": "accessory", "shape": "hat", "icon": "hat", "price": 80, "color": Color(0.92, 0.8, 0.5), "color2": Color(0.86, 0.3, 0.3), "desc": "Idéal pour la plage."},
+	"hat_sun": {"name": "Capeline d'été", "cat": "accessory", "shape": "hat", "icon": "hat", "price": 95, "color": Color(0.98, 0.96, 0.9), "color2": Color(0.3, 0.5, 0.85), "desc": "Blanche à ruban bleu.", "level": 2},
+	"cap": {"name": "Casquette bleue", "cat": "accessory", "shape": "cap", "icon": "hat", "price": 90, "color": Color(0.25, 0.5, 0.85), "color2": Color(1, 1, 1), "desc": "Sportif et décontracté."},
+	"cap_red": {"name": "Casquette rouge", "cat": "accessory", "shape": "cap", "icon": "hat", "price": 90, "color": Color(0.86, 0.25, 0.25), "color2": Color(1, 1, 1), "desc": "Pour les jours de match."},
+	"cap_green": {"name": "Casquette verte", "cat": "accessory", "shape": "cap", "icon": "hat", "price": 90, "color": Color(0.3, 0.62, 0.4), "color2": Color(1, 0.9, 0.4), "desc": "Esprit nature.", "level": 2},
+	"beret": {"name": "Béret rouge", "cat": "accessory", "shape": "beret", "icon": "hat", "price": 110, "color": Color(0.7, 0.2, 0.25), "color2": Color(1, 1, 1), "desc": "Chic à la française.", "level": 2},
+	"beret_navy": {"name": "Béret marine", "cat": "accessory", "shape": "beret", "icon": "hat", "price": 110, "color": Color(0.18, 0.24, 0.42), "color2": Color(1, 1, 1), "desc": "L'élégance discrète.", "level": 2},
+	"party": {"name": "Chapeau de fête rose", "cat": "accessory", "shape": "party", "icon": "daily_star", "price": 75, "color": Color(0.95, 0.4, 0.6), "color2": Color(1, 1, 1), "desc": "Pour les anniversaires."},
+	"party_blue": {"name": "Chapeau de fête bleu", "cat": "accessory", "shape": "party", "icon": "daily_star", "price": 75, "color": Color(0.3, 0.6, 0.92), "color2": Color(1, 1, 1), "desc": "Pour les anniversaires."},
+	"crown": {"name": "Couronne", "cat": "accessory", "shape": "crown", "icon": "crown", "price": 300, "color": Color(1, 0.82, 0.2), "color2": Color(1, 1, 1), "desc": "Réservée aux stars.", "level": 6},
+	"tiara": {"name": "Diadème", "cat": "accessory", "shape": "tiara", "icon": "crown", "price": 220, "color": Color(0.86, 0.88, 0.92), "color2": Color(0.45, 0.7, 1), "desc": "Une pierre bleue au front.", "level": 5},
+	"flower_crown": {"name": "Couronne de fleurs", "cat": "accessory", "shape": "flower_crown", "icon": "flowers", "price": 140, "color": Color(1, 0.6, 0.72), "color2": Color(1, 1, 1), "desc": "Fraîche comme le printemps.", "level": 3},
+	"laurel": {"name": "Couronne de laurier", "cat": "accessory", "shape": "laurel", "icon": "leaf", "price": 180, "color": Color(0.42, 0.66, 0.3), "color2": Color(1, 1, 1), "desc": "Pour les champions.", "level": 5},
+	"bow": {"name": "Nœud rose", "cat": "accessory", "shape": "bow", "icon": "bow", "price": 0, "color": Color(0.95, 0.45, 0.65), "color2": Color(1, 1, 1), "desc": "Adorable."},
+	"bow_blue": {"name": "Nœud bleu", "cat": "accessory", "shape": "bow", "icon": "bow", "price": 40, "color": Color(0.35, 0.6, 0.95), "color2": Color(1, 1, 1), "desc": "Adorable."},
+	"bow_yellow": {"name": "Nœud jaune", "cat": "accessory", "shape": "bow", "icon": "bow", "price": 40, "color": Color(1, 0.82, 0.3), "color2": Color(1, 1, 1), "desc": "Rayon de soleil."},
+	"tophat": {"name": "Haut-de-forme", "cat": "accessory", "shape": "tophat", "icon": "hat", "price": 200, "color": Color(0.14, 0.14, 0.17), "color2": Color(0.75, 0.2, 0.25), "desc": "Monsieur est servi.", "level": 4},
+	"cowboy": {"name": "Chapeau de cow-boy", "cat": "accessory", "shape": "cowboy", "icon": "hat", "price": 170, "color": Color(0.62, 0.44, 0.28), "color2": Color(0.3, 0.2, 0.14), "desc": "Le shérif du quartier.", "level": 3},
+	"beanie": {"name": "Bonnet rouge", "cat": "accessory", "shape": "beanie", "icon": "hat", "price": 85, "color": Color(0.86, 0.28, 0.28), "color2": Color(1, 1, 1), "desc": "Bien au chaud."},
+	"beanie_blue": {"name": "Bonnet bleu", "cat": "accessory", "shape": "beanie", "icon": "hat", "price": 85, "color": Color(0.28, 0.5, 0.82), "color2": Color(1, 1, 1), "desc": "Bien au chaud."},
+	"beanie_green": {"name": "Bonnet vert", "cat": "accessory", "shape": "beanie", "icon": "hat", "price": 85, "color": Color(0.3, 0.6, 0.42), "color2": Color(1, 0.95, 0.8), "desc": "Bien au chaud.", "level": 2},
+	"chef": {"name": "Toque de chef", "cat": "accessory", "shape": "chef", "icon": "feed", "price": 150, "color": Color(1, 1, 1), "color2": Color(1, 1, 1), "desc": "À table !", "level": 3},
+	"wizard": {"name": "Chapeau de magicien", "cat": "accessory", "shape": "wizard", "icon": "sparkle", "price": 210, "color": Color(0.36, 0.26, 0.62), "color2": Color(0.95, 0.78, 0.3), "desc": "Abracadabra.", "level": 5},
+	"santa": {"name": "Bonnet de Noël", "cat": "accessory", "shape": "santa", "icon": "daily_star", "price": 120, "color": Color(0.86, 0.2, 0.22), "color2": Color(1, 1, 1), "desc": "Ho ho ho.", "level": 2},
+	"bunny": {"name": "Oreilles de lapin", "cat": "accessory", "shape": "bunny", "icon": "heart", "price": 130, "color": Color(1, 1, 1), "color2": Color(0.95, 0.6, 0.72), "desc": "Hop hop hop.", "level": 2},
+	"antlers": {"name": "Bois de renne", "cat": "accessory", "shape": "antlers", "icon": "leaf", "price": 130, "color": Color(0.5, 0.34, 0.22), "color2": Color(0.3, 0.5, 0.3), "desc": "Avec deux grelots rouges.", "level": 2},
+	"sailor": {"name": "Bob de marin", "cat": "accessory", "shape": "sailor", "icon": "hat", "price": 115, "color": Color(0.2, 0.35, 0.7), "color2": Color(1, 1, 1), "desc": "Toutes voiles dehors.", "level": 2},
+	"grad": {"name": "Chapeau de diplômé", "cat": "accessory", "shape": "grad", "icon": "training", "price": 190, "color": Color(0.14, 0.16, 0.22), "color2": Color(1, 1, 1), "desc": "Premier de la classe.", "level": 6},
+	"headphones": {"name": "Casque audio", "cat": "accessory", "shape": "headphones", "icon": "mic", "price": 160, "color": Color(0.25, 0.27, 0.32), "color2": Color(0.9, 0.35, 0.35), "desc": "En musique.", "level": 3},
+	"headphones_pink": {"name": "Casque audio rose", "cat": "accessory", "shape": "headphones", "icon": "mic", "price": 160, "color": Color(0.95, 0.6, 0.75), "color2": Color(1, 1, 1), "desc": "En musique.", "level": 3},
+	"earflower": {"name": "Fleur à l'oreille", "cat": "accessory", "shape": "earflower", "icon": "daisy", "price": 50, "color": Color(1, 0.55, 0.7), "color2": Color(1, 1, 1), "desc": "Une touche de douceur."},
+	"earflower_white": {"name": "Marguerite à l'oreille", "cat": "accessory", "shape": "earflower", "icon": "daisy", "price": 50, "color": Color(1, 1, 1), "color2": Color(1, 1, 1), "desc": "Simple et jolie."},
+	"viking": {"name": "Casque de viking", "cat": "accessory", "shape": "viking", "icon": "trophy", "price": 240, "color": Color(0.62, 0.64, 0.68), "color2": Color(0.96, 0.93, 0.84), "desc": "À l'abordage !", "level": 7},
+	"halo": {"name": "Auréole", "cat": "accessory", "shape": "halo", "icon": "sparkle", "price": 260, "color": Color(1, 0.88, 0.4), "color2": Color(1, 1, 1), "desc": "Un petit ange.", "level": 8},
+	"pirate": {"name": "Chapeau de pirate", "cat": "accessory", "shape": "pirate", "icon": "flag", "price": 140, "color": Color(0.14, 0.13, 0.16), "color2": Color(0.95, 0.8, 0.3), "desc": "Mille sabords.", "level": 3},
+	"glasses": {"name": "Lunettes de soleil", "cat": "accessory", "shape": "glasses", "icon": "glasses", "price": 120, "color": Color(0.1, 0.1, 0.12), "color2": Color(1, 1, 1), "desc": "Trop cool.", "lens": Color(0.12, 0.14, 0.2, 0.62)},
+	"round_glasses": {"name": "Lunettes rondes", "cat": "accessory", "shape": "glasses", "icon": "glasses", "price": 110, "color": Color(0.85, 0.68, 0.3), "color2": Color(1, 1, 1), "desc": "L'intello de la bande.", "level": 2, "lens": Color(0.85, 0.93, 1.0, 0.18)},
+	"rose_glasses": {"name": "Lunettes roses", "cat": "accessory", "shape": "glasses", "icon": "glasses", "price": 130, "color": Color(0.95, 0.45, 0.65), "color2": Color(1, 1, 1), "desc": "La vie en rose.", "level": 3, "lens": Color(1.0, 0.55, 0.75, 0.42)},
+	"monocle": {"name": "Monocle", "cat": "accessory", "shape": "monocle", "icon": "glasses", "price": 180, "color": Color(0.9, 0.75, 0.3), "color2": Color(1, 1, 1), "desc": "Très distingué.", "level": 5},
+	"bandana": {"name": "Bandana rouge", "cat": "accessory", "shape": "bandana", "icon": "bandana", "price": 0, "color": Color(0.9, 0.3, 0.3), "color2": Color(1, 1, 1), "desc": "Style aventurier."},
+	"bandana_blue": {"name": "Bandana bleu", "cat": "accessory", "shape": "bandana", "icon": "bandana", "price": 45, "color": Color(0.25, 0.5, 0.85), "color2": Color(1, 1, 1), "desc": "Style aventurier."},
+	"bandana_green": {"name": "Bandana vert", "cat": "accessory", "shape": "bandana", "icon": "bandana", "price": 45, "color": Color(0.3, 0.62, 0.4), "color2": Color(1, 0.95, 0.6), "desc": "Style aventurier."},
+	"scarf": {"name": "Écharpe bleue", "cat": "accessory", "shape": "scarf", "icon": "scarf", "price": 70, "color": Color(0.3, 0.55, 0.85), "color2": Color(0.85, 0.92, 1), "desc": "Toute douce."},
+	"scarf_red": {"name": "Écharpe rouge", "cat": "accessory", "shape": "scarf", "icon": "scarf", "price": 70, "color": Color(0.82, 0.25, 0.28), "color2": Color(1, 1, 1), "desc": "Toute douce."},
+	"scarf_mustard": {"name": "Écharpe moutarde", "cat": "accessory", "shape": "scarf", "icon": "scarf", "price": 70, "color": Color(0.9, 0.7, 0.25), "color2": Color(0.5, 0.34, 0.2), "desc": "Toute douce.", "level": 2},
+	"bowtie": {"name": "Nœud papillon marine", "cat": "accessory", "shape": "bowtie", "icon": "bow", "price": 60, "color": Color(0.2, 0.25, 0.45), "color2": Color(1, 1, 1), "desc": "Très élégant."},
+	"bowtie_red": {"name": "Nœud papillon rouge", "cat": "accessory", "shape": "bowtie", "icon": "bow", "price": 60, "color": Color(0.8, 0.2, 0.25), "color2": Color(1, 1, 1), "desc": "Très élégant."},
+	"tie": {"name": "Cravate bleue", "cat": "accessory", "shape": "tie", "icon": "bow", "price": 90, "color": Color(0.22, 0.4, 0.72), "color2": Color(0.85, 0.9, 1), "desc": "Prêt pour le bureau.", "level": 2},
+	"tie_red": {"name": "Cravate rouge", "cat": "accessory", "shape": "tie", "icon": "bow", "price": 90, "color": Color(0.78, 0.2, 0.24), "color2": Color(1, 0.85, 0.85), "desc": "Prêt pour le bureau.", "level": 2},
+	"bell": {"name": "Grelot doré", "cat": "accessory", "shape": "bell", "icon": "collar_gold", "price": 55, "color": Color(1, 0.82, 0.25), "color2": Color(1, 1, 1), "desc": "Diling, diling."},
+	"medal": {"name": "Médaille", "cat": "accessory", "shape": "medal", "icon": "medal", "price": 150, "color": Color(0.25, 0.45, 0.85), "color2": Color(0.9, 0.3, 0.3), "desc": "Fierté du quartier.", "level": 4},
+	"lei": {"name": "Collier de fleurs", "cat": "accessory", "shape": "lei", "icon": "flowers", "price": 120, "color": Color(1, 0.6, 0.72), "color2": Color(1, 1, 1), "desc": "Aloha !", "level": 3},
+	"ruff": {"name": "Collerette", "cat": "accessory", "shape": "ruff", "icon": "cloud_bed", "price": 160, "color": Color(1, 1, 1), "color2": Color(0.95, 0.93, 0.9), "desc": "Digne d'un roi.", "level": 5},
+	"pearls": {"name": "Collier de perles", "cat": "accessory", "shape": "pearls", "icon": "gem", "price": 200, "color": Color(0.98, 0.96, 0.94), "color2": Color(1, 1, 1), "desc": "Raffiné.", "level": 6},
+	"tag": {"name": "Médaillon en os", "cat": "accessory", "shape": "tag", "icon": "bone_old", "price": 65, "color": Color(1, 0.82, 0.25), "color2": Color(1, 1, 1), "desc": "Avec son nom gravé."},
+	"backpack": {"name": "Sac à dos orange", "cat": "accessory", "shape": "backpack", "icon": "inventory", "price": 160, "color": Color(0.9, 0.55, 0.25), "color2": Color(1, 0.75, 0.45), "desc": "Prêt pour l'aventure.", "level": 4},
+	"backpack_blue": {"name": "Sac à dos bleu", "cat": "accessory", "shape": "backpack", "icon": "inventory", "price": 160, "color": Color(0.28, 0.5, 0.82), "color2": Color(0.6, 0.78, 0.98), "desc": "Prêt pour l'aventure.", "level": 4},
+	"saddlebags": {"name": "Sacoches de randonnée", "cat": "accessory", "shape": "saddlebags", "icon": "inventory", "price": 190, "color": Color(0.5, 0.6, 0.38), "color2": Color(0.82, 0.72, 0.5), "desc": "Pour les longues balades.", "level": 5},
+	"cape": {"name": "Cape rouge", "cat": "accessory", "shape": "cape", "icon": "star", "price": 180, "color": Color(0.82, 0.18, 0.22), "color2": Color(1, 0.82, 0.25), "desc": "Super-compagnon.", "level": 4},
+	"cape_blue": {"name": "Cape bleue", "cat": "accessory", "shape": "cape", "icon": "star", "price": 180, "color": Color(0.2, 0.4, 0.82), "color2": Color(1, 0.82, 0.25), "desc": "Super-compagnon.", "level": 4},
+	"cape_purple": {"name": "Cape royale", "cat": "accessory", "shape": "cape", "icon": "star", "price": 230, "color": Color(0.48, 0.24, 0.62), "color2": Color(1, 1, 1), "desc": "Avec son col blanc.", "level": 6},
+	"wings": {"name": "Ailes d'ange", "cat": "accessory", "shape": "wings", "icon": "feather", "price": 250, "color": Color(1, 1, 1), "color2": Color(0.92, 0.95, 1), "desc": "Un amour.", "level": 6, "wing": "angel"},
+	"wings_fairy": {"name": "Ailes de fée", "cat": "accessory", "shape": "wings", "icon": "feather", "price": 250, "color": Color(1, 0.7, 0.85), "color2": Color(0.8, 0.9, 1), "desc": "Un peu de magie.", "level": 6, "wing": "angel"},
+	"wings_butterfly": {"name": "Ailes de papillon", "cat": "accessory", "shape": "wings", "icon": "butterfly", "price": 270, "color": Color(1, 0.6, 0.2), "color2": Color(1, 0.82, 0.3), "desc": "Prêt à s'envoler.", "level": 7, "wing": "butterfly"},
+	"balloon": {"name": "Ballon rouge", "cat": "accessory", "shape": "balloon", "icon": "ball", "price": 60, "color": Color(0.92, 0.25, 0.28), "color2": Color(1, 1, 1), "desc": "Il flotte au-dessus de lui."},
+	"balloon_blue": {"name": "Ballon bleu", "cat": "accessory", "shape": "balloon", "icon": "ball", "price": 60, "color": Color(0.3, 0.58, 0.95), "color2": Color(1, 1, 1), "desc": "Il flotte au-dessus de lui."},
+	"balloon_yellow": {"name": "Ballon jaune", "cat": "accessory", "shape": "balloon", "icon": "ball", "price": 60, "color": Color(1, 0.82, 0.25), "color2": Color(1, 1, 1), "desc": "Il flotte au-dessus de lui."},
+	"tutu": {"name": "Tutu rose", "cat": "accessory", "shape": "tutu", "icon": "heart", "price": 150, "color": Color(1, 0.62, 0.78), "color2": Color(1, 1, 1), "desc": "Petit rat de l'opéra.", "level": 3},
+	"tutu_blue": {"name": "Tutu bleu", "cat": "accessory", "shape": "tutu", "icon": "heart", "price": 150, "color": Color(0.55, 0.75, 1), "color2": Color(1, 1, 1), "desc": "Petit rat de l'opéra.", "level": 3},
+
 	"rug_round": {"name": "Tapis rond", "cat": "deco", "slot": "rug", "icon": "rug_round", "price": 0, "color": Color(0.85, 0.55, 0.45), "desc": "Tapis de base."},
 	"rug_blue": {"name": "Tapis océan", "cat": "deco", "slot": "rug", "icon": "rug_blue", "price": 60, "color": Color(0.35, 0.55, 0.85), "desc": "Fraîcheur garantie."},
 	"rug_green": {"name": "Tapis mousse", "cat": "deco", "slot": "rug", "icon": "rug_green", "price": 60, "color": Color(0.45, 0.72, 0.45), "desc": "Doux comme l'herbe."},
@@ -229,6 +292,23 @@ const ITEMS := {
 	"frame_sun": {"name": "Tableau soleil", "cat": "deco", "slot": "frame", "icon": "frame_sun", "price": 35, "color": Color(0.98, 0.75, 0.3), "desc": "Plein d'énergie."},
 	"frame_sea": {"name": "Tableau mer", "cat": "deco", "slot": "frame", "icon": "frame_sea", "price": 35, "color": Color(0.3, 0.6, 0.9), "desc": "Apaisant."},
 	"toybox": {"name": "Coffre à jouets", "cat": "deco", "slot": "box", "icon": "toybox", "price": 70, "color": Color(0.55, 0.75, 0.95), "desc": "+5 humeur par jour au réveil."},
+	"plant_monstera": {"name": "Grande plante", "cat": "deco", "slot": "plant", "icon": "leaf", "price": 95, "color": Color(0.28, 0.58, 0.3), "desc": "Une touche de jungle.", "level": 2},
+	"lamp_paper": {"name": "Lanterne en papier", "cat": "deco", "slot": "lamp", "icon": "lamp", "price": 110, "color": Color(1.0, 0.9, 0.72), "desc": "Lumière tamisée.", "level": 3},
+	"frame_paw": {"name": "Tableau empreinte", "cat": "deco", "slot": "frame", "icon": "paw", "price": 45, "color": Color(0.85, 0.5, 0.4), "desc": "La patte de l'artiste."},
+	"rug_plum": {"name": "Tapis prune", "cat": "deco", "slot": "rug", "icon": "rug_round", "price": 75, "color": Color(0.62, 0.38, 0.6), "desc": "Chaleureux et profond."},
+	"rug_sand": {"name": "Tapis sable", "cat": "deco", "slot": "rug", "icon": "rug_round", "price": 75, "color": Color(0.9, 0.8, 0.62), "desc": "Naturel et lumineux."},
+	"sofa_rose": {"name": "Canapé rose poudré", "cat": "deco", "slot": "sofa", "icon": "sofa", "price": 160, "color": Color(0.92, 0.68, 0.72), "desc": "Tout en douceur."},
+	"sofa_slate": {"name": "Canapé ardoise", "cat": "deco", "slot": "sofa", "icon": "sofa", "price": 160, "color": Color(0.42, 0.48, 0.58), "desc": "Sobre et moderne."},
+	"wall_sky": {"name": "Murs bleu ciel", "cat": "deco", "slot": "wall", "icon": "wall_mint", "price": 80, "color": Color(0.78, 0.88, 0.97), "desc": "Aérien."},
+	"wall_butter": {"name": "Murs jaune beurre", "cat": "deco", "slot": "wall", "icon": "wall_cream", "price": 80, "color": Color(0.99, 0.93, 0.7), "desc": "Ensoleillé."},
+	"shelf_oak": {"name": "Bibliothèque en chêne", "cat": "deco", "slot": "shelf", "icon": "album", "price": 150, "color": Color(0.8, 0.6, 0.42), "desc": "Des livres et un trophée.", "level": 2},
+	"shelf_white": {"name": "Bibliothèque blanche", "cat": "deco", "slot": "shelf", "icon": "album", "price": 150, "color": Color(0.96, 0.95, 0.92), "desc": "Claire et épurée.", "level": 2},
+	"table_vase": {"name": "Guéridon et bouquet", "cat": "deco", "slot": "table", "icon": "flowers", "price": 90, "color": Color(0.62, 0.8, 0.9), "desc": "Des fleurs fraîches."},
+	"table_aquarium": {"name": "Aquarium", "cat": "deco", "slot": "table", "icon": "fish", "price": 220, "color": Color(0.45, 0.78, 0.95), "desc": "Trois poissons à contempler.", "level": 4},
+	"pouf_pink": {"name": "Pouf rose", "cat": "deco", "slot": "pouf", "icon": "cloud_bed", "price": 65, "color": Color(0.95, 0.62, 0.72), "desc": "Moelleux."},
+	"pouf_teal": {"name": "Pouf lagon", "cat": "deco", "slot": "pouf", "icon": "cloud_bed", "price": 65, "color": Color(0.3, 0.66, 0.66), "desc": "Moelleux."},
+	"clock_wood": {"name": "Horloge en bois", "cat": "deco", "slot": "clock", "icon": "timer", "price": 70, "color": Color(0.8, 0.6, 0.42), "desc": "Tic, tac."},
+	"clock_mint": {"name": "Horloge menthe", "cat": "deco", "slot": "clock", "icon": "timer", "price": 70, "color": Color(0.62, 0.86, 0.78), "desc": "Tic, tac."},
 	# Objets de collection (trouvailles de promenade et de recherche) : rareté 1 à 3, valeur de vente
 	"daisy": {"name": "Pâquerette", "cat": "collection", "icon": "daisy", "price": 0, "sell": 3, "rarity": 1, "envs": ["garden", "park"], "desc": "Cueillie dans l'herbe."},
 	"snail": {"name": "Escargot", "cat": "collection", "icon": "snail", "price": 0, "sell": 4, "rarity": 1, "envs": ["garden", "forest"], "desc": "Il a laissé une trace brillante."},
@@ -266,10 +346,11 @@ const SHOP_TAB_NAMES := {
 ## Catégories comptées dans l'inventaire (empilables) : consommables et objets de collection.
 const CONSUMABLE_CATS: Array[String] = ["food", "treat", "care", "collection"]
 const RARITY_NAMES := ["", "Courant", "Peu courant", "Rare"]
-const DECO_SLOTS: Array[String] = ["wall", "rug", "sofa", "bed", "plant", "lamp", "frame", "box"]
+const DECO_SLOTS: Array[String] = ["wall", "rug", "sofa", "bed", "plant", "lamp", "frame", "box", "shelf", "table", "pouf", "clock"]
 const DECO_SLOT_NAMES := {
 	"wall": "Murs", "rug": "Tapis", "sofa": "Canapé", "bed": "Couchage", "plant": "Plante",
 	"lamp": "Lampe", "frame": "Tableau", "box": "Rangement",
+	"shelf": "Bibliothèque", "table": "Table d'appoint", "pouf": "Pouf", "clock": "Horloge",
 }
 
 # ------------------------------------------------------------------ Lieux
@@ -290,28 +371,28 @@ const ENV_ORDER: Array[String] = ["house", "garden", "park", "forest", "beach", 
 ## Quartier parcouru en promenade (coordonnées en mètres de jeu, ×10 affichés).
 ## kind : home, road, water, shop, park, beach, forest, center, comp. env : lieu à débloquer.
 const WALK_NODES := {
-	"home": {"name": "Maison", "icon": "house", "kind": "home", "pos": Vector2(0, 21), "zone": "village"},
-	"lane": {"name": "Rue des Lilas", "icon": "route", "kind": "road", "pos": Vector2(0, 13.5), "zone": "village"},
-	"fountain": {"name": "Place de la fontaine", "icon": "water", "kind": "water", "pos": Vector2(0, 6), "zone": "village"},
-	"bakery": {"name": "Boulangerie", "icon": "biscuit", "kind": "bakery", "pos": Vector2(8.25, 14.25), "zone": "village"},
-	"shop": {"name": "Boutique", "icon": "shop", "kind": "shop", "pos": Vector2(10.5, 6), "zone": "village"},
-	"groomer": {"name": "Toiletteur", "icon": "brush", "kind": "groomer", "pos": Vector2(18, 12), "zone": "village"},
-	"cafe": {"name": "Café des chiens", "icon": "bottle", "kind": "cafe", "pos": Vector2(-8.25, 15.75), "zone": "village"},
-	"market": {"name": "Marché", "icon": "strawberry", "kind": "market", "pos": Vector2(-10.5, 7.5), "zone": "village"},
-	"vet": {"name": "Vétérinaire", "icon": "health", "kind": "vet", "pos": Vector2(9.75, -2.25), "zone": "village"},
-	"school": {"name": "École du chiot", "icon": "training", "kind": "school", "pos": Vector2(19.5, -3), "zone": "village"},
-	"park": {"name": "Parc à chiens", "icon": "park", "kind": "park", "pos": Vector2(-19.5, 1.5), "env": "park"},
-	"pond": {"name": "Étang aux canards", "icon": "fish", "kind": "pond", "pos": Vector2(-25.5, -7.5)},
-	"bridge_n": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -5.4), "zone": "village"},
-	"bridge_s": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -12.6)},
-	"center": {"name": "Terrain d'agilité", "icon": "agility", "kind": "center", "pos": Vector2(13.5, -15)},
-	"comp": {"name": "Salle des concours", "icon": "trophy", "kind": "comp", "pos": Vector2(6, -22.5)},
-	"farm": {"name": "Ferme", "icon": "feather", "kind": "farm", "pos": Vector2(-12, -16.5)},
-	"forest": {"name": "Lisière de la forêt", "icon": "forest", "kind": "forest", "pos": Vector2(-22.5, -22.5), "env": "forest"},
-	"meadow": {"name": "Grand pré", "icon": "field", "kind": "meadow", "pos": Vector2(-6, -27)},
-	"viewpoint": {"name": "Belvédère", "icon": "camera", "kind": "viewpoint", "pos": Vector2(18, -25.5)},
-	"beach": {"name": "Plage", "icon": "beach", "kind": "beach", "pos": Vector2(0, -37.5), "env": "beach"},
-	"lighthouse": {"name": "Phare", "icon": "lamp", "kind": "lighthouse", "pos": Vector2(15, -37.5)},
+	"home": {"name": "Maison", "icon": "house", "kind": "home", "pos": Vector2(0, 31.5), "zone": "village"},
+	"lane": {"name": "Rue des Lilas", "icon": "route", "kind": "road", "pos": Vector2(0, 20.25), "zone": "village"},
+	"fountain": {"name": "Place de la fontaine", "icon": "water", "kind": "water", "pos": Vector2(0, 9), "zone": "village"},
+	"bakery": {"name": "Boulangerie", "icon": "biscuit", "kind": "bakery", "pos": Vector2(12.375, 21.375), "zone": "village"},
+	"shop": {"name": "Boutique", "icon": "shop", "kind": "shop", "pos": Vector2(15.75, 9), "zone": "village"},
+	"groomer": {"name": "Toiletteur", "icon": "brush", "kind": "groomer", "pos": Vector2(27, 18), "zone": "village"},
+	"cafe": {"name": "Café des chiens", "icon": "bottle", "kind": "cafe", "pos": Vector2(-12.375, 23.625), "zone": "village"},
+	"market": {"name": "Marché", "icon": "strawberry", "kind": "market", "pos": Vector2(-15.75, 11.25), "zone": "village"},
+	"vet": {"name": "Vétérinaire", "icon": "health", "kind": "vet", "pos": Vector2(14.625, -3.375), "zone": "village"},
+	"school": {"name": "École du chiot", "icon": "training", "kind": "school", "pos": Vector2(29.25, -4.5), "zone": "village"},
+	"park": {"name": "Parc à chiens", "icon": "park", "kind": "park", "pos": Vector2(-29.25, 2.25), "env": "park"},
+	"pond": {"name": "Étang aux canards", "icon": "fish", "kind": "pond", "pos": Vector2(-38.25, -11.25)},
+	"bridge_n": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -8.1), "zone": "village"},
+	"bridge_s": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -18.9)},
+	"center": {"name": "Terrain d'agilité", "icon": "agility", "kind": "center", "pos": Vector2(20.25, -22.5)},
+	"comp": {"name": "Salle des concours", "icon": "trophy", "kind": "comp", "pos": Vector2(9, -33.75)},
+	"farm": {"name": "Ferme", "icon": "feather", "kind": "farm", "pos": Vector2(-18, -24.75)},
+	"forest": {"name": "Lisière de la forêt", "icon": "forest", "kind": "forest", "pos": Vector2(-33.75, -33.75), "env": "forest"},
+	"meadow": {"name": "Grand pré", "icon": "field", "kind": "meadow", "pos": Vector2(-9, -40.5)},
+	"viewpoint": {"name": "Belvédère", "icon": "camera", "kind": "viewpoint", "pos": Vector2(27, -38.25)},
+	"beach": {"name": "Plage", "icon": "beach", "kind": "beach", "pos": Vector2(0, -56.25), "env": "beach"},
+	"lighthouse": {"name": "Phare", "icon": "lamp", "kind": "lighthouse", "pos": Vector2(22.5, -56.25)},
 }
 const WALK_EDGES := [
 	["home", "lane"], ["lane", "fountain"], ["lane", "bakery"], ["lane", "cafe"], ["bakery", "shop"], ["bakery", "groomer"],
@@ -322,14 +403,14 @@ const WALK_EDGES := [
 	["meadow", "beach"], ["viewpoint", "lighthouse"], ["beach", "lighthouse"],
 ]
 ## Rivière qui traverse le quartier d'ouest en est (franchie par le vieux pont et deux passerelles).
-const WALK_RIVER: Array[Vector2] = [Vector2(-51, -13.5), Vector2(-33, -12.6), Vector2(-18, -11.1), Vector2(0, -9), Vector2(12, -8.4), Vector2(24, -9.6), Vector2(51, -8.1)]
+const WALK_RIVER: Array[Vector2] = [Vector2(-76.5, -20.25), Vector2(-49.5, -18.9), Vector2(-27, -16.65), Vector2(0, -13.5), Vector2(18, -12.6), Vector2(36, -14.4), Vector2(76.5, -12.15)]
 const WALK_SCALE := 10.0
 ## Limites du quartier (mètres de jeu) : début du sable et rivage, au nord.
-const WALK_SAND_Z := -32.0
-const WALK_SHORE_Z := -43.5
+const WALK_SAND_Z := -48.0
+const WALK_SHORE_Z := -65.25
 ## Endurance de promenade (mètres affichés) : grandit avec le niveau du compagnon.
 static func walk_endurance(level: int) -> float:
-	return minf(700.0 + 120.0 * float(maxi(1, level) - 1), 5000.0)
+	return minf(1050.0 + 180.0 * float(maxi(1, level) - 1), 7500.0)
 
 static func walk_neighbors(id: String) -> Array:
 	var out: Array = []
@@ -398,24 +479,77 @@ const ACHIEVEMENTS := {
 
 ## Missions du jour : la cible et la récompense augmentent avec le palier du compagnon
 ## (palier 0 : niv. 1-3, 1 : niv. 4-7, 2 : niv. 8+). min = niveau minimum pour apparaître.
+## Missions et objectifs. "need" limite une mission aux fonctions déjà débloquées :
+## "act:<activité>" (niveau du compagnon), "env:<lieu>" (lieu acheté), "cmd" (au moins un ordre appris).
+## "target" : cible par palier de niveau (débutant, confirmé, expert). "cat" sert à varier le tirage.
 const DAILY_POOL := [
-	{"id": "d_feed", "text": "Nourrir votre compagnon %d fois", "stat": "feed", "target": [2, 2, 3], "reward": 30, "min": 1},
-	{"id": "d_pet", "text": "Faire %d caresses", "stat": "pet", "target": [20, 30, 40], "reward": 25, "min": 1},
-	{"id": "d_treat", "text": "Donner %d friandises", "stat": "treat", "target": [2, 3, 4], "reward": 20, "min": 1},
-	{"id": "d_bath", "text": "Donner %d bain", "stat": "bath", "target": [1, 1, 1], "reward": 25, "min": 1},
-	{"id": "d_brush", "text": "Brosser votre compagnon %d fois", "stat": "brush", "target": [1, 1, 2], "reward": 20, "min": 1},
-	{"id": "d_cuddle", "text": "Partager %d moment câlin", "stat": "cuddle", "target": [1, 1, 2], "reward": 20, "min": 1},
-	{"id": "d_photo", "text": "Prendre %d photos", "stat": "photo", "target": [2, 2, 3], "reward": 20, "min": 1},
-	{"id": "d_throw", "text": "Lancer %d fois un jouet", "stat": "throw", "target": [8, 12, 16], "reward": 30, "min": 1},
-	{"id": "d_train", "text": "Réussir %d exercices de dressage", "stat": "train_ok", "target": [3, 5, 8], "reward": 40, "min": 1},
-	{"id": "d_walk", "text": "Faire %d promenade", "stat": "walk", "target": [1, 1, 2], "reward": 40, "min": 1},
-	{"id": "d_collect", "text": "Ramasser %d trouvailles", "stat": "collect", "target": [3, 5, 7], "reward": 30, "min": 1},
-	{"id": "d_sell", "text": "Vendre %d objets", "stat": "sold", "target": [2, 4, 6], "reward": 25, "min": 2},
-	{"id": "d_tug", "text": "Jouer %d fois à la corde", "stat": "tug", "target": [1, 2, 2], "reward": 25, "min": 2},
-	{"id": "d_find", "text": "Trouver %d objets cachés", "stat": "found", "target": [2, 3, 5], "reward": 35, "min": 2},
-	{"id": "d_agility", "text": "Terminer %d parcours d'agilité", "stat": "agility_run", "target": [1, 1, 2], "reward": 40, "min": 3},
-	{"id": "d_comp", "text": "Participer à %d concours", "stat": "comp", "target": [1, 1, 2], "reward": 50, "min": 4},
+	{"id": "d_feed", "cat": "soin", "text": "Nourrir votre compagnon %d fois", "stat": "feed", "target": [2, 2, 3], "reward": 30},
+	{"id": "d_water", "cat": "soin", "text": "Remplir %d fois la gamelle d'eau", "stat": "water", "target": [1, 2, 2], "reward": 20},
+	{"id": "d_pet", "cat": "soin", "text": "Faire %d caresses", "stat": "pet", "target": [20, 30, 40], "reward": 25},
+	{"id": "d_treat", "cat": "soin", "text": "Donner %d friandises", "stat": "treat", "target": [2, 3, 4], "reward": 20},
+	{"id": "d_bath", "cat": "soin", "text": "Donner %d bain", "stat": "bath", "target": [1, 1, 1], "reward": 30},
+	{"id": "d_brush", "cat": "soin", "text": "Brosser votre compagnon %d fois", "stat": "brush", "target": [1, 1, 2], "reward": 20},
+	{"id": "d_cuddle", "cat": "soin", "text": "Partager %d moment câlin", "stat": "cuddle", "target": [1, 1, 2], "reward": 20},
+	{"id": "d_photo", "cat": "jeu", "text": "Prendre %d photos", "stat": "photo", "target": [2, 2, 3], "reward": 20},
+	{"id": "d_throw", "cat": "jeu", "text": "Lancer %d fois un jouet", "stat": "throw", "target": [8, 12, 16], "reward": 30},
+	{"id": "d_toy", "cat": "jeu", "text": "Le laisser jouer %d fois avec son jouet", "stat": "toy_play", "target": [1, 2, 2], "reward": 20},
+	{"id": "d_tug", "cat": "jeu", "text": "Jouer %d fois à la corde", "stat": "tug", "target": [1, 2, 2], "reward": 25, "need": "act:tug"},
+	{"id": "d_tugwin", "cat": "jeu", "text": "Gagner %d fois à la corde", "stat": "tug_win", "target": [1, 1, 2], "reward": 35, "need": "act:tug"},
+	{"id": "d_train", "cat": "dressage", "text": "Réussir %d exercices de dressage", "stat": "train_ok", "target": [3, 5, 8], "reward": 40},
+	{"id": "d_order", "cat": "dressage", "text": "Faire obéir %d fois à un ordre", "stat": "order_ok", "target": [3, 5, 8], "reward": 30, "need": "cmd"},
+	{"id": "d_walk", "cat": "balade", "text": "Faire %d balade", "stat": "walk", "target": [1, 1, 2], "reward": 40},
+	{"id": "d_walkm", "cat": "balade", "text": "Parcourir %d m en balade", "stat": "walk_m", "target": [400, 800, 1400], "reward": 45},
+	{"id": "d_poi", "cat": "balade", "text": "Visiter %d lieux du quartier", "stat": "poi", "target": [2, 3, 5], "reward": 35},
+	{"id": "d_collect", "cat": "balade", "text": "Ramasser %d trouvailles", "stat": "collect", "target": [3, 5, 7], "reward": 30},
+	{"id": "d_meet", "cat": "balade", "text": "Saluer %d autre chien", "stat": "meet", "target": [1, 1, 2], "reward": 25},
+	{"id": "d_poop", "cat": "balade", "text": "Ramasser %d crotte en balade", "stat": "poop", "target": [1, 1, 1], "reward": 20},
+	{"id": "d_sell", "cat": "balade", "text": "Vendre %d objets à la boutique", "stat": "sold", "target": [2, 4, 6], "reward": 25},
+	{"id": "d_buy", "cat": "balade", "text": "Acheter %d article dans un commerce", "stat": "bought", "target": [1, 2, 3], "reward": 20},
+	{"id": "d_fetchpark", "cat": "balade", "text": "Jouer %d fois à la balle au parc ou au pré", "stat": "fetch_game", "target": [1, 1, 2], "reward": 35},
+	{"id": "d_find", "cat": "jeu", "text": "Trouver %d objets cachés", "stat": "found", "target": [2, 3, 5], "reward": 35, "need": "act:search"},
+	{"id": "d_agility", "cat": "jeu", "text": "Terminer %d parcours d'agilité", "stat": "agility_run", "target": [1, 1, 2], "reward": 40, "need": "act:agility"},
+	{"id": "d_comp", "cat": "jeu", "text": "Participer à %d concours", "stat": "comp", "target": [1, 1, 2], "reward": 50, "need": "act:competition"},
 ]
+## Objectifs du jour : plus larges, ils récompensent une journée bien remplie.
+const DAILY_GOALS := [
+	{"id": "g_missions", "text": "Terminer %d missions du jour", "stat": "mission", "target": [3, 4, 5], "reward": 60},
+	{"id": "g_coins", "text": "Gagner %d pièces aujourd'hui", "stat": "coins_gain", "target": [80, 150, 250], "reward": 40},
+	{"id": "g_xp", "text": "Gagner %d points d'expérience", "stat": "xp_gain", "target": [60, 120, 200], "reward": 40},
+	{"id": "g_care", "text": "Prendre soin de lui %d fois (repas, eau, bain, brossage, câlin)", "stat": "care_any", "target": [4, 6, 8], "reward": 45},
+	{"id": "g_play", "text": "Jouer %d fois avec lui (balle, corde, jouet, jeux)", "stat": "play_any", "target": [3, 4, 6], "reward": 45},
+	{"id": "g_walkm", "text": "Parcourir %d m en balade", "stat": "walk_m", "target": [600, 1200, 2000], "reward": 55},
+]
+const WEEKLY_POOL := [
+	{"id": "w_feed", "cat": "soin", "text": "Nourrir votre compagnon %d fois", "stat": "feed", "target": [10, 12, 14], "reward": 120},
+	{"id": "w_bath", "cat": "soin", "text": "Donner %d bains", "stat": "bath", "target": [2, 3, 4], "reward": 110},
+	{"id": "w_brush", "cat": "soin", "text": "Brosser votre compagnon %d fois", "stat": "brush", "target": [4, 5, 7], "reward": 100},
+	{"id": "w_cuddle", "cat": "soin", "text": "Partager %d moments câlins", "stat": "cuddle", "target": [5, 7, 9], "reward": 100},
+	{"id": "w_pet", "cat": "soin", "text": "Faire %d caresses", "stat": "pet", "target": [120, 180, 250], "reward": 110},
+	{"id": "w_throw", "cat": "jeu", "text": "Lancer %d fois un jouet", "stat": "throw", "target": [40, 60, 90], "reward": 130},
+	{"id": "w_photo", "cat": "jeu", "text": "Prendre %d photos", "stat": "photo", "target": [8, 10, 14], "reward": 90},
+	{"id": "w_tug", "cat": "jeu", "text": "Gagner %d fois à la corde", "stat": "tug_win", "target": [3, 5, 7], "reward": 140, "need": "act:tug"},
+	{"id": "w_train", "cat": "dressage", "text": "Réussir %d exercices de dressage", "stat": "train_ok", "target": [20, 35, 50], "reward": 160},
+	{"id": "w_order", "cat": "dressage", "text": "Faire obéir %d fois à un ordre", "stat": "order_ok", "target": [20, 30, 45], "reward": 130, "need": "cmd"},
+	{"id": "w_walk", "cat": "balade", "text": "Faire %d balades", "stat": "walk", "target": [4, 5, 7], "reward": 160},
+	{"id": "w_walkm", "cat": "balade", "text": "Parcourir %d m en balade", "stat": "walk_m", "target": [3000, 6000, 10000], "reward": 180},
+	{"id": "w_poi", "cat": "balade", "text": "Visiter %d lieux du quartier", "stat": "poi", "target": [10, 16, 24], "reward": 150},
+	{"id": "w_collect", "cat": "balade", "text": "Ramasser %d trouvailles", "stat": "collect", "target": [15, 25, 35], "reward": 140},
+	{"id": "w_meet", "cat": "balade", "text": "Saluer %d autres chiens", "stat": "meet", "target": [4, 6, 8], "reward": 110},
+	{"id": "w_sell", "cat": "balade", "text": "Vendre %d objets à la boutique", "stat": "sold", "target": [10, 16, 24], "reward": 120},
+	{"id": "w_find", "cat": "jeu", "text": "Trouver %d objets cachés", "stat": "found", "target": [10, 15, 22], "reward": 150, "need": "act:search"},
+	{"id": "w_agility", "cat": "jeu", "text": "Terminer %d parcours d'agilité", "stat": "agility_run", "target": [3, 5, 7], "reward": 170, "need": "act:agility"},
+	{"id": "w_comp", "cat": "jeu", "text": "Participer à %d concours", "stat": "comp", "target": [2, 3, 5], "reward": 200, "need": "act:competition"},
+]
+const WEEKLY_GOALS := [
+	{"id": "wg_days", "text": "Jouer %d jours différents cette semaine", "stat": "days", "target": [4, 5, 6], "reward": 200},
+	{"id": "wg_missions", "text": "Terminer %d missions du jour", "stat": "mission", "target": [12, 18, 25], "reward": 250},
+	{"id": "wg_dailyall", "text": "Terminer toutes les missions du jour %d fois", "stat": "daily_all", "target": [2, 3, 4], "reward": 220},
+	{"id": "wg_coins", "text": "Gagner %d pièces", "stat": "coins_gain", "target": [600, 1100, 1800], "reward": 160},
+	{"id": "wg_xp", "text": "Gagner %d points d'expérience", "stat": "xp_gain", "target": [400, 800, 1300], "reward": 160},
+]
+const DAILY_COUNT := 5
+const WEEKLY_COUNT := 6
+const GOAL_COUNT := 3
 ## Récompense de connexion (cycle de 7 jours) : [pièces, objet, quantité]
 const LOGIN_REWARDS := [[30, "", 0], [0, "biscuit", 3], [50, "", 0], [0, "kibble", 2], [80, "", 0], [0, "cookie", 2], [150, "shampoo", 1]]
 

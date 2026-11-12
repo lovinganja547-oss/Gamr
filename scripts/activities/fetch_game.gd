@@ -334,6 +334,7 @@ func _round_done() -> void:
 	_reset_toy()
 
 func _finish() -> void:
+	GameState.inc_stat("fetch_game", 1)
 	var coins := int(score / 12.0)
 	var xp := 20 + int(score / 20.0)
 	Audio.play("success")
@@ -346,6 +347,7 @@ func _finish() -> void:
 func _on_quit() -> void:
 	if free_mode and throws_done > 0:
 		GameState.add_xp(throws_done * 2)
+		GameState.inc_stat("fetch_game", 1)
 
 func _exit_tree() -> void:
 	super._exit_tree()

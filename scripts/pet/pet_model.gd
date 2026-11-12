@@ -286,6 +286,7 @@ func _make_fur_mat() -> void:
 	fur_mat.set_shader_parameter("pattern_on", 0.0 if points else 1.0)
 	fur_mat.set_shader_parameter("points_on", 1.0 if points else 0.0)
 	fur_mat.set_shader_parameter("fur_strength", 0.6 if pat == "poodle" else 0.45)
+	fur_mat.set_shader_parameter("under", 1.0 if shell_count() > 0 else 0.0)
 
 func _fur(nm: String, parent: Node3D, pos: Vector3 = Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -299,14 +300,14 @@ func _fur(nm: String, parent: Node3D, pos: Vector3 = Vector3.ZERO) -> MeshInstan
 
 ## Nombre de couches de poils selon la qualité graphique.
 func shell_count() -> int:
-	return [0, 4, 8][clampi(quality, 0, 2)]
+	return [3, 6, 12][clampi(quality, 0, 2)]
 
 func _shell_mats(head: bool) -> Array:
 	var key := "head" if head else "body"
 	if shell_mats.has(key):
 		return shell_mats[key]
 	var pat: String = bd["pattern"]
-	var length := {"poodle": 0.016, "shepherd": 0.014, "shiba": 0.013, "cat": 0.009, "beagle": 0.007, "solid": 0.009}.get(pat, 0.01) as float
+	var length := {"poodle": 0.021, "shepherd": 0.019, "shiba": 0.017, "cat": 0.013, "beagle": 0.009, "solid": 0.012}.get(pat, 0.012) as float
 	if head:
 		length *= 0.6
 	var arr: Array = []
@@ -319,8 +320,9 @@ func _shell_mats(head: bool) -> Array:
 			m.set_shader_parameter(k, fur_mat.get_shader_parameter(k))
 		m.set_shader_parameter("layer", float(i + 1) / float(n))
 		m.set_shader_parameter("fur_len", length)
-		m.set_shader_parameter("density", 190.0 if pat == "poodle" else 250.0)
-		m.set_shader_parameter("curl", 0.6 if pat == "poodle" else 0.0)
+		m.set_shader_parameter("density", {"poodle": 230.0, "shepherd": 340.0, "shiba": 360.0, "cat": 430.0, "beagle": 430.0}.get(pat, 400.0))
+		m.set_shader_parameter("curl", 0.9 if pat == "poodle" else 0.0)
+		m.set_shader_parameter("flow", {"poodle": 0.55, "shepherd": 0.4, "shiba": 0.35, "beagle": 0.18}.get(pat, 0.28))
 		if head:
 			var e := _v3("eye", Vector3(hr * 0.4, hr * 0.12, hr * 0.76))
 			m.set_shader_parameter("hole_a", e)

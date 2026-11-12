@@ -80,3 +80,7 @@ Compilé via l'export Gradle (Gradle 8.11.1, gabarit Android de Godot 4.5.1 dans
 - Missions et objectifs quotidiens et hebdomadaires, tirés uniquement parmi les fonctions débloquées.
 - Balades : carte, espacement des drapeaux et endurance augmentés de 50 %.
 - Interfaces habillées (cadres, bandeaux, boutons texturés).
+
+## Version 2.5.1
+
+- Pelage refait : mèches fines à racine décalée (plus de grille), touffes, épis, sous-poil sombre et pointes claires, duvet éclairé à contre-jour, anti-scintillement à distance. Couches : 3 / 6 / 12 selon la qualité. Illustration de chargement et icône régénérées.

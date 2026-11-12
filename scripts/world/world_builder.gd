@@ -302,6 +302,10 @@ static func build(env_id: String, quality: int) -> Node3D:
 	Kit.flush(root)
 	return root
 
+## Rectangle vertical tourné vers l'intérieur de la pièce (normale -Z), invisible de l'extérieur.
+static func _inq(b: MeshBatch, key: String, x0: float, y0: float, x1: float, y1: float, z: float, c_lo: Color, c_hi: Color) -> void:
+	b.quad(key, Vector3(x1, y0, z), Vector3(x1, y1, z), Vector3(x0, y1, z), Vector3(x0, y0, z), c_lo, c_hi, c_hi, c_lo, Vector3(-1, 0, 0))
+
 static func _density(q: int) -> float:
 	return [0.35, 0.7, 1.0][clampi(q, 0, 2)]
 
@@ -363,6 +367,24 @@ static func _house(r: Node3D, q: int) -> void:
 	for k in 8:
 		var bh := 0.2 + (k % 3) * 0.04
 		b.box("flat", sf, Vector3(0.07, bh, 0.16), Vector3(0.3 + k * 0.085, 1.725 + bh * 0.5, 0.12), Color.from_hsv(fposmod(k * 0.17, 1.0), 0.45, 0.85))
+	# Quatrième mur (côté joueur) : visible seulement de l'intérieur, pour ne jamais cacher la pièce.
+	# Il apparaît quand on fait pivoter la caméra ; vu de l'extérieur, il est transparent.
+	var zf := 3.5
+	var wc := wall_c.lightened(0.15)
+	_inq(b, "t:wallpaper:0.55", -2.9, 0.0, 2.9, 3.2, zf, wc, wc)
+	var pan := Color(0.95, 0.93, 0.88)
+	_inq(b, "flat", -2.9, 0.0, 2.9, 0.92, zf - 0.01, pan.darkened(0.1), pan)
+	_inq(b, "flat", -2.9, 0.92, 2.9, 0.99, zf - 0.02, white, white)
+	_inq(b, "flat", -2.9, 3.04, 2.9, 3.16, zf - 0.02, white, white)
+	# porte d'entrée et tableau sur ce mur
+	var dcol := Color(0.62, 0.42, 0.28)
+	_inq(b, "flat", -1.75, 0.0, -0.65, 2.15, zf - 0.03, white, white)
+	_inq(b, "t:wood_planks:0.5", -1.68, 0.0, -0.72, 2.08, zf - 0.04, dcol, dcol)
+	_inq(b, "metal", -1.56, 1.0, -1.48, 1.08, zf - 0.05, Color(0.9, 0.75, 0.35), Color(0.9, 0.75, 0.35))
+	var frc := Color(0.5, 0.36, 0.26)
+	_inq(b, "flat", 0.7, 1.45, 1.9, 2.25, zf - 0.03, frc, frc)
+	_inq(b, "flat", 0.78, 1.53, 1.82, 2.17, zf - 0.04, Color(0.66, 0.84, 0.95), Color(0.5, 0.74, 0.95))
+	_inq(b, "flat", 0.78, 1.53, 1.82, 1.75, zf - 0.045, Color(0.42, 0.66, 0.36), Color(0.5, 0.72, 0.4))
 	b.commit(r, false, "Walls")
 	# Tapis à motifs
 	var rug_c: Color = GameData.item(str(deco.get("rug", "rug_round"))).get("color", Color(0.85, 0.55, 0.45))

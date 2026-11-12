@@ -137,19 +137,32 @@ static func food_picker(cat: String, cb: Callable) -> void:
 			cb.call(iid), Color(1, 0.96, 0.9), 150))
 	v.add_child(g)
 	if not any:
-		v.add_child(UiKit.label(_t("Votre sac est vide ! Passez à la boutique."), 28))
-		v.add_child(UiKit.button(_t("Aller à la boutique"), func():
-			_m().close_panel()
-			shop("food" if cat == "food" else "treat"), UiKit.C_ACCENT))
+		v.add_child(UiKit.label(_t("Votre sac est vide ! Partez en balade : la boutique, la boulangerie et le marché du quartier vendent de quoi le régaler."), 26))
 	_m().open_panel(_t("Que lui donner ?"), UiKit.scroll(v))
 
 # ================================================================== Boutique
+## Accès à la boutique : "" = fermée (à la maison), "shop" = boutique du quartier (achats et vente),
+## "buy" = commerce qui ne fait que vendre ses produits (boulangerie, marché).
+static var shop_mode := ""
+
+## Ouvre la boutique depuis un commerce du quartier (pendant une balade).
+static func open_shop(tab: String, mode: String = "shop") -> void:
+	shop_mode = mode
+	shop(tab)
+
 static func shop(tab: String = "food") -> void:
+	if shop_mode == "":
+		_m().toast(_t("La boutique se trouve dans le quartier : partez en balade pour y aller."))
+		return
+	if tab == "sell" and shop_mode != "shop":
+		tab = "food"
 	var v := UiKit.vbox(12)
 	var tabs := HFlowContainer.new()
 	tabs.add_theme_constant_override("h_separation", 8)
 	tabs.add_theme_constant_override("v_separation", 8)
 	for t in GameData.SHOP_TABS:
+		if shop_mode != "shop" and not (t in ["food", "treat"]):
+			continue
 		var tt: String = t
 		var b := UiKit.button(_t(GameData.SHOP_TAB_NAMES[t]), func():
 			_m().close_panel()
@@ -316,9 +329,12 @@ static func inventory() -> void:
 	if fg.get_child_count() > 0:
 		v.add_child(UiKit.label("[i:sell] " + _t("Trouvailles (valeur : %d pièces)") % total_sell, 30))
 		v.add_child(fg)
-		v.add_child(UiKit.button("[i:shop] " + _t("Vendre des trouvailles"), func():
-			_m().close_panel()
-			shop("sell"), UiKit.C_GOLD, 26, 80))
+		if shop_mode == "shop":
+			v.add_child(UiKit.button("[i:shop] " + _t("Vendre des trouvailles"), func():
+				_m().close_panel()
+				shop("sell"), UiKit.C_GOLD, 26, 80))
+		else:
+			v.add_child(UiKit.label(_t("Les trouvailles se vendent à la boutique du quartier, pendant une balade."), 22, UiKit.C_SUB))
 	_m().open_panel("[i:inventory] " + _t("Sac"), UiKit.scroll(v))
 
 static func _collectible_info(id: String) -> void:
@@ -331,12 +347,15 @@ static func _collectible_info(id: String) -> void:
 		envs.append(_t(GameData.ENVIRONMENTS[e]["name"]))
 	v.add_child(UiKit.label(_t("Rareté : %s · Valeur : %d pièces · Lieux : %s") % [_t(GameData.RARITY_NAMES[int(it.get("rarity", 1))]), GameState.sell_value(id), ", ".join(envs)], 22, UiKit.C_SUB))
 	v.add_child(UiKit.label(_t("Vous en avez %d.") % GameState.item_count(id), 24))
-	v.add_child(UiKit.button("[i:coin] " + _t("Vendre un exemplaire (+%d)") % GameState.sell_value(id), func():
-		var g := GameState.sell(id, 1)
-		if g > 0:
-			Audio.play("coin")
-			_m().toast(_t("Vendu : +%d pièces") % g)
-		_m().close_panel(), UiKit.C_GOLD, 26, 80))
+	if shop_mode == "shop":
+		v.add_child(UiKit.button("[i:coin] " + _t("Vendre un exemplaire (+%d)") % GameState.sell_value(id), func():
+			var g := GameState.sell(id, 1)
+			if g > 0:
+				Audio.play("coin")
+				_m().toast(_t("Vendu : +%d pièces") % g)
+			_m().close_panel(), UiKit.C_GOLD, 26, 80))
+	else:
+		v.add_child(UiKit.label(_t("À vendre à la boutique du quartier, pendant une balade."), 22, UiKit.C_SUB))
 	_m().open_panel(_t("Trouvaille"), UiKit.scroll(v))
 
 static func _use_item(iid: String) -> void:

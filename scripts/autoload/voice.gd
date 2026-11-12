@@ -93,6 +93,8 @@ var _player: AudioStreamPlayer
 var _out: AudioStreamPlayer
 var _bus := -1
 var _mix_rate := 44100.0
+var _heal := 0                 # échantillons restants du raccord après un trou audio
+const HEAL_LEN := 96
 var _hold := 0                  # micro maintenu ouvert (écran d'apprentissage)
 var _cache := {}
 var _perm_connected := false
@@ -978,8 +980,18 @@ func play_samples(s: PackedFloat32Array) -> void:
 	w.stereo = false
 	var bytes := PackedByteArray()
 	bytes.resize(s.size() * 2)
-	for i in s.size():
-		bytes.encode_s16(i * 2, int(clampf(s[i] * g, -1.0, 1.0) * 32767.0))
+	var n := s.size()
+	var fade := mini(240, n / 4)
+	var prev := 0.0
+	for i in n:
+		var env := 1.0
+		if i < fade:
+			env = float(i) / fade
+		elif i > n - fade:
+			env = float(n - i) / fade
+		# lissage très léger : adoucit le souffle aigu sans étouffer la voix
+		prev = lerpf(prev, s[i], 0.8)
+		bytes.encode_s16(i * 2, int(clampf(prev * g * env, -1.0, 1.0) * 32767.0))
 	w.data = bytes
 	_out.stream = w
 	_out.play()
@@ -1050,18 +1062,27 @@ func feed_raw(frames: PackedVector2Array, mix_rate: float) -> void:
 		_build_resampler(mix_rate)
 	var hist := _rs_hist
 	var zr := _zrun
+	var heal := _heal
 	for fr in frames:
 		var v := (fr.x + fr.y) * 0.5
 		if v == 0.0:
 			zr += 1
 			continue
 		if zr > 0:
-			if zr < ZERO_RUN:
-				for k in zr:
-					hist.append(0.0)
+			if zr == 1:
+				hist.append(0.0)   # un zéro isolé est un vrai échantillon
+			else:
+				# trou du pilote audio (tampon d'entrée sous-alimenté) : on le retire et on raccorde
+				# en douceur sur quelques millisecondes pour éviter le clic (grésillement)
+				heal = HEAL_LEN
 			zr = 0
+		if heal > 0 and hist.size() > 0:
+			var k2 := 1.0 - float(heal) / HEAL_LEN
+			v = lerpf(hist[hist.size() - 1], v, k2 * k2)
+			heal -= 1
 		hist.append(v)
 	_zrun = zr
+	_heal = heal
 	var ratio := mix_rate / float(SR)
 	var out := PackedFloat32Array()
 	var half := RS_TAPS / 2

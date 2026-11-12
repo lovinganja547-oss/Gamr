@@ -172,7 +172,7 @@ func _run() -> void:
 	Panels.needs()
 	await shot("needs")
 	main.close_all_panels()
-	Panels.shop("toy")
+	Panels.open_shop("toy", "shop")
 	await shot("shop")
 	main.close_all_panels()
 	Panels.inventory()

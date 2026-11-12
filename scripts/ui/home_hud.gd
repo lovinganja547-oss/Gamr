@@ -150,7 +150,6 @@ func _build() -> void:
 	row2.add_child(UiKit.icon_button("training", tr("Dressage"), func(): Panels.training(), Color(0.98, 0.85, 0.75), 108))
 	# Promenade : la carte du quartier donne accès aux activités, concours et à la boutique
 	row2.add_child(UiKit.icon_button("map", tr("Balade"), func(): Main.inst.start_activity(WalkActivity.new()), Color(0.80, 0.94, 0.80), 108))
-	row2.add_child(UiKit.icon_button("shop", tr("Boutique"), func(): Panels.shop(), Color(0.9, 0.88, 1), 108))
 	row2.add_child(UiKit.icon_button("inventory", tr("Sac"), func(): Panels.inventory(), Color(0.95, 0.9, 0.85), 108))
 	dock_v.add_child(row2)
 	root.add_child(dock)

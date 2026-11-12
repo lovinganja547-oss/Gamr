@@ -433,3 +433,19 @@ func sc_save() -> void:
 		if fn.begins_with("save.unreadable"):
 			kept += 1
 	print("SAVE fichiers illisibles mis de cote : ", kept)
+
+func sc_housewall() -> void:
+	main.close_all_panels()
+	main.cam_rig.yaw = PI
+	main.cam_rig.pitch = -0.25
+	await wait(1.5)
+	await shot("house_front_wall")
+	main.cam_rig.yaw = PI * 0.6
+	await wait(1.2)
+	await shot("house_side")
+	# animal placé dans un meuble : il doit en ressortir seul
+	var pc := main.pet_ctrl
+	pc.interrupt()
+	pc.position = Vector3(-1.6, 0, -1.9)
+	await wait(2.0)
+	print("STUCK sorti du canape=", not main.nav.is_blocked_point(Vector2(pc.position.x, pc.position.z), -0.08), " pos=", pc.position)

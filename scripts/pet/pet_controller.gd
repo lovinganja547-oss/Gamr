@@ -34,6 +34,7 @@ var nav: NavGrid
 var _path := PackedVector2Array()
 var _path_target := Vector3(INF, 0, INF)
 var _stuck_t := 0.0
+var _unstick_t := 0.0
 
 func setup(p: Dictionary, quality: int) -> void:
 	pet = p
@@ -148,6 +149,20 @@ func _process(delta: float) -> void:
 			Audio.play("bounce", 0.1, -6.0)
 		else:
 			model.jump_y = sin(k * PI) * _jump_h
+	# Jamais coincé : si l'animal se retrouve dans la zone d'un meuble (fin d'activité, repas, réveil),
+	# il glisse vers l'endroit libre le plus proche au lieu de rester bloqué.
+	if nav and not sleeping and state in ["idle", "moving"] and _jump_t < 0.0:
+		var here := Vector2(position.x, position.z)
+		if nav.is_blocked_point(here, -0.08):
+			var out := nav.nearest_free(here)
+			position = position.move_toward(Vector3(out.x, 0, out.y), maxf(1.0, speed) * delta)
+			_unstick_t += delta
+			if _unstick_t > 1.2:
+				position = Vector3(out.x, 0, out.y)
+				_unstick_t = 0.0
+			_path_target = Vector3(INF, 0, INF)
+		else:
+			_unstick_t = 0.0
 	# Déplacement
 	if state == "moving":
 		if _target != _path_target:
@@ -176,7 +191,7 @@ func _process(delta: float) -> void:
 			var before := position
 			position += d / dist * minf(speed * delta, dist)
 			# Sécurité : jamais à l'intérieur d'un obstacle
-			if nav and nav.is_blocked_point(Vector2(position.x, position.z), -0.08):
+			if nav and nav.is_blocked_point(Vector2(position.x, position.z), -0.08) and not nav.is_blocked_point(Vector2(before.x, before.z), -0.08):
 				position = before
 				_stuck_t += delta
 				if _stuck_t > 0.6:

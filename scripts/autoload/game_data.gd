@@ -288,28 +288,28 @@ const ENV_ORDER: Array[String] = ["house", "garden", "park", "forest", "beach", 
 ## Quartier parcouru en promenade (coordonnées en mètres de jeu, ×10 affichés).
 ## kind : home, road, water, shop, park, beach, forest, center, comp. env : lieu à débloquer.
 const WALK_NODES := {
-	"home": {"name": "Maison", "icon": "house", "kind": "home", "pos": Vector2(0, 14), "zone": "village"},
-	"lane": {"name": "Rue des Lilas", "icon": "route", "kind": "road", "pos": Vector2(0, 9), "zone": "village"},
-	"fountain": {"name": "Place de la fontaine", "icon": "water", "kind": "water", "pos": Vector2(0, 4), "zone": "village"},
-	"bakery": {"name": "Boulangerie", "icon": "biscuit", "kind": "bakery", "pos": Vector2(5.5, 9.5), "zone": "village"},
-	"shop": {"name": "Boutique", "icon": "shop", "kind": "shop", "pos": Vector2(7, 4), "zone": "village"},
-	"groomer": {"name": "Toiletteur", "icon": "brush", "kind": "groomer", "pos": Vector2(12, 8), "zone": "village"},
-	"cafe": {"name": "Café des chiens", "icon": "bottle", "kind": "cafe", "pos": Vector2(-5.5, 10.5), "zone": "village"},
-	"market": {"name": "Marché", "icon": "strawberry", "kind": "market", "pos": Vector2(-7, 5), "zone": "village"},
-	"vet": {"name": "Vétérinaire", "icon": "health", "kind": "vet", "pos": Vector2(6.5, -1.5), "zone": "village"},
-	"school": {"name": "École du chiot", "icon": "training", "kind": "school", "pos": Vector2(13, -2), "zone": "village"},
-	"park": {"name": "Parc à chiens", "icon": "park", "kind": "park", "pos": Vector2(-13, 1), "env": "park"},
-	"pond": {"name": "Étang aux canards", "icon": "fish", "kind": "pond", "pos": Vector2(-17, -5)},
-	"bridge_n": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -3.6), "zone": "village"},
-	"bridge_s": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -8.4)},
-	"center": {"name": "Terrain d'agilité", "icon": "agility", "kind": "center", "pos": Vector2(9, -10)},
-	"comp": {"name": "Salle des concours", "icon": "trophy", "kind": "comp", "pos": Vector2(4, -15)},
-	"farm": {"name": "Ferme", "icon": "feather", "kind": "farm", "pos": Vector2(-8, -11)},
-	"forest": {"name": "Lisière de la forêt", "icon": "forest", "kind": "forest", "pos": Vector2(-15, -15), "env": "forest"},
-	"meadow": {"name": "Grand pré", "icon": "field", "kind": "meadow", "pos": Vector2(-4, -18)},
-	"viewpoint": {"name": "Belvédère", "icon": "camera", "kind": "viewpoint", "pos": Vector2(12, -17)},
-	"beach": {"name": "Plage", "icon": "beach", "kind": "beach", "pos": Vector2(0, -25), "env": "beach"},
-	"lighthouse": {"name": "Phare", "icon": "lamp", "kind": "lighthouse", "pos": Vector2(10, -25)},
+	"home": {"name": "Maison", "icon": "house", "kind": "home", "pos": Vector2(0, 21), "zone": "village"},
+	"lane": {"name": "Rue des Lilas", "icon": "route", "kind": "road", "pos": Vector2(0, 13.5), "zone": "village"},
+	"fountain": {"name": "Place de la fontaine", "icon": "water", "kind": "water", "pos": Vector2(0, 6), "zone": "village"},
+	"bakery": {"name": "Boulangerie", "icon": "biscuit", "kind": "bakery", "pos": Vector2(8.25, 14.25), "zone": "village"},
+	"shop": {"name": "Boutique", "icon": "shop", "kind": "shop", "pos": Vector2(10.5, 6), "zone": "village"},
+	"groomer": {"name": "Toiletteur", "icon": "brush", "kind": "groomer", "pos": Vector2(18, 12), "zone": "village"},
+	"cafe": {"name": "Café des chiens", "icon": "bottle", "kind": "cafe", "pos": Vector2(-8.25, 15.75), "zone": "village"},
+	"market": {"name": "Marché", "icon": "strawberry", "kind": "market", "pos": Vector2(-10.5, 7.5), "zone": "village"},
+	"vet": {"name": "Vétérinaire", "icon": "health", "kind": "vet", "pos": Vector2(9.75, -2.25), "zone": "village"},
+	"school": {"name": "École du chiot", "icon": "training", "kind": "school", "pos": Vector2(19.5, -3), "zone": "village"},
+	"park": {"name": "Parc à chiens", "icon": "park", "kind": "park", "pos": Vector2(-19.5, 1.5), "env": "park"},
+	"pond": {"name": "Étang aux canards", "icon": "fish", "kind": "pond", "pos": Vector2(-25.5, -7.5)},
+	"bridge_n": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -5.4), "zone": "village"},
+	"bridge_s": {"name": "Vieux pont", "icon": "route", "kind": "road", "pos": Vector2(0, -12.6)},
+	"center": {"name": "Terrain d'agilité", "icon": "agility", "kind": "center", "pos": Vector2(13.5, -15)},
+	"comp": {"name": "Salle des concours", "icon": "trophy", "kind": "comp", "pos": Vector2(6, -22.5)},
+	"farm": {"name": "Ferme", "icon": "feather", "kind": "farm", "pos": Vector2(-12, -16.5)},
+	"forest": {"name": "Lisière de la forêt", "icon": "forest", "kind": "forest", "pos": Vector2(-22.5, -22.5), "env": "forest"},
+	"meadow": {"name": "Grand pré", "icon": "field", "kind": "meadow", "pos": Vector2(-6, -27)},
+	"viewpoint": {"name": "Belvédère", "icon": "camera", "kind": "viewpoint", "pos": Vector2(18, -25.5)},
+	"beach": {"name": "Plage", "icon": "beach", "kind": "beach", "pos": Vector2(0, -37.5), "env": "beach"},
+	"lighthouse": {"name": "Phare", "icon": "lamp", "kind": "lighthouse", "pos": Vector2(15, -37.5)},
 }
 const WALK_EDGES := [
 	["home", "lane"], ["lane", "fountain"], ["lane", "bakery"], ["lane", "cafe"], ["bakery", "shop"], ["bakery", "groomer"],
@@ -320,11 +320,14 @@ const WALK_EDGES := [
 	["meadow", "beach"], ["viewpoint", "lighthouse"], ["beach", "lighthouse"],
 ]
 ## Rivière qui traverse le quartier d'ouest en est (franchie par le vieux pont et deux passerelles).
-const WALK_RIVER: Array[Vector2] = [Vector2(-34, -9.0), Vector2(-22, -8.4), Vector2(-12, -7.4), Vector2(0, -6.0), Vector2(8, -5.6), Vector2(16, -6.4), Vector2(34, -5.4)]
+const WALK_RIVER: Array[Vector2] = [Vector2(-51, -13.5), Vector2(-33, -12.6), Vector2(-18, -11.1), Vector2(0, -9), Vector2(12, -8.4), Vector2(24, -9.6), Vector2(51, -8.1)]
 const WALK_SCALE := 10.0
+## Limites du quartier (mètres de jeu) : début du sable et rivage, au nord.
+const WALK_SAND_Z := -32.0
+const WALK_SHORE_Z := -43.5
 ## Endurance de promenade (mètres affichés) : grandit avec le niveau du compagnon.
 static func walk_endurance(level: int) -> float:
-	return minf(450.0 + 80.0 * float(maxi(1, level) - 1), 3200.0)
+	return minf(700.0 + 120.0 * float(maxi(1, level) - 1), 5000.0)
 
 static func walk_neighbors(id: String) -> Array:
 	var out: Array = []

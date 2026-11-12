@@ -141,7 +141,7 @@ func _build_plan_path(pl: Array) -> void:
 	for i in range(1, pts.size()):
 		var a := pts[i - 1]
 		var b := pts[i]
-		var n := maxi(1, int(ceil(a.distance_to(b) / 1.6)))
+		var n := maxi(1, int(ceil(a.distance_to(b) / 3.2)))
 		for k in range(1, n + 1):
 			path.append(a.lerp(b, float(k) / n))
 	var seen := {}
@@ -153,14 +153,13 @@ func _build_plan_path(pl: Array) -> void:
 		var q2: Vector2 = nd["pos"]
 		pois.append({"id": id, "pos": Vector3(q2.x, 0, q2.y), "inside": false, "visits": 0})
 	for i in path.size():
-		if i % 2 == 0:
-			var mk := WorldBuilder.cyl(main.world, 0.07, 0.07, 0.01, path[i] + Vector3(0, 0.012, 0), Color(1, 0.95, 0.75), 10)
-			mk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			markers.append(mk)
+		var mk := WorldBuilder.cyl(main.world, 0.07, 0.07, 0.01, path[i] + Vector3(0, 0.012, 0), Color(1, 0.95, 0.75), 10)
+		mk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		markers.append(mk)
 	flag = Node3D.new()
 	main.world.add_child(flag)
-	WorldBuilder.cyl(flag, 0.02, 0.02, 0.9, Vector3(0, 0.45, 0), Color(0.95, 0.95, 0.95), 6)
-	WorldBuilder.box(flag, Vector3(0.3, 0.18, 0.02), Vector3(0.15, 0.8, 0), Color(0.45, 0.8, 0.45), Vector3.ZERO, false)
+	WorldBuilder.cyl(flag, 0.03, 0.03, 1.5, Vector3(0, 0.75, 0), Color(0.95, 0.95, 0.95), 6)
+	WorldBuilder.box(flag, Vector3(0.5, 0.3, 0.02), Vector3(0.25, 1.33, 0), Color(0.45, 0.8, 0.45), Vector3.ZERO, false)
 	var tw := flag.create_tween().set_loops()
 	tw.tween_property(flag, "scale", Vector3(1.15, 1.15, 1.15), 0.5)
 	tw.tween_property(flag, "scale", Vector3.ONE, 0.5)
@@ -279,8 +278,6 @@ func _build_ui() -> void:
 	var h := UiKit.hbox(8)
 	home_btn = UiKit.button("[i:home_go] " + tr("Rentrer"), _go_home, UiKit.C_ACCENT2, 22, 72)
 	h.add_child(UiKit.expand(home_btn))
-	if plan.is_empty():
-		h.add_child(UiKit.expand(UiKit.button("[i:shop] " + tr("Boutique"), func(): Panels.shop("sell"), UiKit.C_BLUE, 22, 72)))
 	v.add_child(h)
 	pv.add_child(v)
 	bb.add_child(pv)
@@ -746,6 +743,7 @@ func quit() -> void:
 
 func _exit_tree() -> void:
 	super._exit_tree()
+	Panels.shop_mode = ""
 	for it in items:
 		var n: Variant = it["node"]
 		if is_instance_valid(n):
@@ -792,6 +790,8 @@ func _check_pois() -> void:
 			po["visits"] = int(po["visits"]) + 1
 			_arrive(str(po["id"]), po["pos"])
 		elif d > 3.0:
+			if po["inside"]:
+				Panels.shop_mode = ""
 			po["inside"] = false
 
 ## Paie un service ; affiche un message si les pièces manquent.
@@ -820,7 +820,11 @@ func _arrive(id: String, pos: Vector3) -> void:
 	var acts: Array = []
 	match kind:
 		"shop":
-			acts.append(["shop", tr("Entrer dans la boutique"), "", func(): Panels.shop("food"), true])
+			acts.append(["shop", tr("Entrer dans la boutique"), "", func(): Panels.open_shop("food", "shop"), true])
+			acts.append(["sell", tr("Vendre mes trouvailles"), "", func(): Panels.open_shop("sell", "shop"), true])
+			acts.append(["inventory", tr("Ouvrir mon sac"), "", func():
+				Panels.shop_mode = "shop"
+				Panels.inventory(), true])
 		"bakery":
 			var free := not GameState.walk_daily_done("bakery")
 			acts.append(["biscuit", tr("Goûter le biscuit offert") if free else tr("Biscuit déjà offert aujourd'hui"), "", func():
@@ -829,10 +833,9 @@ func _arrive(id: String, pos: Vector3) -> void:
 					GameState.change_need("mood", 8.0)
 					pet.model.emote("emo_yum")
 					main.toast(tr("%s se régale ! Revenez demain pour un autre biscuit.") % pet_name()), free])
-			acts.append(["treat", tr("Acheter des friandises"), "", func(): Panels.shop("treat"), true])
+			acts.append(["treat", tr("Acheter des friandises"), "", func(): Panels.open_shop("treat", "buy"), true])
 		"market":
-			acts.append(["sell", tr("Vendre mes trouvailles"), "", func(): Panels.shop("sell"), true])
-			acts.append(["feed", tr("Acheter à manger"), "", func(): Panels.shop("food"), true])
+			acts.append(["feed", tr("Acheter à manger"), "", func(): Panels.open_shop("food", "buy"), true])
 		"cafe":
 			acts.append(["bottle", tr("Faire une pause (5 pièces)"), "", func():
 				if _pay(5):

@@ -184,8 +184,8 @@ func _draw() -> void:
 		var gx := fposmod(k * 137.5, size.x)
 		var gy := fposmod(k * 91.3, size.y)
 		draw_circle(Vector2(gx, gy), 26.0 + (k % 5) * 9.0, Color(0.66, 0.81, 0.52, 0.55) if k % 2 == 0 else Color(0.75, 0.87, 0.60, 0.55))
-	var shore := _pt(Vector2(0, -27.5)).y
-	var sand := _pt(Vector2(0, -21.5)).y
+	var shore := _pt(Vector2(0, GameData.WALK_SHORE_Z + 2.0)).y
+	var sand := _pt(Vector2(0, GameData.WALK_SAND_Z)).y
 	draw_rect(Rect2(0, 0, size.x, sand), Color(0.95, 0.88, 0.68), true)
 	for k in 12:
 		draw_circle(Vector2(size.x * (k + 0.5) / 12.0, sand), 22.0 + (k % 3) * 6.0, Color(0.95, 0.88, 0.68))

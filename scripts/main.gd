@@ -300,7 +300,10 @@ func open_panel(title: String, content: Control, on_close: Callable = Callable()
 	t.add_theme_color_override("font_outline_color", Color(0.55, 0.26, 0.12, 0.55))
 	t.add_theme_constant_override("outline_size", 6)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if title.length() > 24:
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	else:
+		t.clip_text = true
 	var tico: TextureRect = t.get_node_or_null("Ico")
 	if tico:
 		tico.modulate = Color(1, 1, 1)
@@ -322,7 +325,11 @@ func open_panel(title: String, content: Control, on_close: Callable = Callable()
 	# même fenêtre reconstruite (achat, vente, onglet…) : la liste reste où elle était
 	var keep_pos: bool = _last_scroll.get("title", "") == title and Time.get_ticks_msec() - int(_last_scroll.get("t", -9999)) < 500
 	if keep_pos:
-		_restore_scroll(overlay, int(_last_scroll.get("v", 0)))
+		# l'ancienne fenêtre reste affichée dessous le temps que la nouvelle soit mise en page :
+		# aucun saut visible des titres ou des onglets
+		overlay.color.a = 0.0
+		pnl.modulate.a = 0.0
+		_reveal(overlay, pnl, int(_last_scroll.get("v", 0)))
 	if not UiKit.reduce_motion() and not keep_pos:
 		pnl.pivot_offset = Vector2(330, 600)
 		pnl.scale = Vector2(0.92, 0.92)
@@ -339,7 +346,9 @@ func close_panel() -> void:
 	var cb: Callable = o.get_meta("on_close", Callable())
 	var sc := _find_scroll(o)
 	_last_scroll = {"title": str(o.get_meta("title", "")), "v": sc.scroll_vertical if sc else 0, "t": Time.get_ticks_msec()}
-	o.queue_free()
+	# libérée un instant plus tard : sert de fond pendant qu'une fenêtre reconstruite se met en page
+	o.mouse_behavior_recursive = Control.MOUSE_BEHAVIOR_DISABLED
+	get_tree().create_timer(0.07).timeout.connect(o.queue_free)
 	if cb.is_valid():
 		cb.call()
 
@@ -352,16 +361,17 @@ func _find_scroll(n: Node) -> ScrollContainer:
 			return r
 	return null
 
-func _restore_scroll(overlay: Control, v: int) -> void:
+func _reveal(overlay: Control, pnl: Control, v: int) -> void:
 	var sc := _find_scroll(overlay)
-	if sc == null or v <= 0:
-		return
 	# la hauteur du contenu n'est connue qu'après la mise en page
-	for i in 2:
+	for i in 3:
 		await get_tree().process_frame
-		if not is_instance_valid(sc):
+		if not is_instance_valid(overlay):
 			return
-		sc.scroll_vertical = v
+		if sc and v > 0:
+			sc.scroll_vertical = v
+	overlay.color.a = 0.35
+	pnl.modulate.a = 1.0
 
 func close_all_panels() -> void:
 	while not panel_stack.is_empty():

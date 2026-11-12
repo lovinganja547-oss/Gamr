@@ -5,7 +5,7 @@ config_version=5
 
 config/name="Truffe & Compagnie"
 config/description="Truffe & Compagnie – compagnons virtuels"
-config/version="2.5.2"
+config/version="2.5.3"
 run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://assets/icons/icon.png"

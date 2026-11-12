@@ -193,6 +193,7 @@ static func shop(tab: String = "food") -> void:
 		var tt: String = t
 		var b := UiKit.button(_t(GameData.SHOP_TAB_NAMES[t]), func():
 			_m().close_panel()
+			_m()._last_scroll["v"] = 0   # autre onglet : la liste repart du haut
 			shop(tt), UiKit.C_ACCENT if t == tab else UiKit.C_DISABLED, 22, 60)
 		tabs.add_child(b)
 	v.add_child(tabs)

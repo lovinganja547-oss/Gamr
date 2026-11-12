@@ -657,3 +657,28 @@ func sc_scroll() -> void:
 	print("SCROLL vente : bouton=", names.size() > 0, " pieces=", GameState.coins(), " vendu=", GameState.coins() > c1, " position avant=", before, " apres=", sc2.scroll_vertical)
 	await shot("scroll_sell")
 	main.close_all_panels()
+
+## Le bouton Appeler doit ramener l'animal quelle que soit sa situation.
+func sc_callpet() -> void:
+	main.close_all_panels()
+	Panels.go_to("house")
+	await wait(1.0)
+	main.close_all_panels()
+	var pc := main.pet_ctrl
+	var hud = main.screen
+	var cases: Array = [["dans un meuble", Vector3.ZERO], ["hors de la piece", Vector3(9, 0, -9)], ["sous le sol", Vector3(0.5, -1.0, 0.5)], ["coin oppose", Vector3(pc.bounds.position.x + 0.1, 0, pc.bounds.position.y + 0.1)]]
+	# cherche un point réellement bloqué par un meuble
+	for gx in range(-30, 31):
+		for gz in range(-30, 31):
+			var q := Vector2(gx * 0.1, gz * 0.1)
+			if pc.bounds.has_point(q) and pc.nav and pc.nav.is_blocked_point(q):
+				cases[0][1] = Vector3(q.x, 0, q.y)
+	for c in cases:
+		pc.position = c[1]
+		pc.state = "action"
+		pc.busy = false
+		hud._call()
+		await wait(4.5)
+		var here := Vector2(pc.position.x, pc.position.z)
+		var ok: bool = pc.bounds.grow(0.31).has_point(here) and absf(pc.position.y) < 0.01 and not (pc.nav and pc.nav.is_blocked_point(here)) and pc.position.distance_to(pc.player_pos) < 1.6
+		print("CALL ", c[0], " depart=", c[1], " arrivee=", pc.position, " libre_et_devant=", ok)

@@ -90,3 +90,8 @@ Compilé via l'export Gradle (Gradle 8.11.1, gabarit Android de Godot 4.5.1 dans
 - Micro : réglages audio du moteur remis par défaut, les courtes suites de zéros ne sont plus traitées comme des trous (signal faible écrasé), réouverture complète de l'entrée après 3 s sans son, ligne de diagnostic affichée en cas d'échec.
 - Listes : défilement au doigt même en partant d'un bouton (`scripts/ui/drag_scroll.gd`), appui annulé pendant le glissé, position conservée quand une fenêtre est reconstruite (vente, achat, onglet).
 - Balade : GPS (cadran avec flèche et distance, flèche au sol, anneau sur la prochaine étape) à la place des drapeaux.
+
+## Version 2.5.3
+
+- Fenêtres reconstruites (onglets de la boutique, achat, vente) : l'ancienne reste affichée le temps de la mise en page de la nouvelle, plus de saut des titres ; changer d'onglet repart du haut de la liste.
+- Bouton Appeler : interrompt toute action et replace l'animal devant le joueur s'il est coincé (meuble, hors de la pièce, sans chemin) ou s'il n'avance plus. Scénario `callpet`.

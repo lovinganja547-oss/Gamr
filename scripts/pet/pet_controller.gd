@@ -674,14 +674,59 @@ func on_tap(part: String) -> void:
 				model.emote("emo_heart" if pet["needs"]["affection"] > 50.0 else "emo_playful")
 				play_bow()
 
+## Appel par le joueur : interrompt tout et ramène l'animal devant lui, quoi qu'il arrive.
+## S'il est coincé (dans un meuble, hors de la pièce, sans chemin possible), il est replacé directement.
 func call_name() -> void:
-	if sleeping:
-		wake_up()
+	interrupt()
 	model.emote("emo_exclaim")
 	voice()
-	walk_to(player_pos + Vector3(randf_range(-0.2, 0.2), 0, -0.5), 1.6, func():
+	var dest := player_pos + Vector3(randf_range(-0.2, 0.2), 0, -0.5)
+	dest.x = clampf(dest.x, bounds.position.x + 0.3, bounds.end.x - 0.3)
+	dest.z = clampf(dest.z, bounds.position.y + 0.3, bounds.end.y - 0.3)
+	var here := Vector2(position.x, position.z)
+	var stuck := not bounds.grow(0.3).has_point(here) or absf(position.y) > 0.05
+	if nav != null:
+		var f := nav.nearest_free(Vector2(dest.x, dest.z))
+		dest = Vector3(f.x, 0, f.y)
+		if nav.is_blocked_point(here):
+			stuck = true
+		elif here.distance_to(f) > 0.4 and not nav.clear_line(here, f) and nav.find_path(here, f).is_empty():
+			stuck = true
+	var arrive := func():
 		face(player_pos)
-		do_posture("sit", 2.0))
+		do_posture("sit", 2.0)
+	if stuck:
+		_place_at(dest)
+		arrive.call()
+		return
+	walk_to(dest, 1.6, arrive)
+	_call_watch(_act_id, dest, arrive)
+
+func _place_at(dest: Vector3) -> void:
+	position = Vector3(dest.x, 0, dest.z)
+	_path = PackedVector2Array()
+	_on_arrive = Callable()
+	state = "idle"
+	speed = 0.0
+	model.move_speed = 0.0
+
+## Filet de sécurité : si l'animal n'avance plus vers le joueur, il est replacé.
+func _call_watch(id: int, dest: Vector3, arrive: Callable) -> void:
+	var last := position
+	var still := 0
+	for i in 16:
+		await get_tree().create_timer(0.5, false).timeout
+		if id != _act_id or state != "moving":
+			return
+		if position.distance_to(dest) < 0.35:
+			return
+		still = still + 1 if position.distance_to(last) < 0.08 else 0
+		last = position
+		if still >= 2:
+			break
+	if id == _act_id and position.distance_to(dest) >= 0.35:
+		_place_at(dest)
+		arrive.call()
 
 func praise() -> void:
 	var id := _begin("praise")

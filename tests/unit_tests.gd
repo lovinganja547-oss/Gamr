@@ -157,15 +157,26 @@ func _ready() -> void:
 	ok(GameData.walk_endurance(1) < GameData.walk_endurance(10), "endurance de promenade croissante avec le niveau")
 	for we in GameData.WALK_EDGES:
 		ok(GameData.WALK_NODES.has(we[0]) and GameData.WALK_NODES.has(we[1]), "rue %s-%s valide" % [we[0], we[1]])
-	ok(GameData.walk_neighbors("home") == ["cross"], "la maison donne sur le carrefour")
+	ok(GameData.walk_neighbors("home") == ["lane"], "la maison donne sur la rue des Lilas")
 	var wm := WalkMap.new()
 	wm.endurance = 2000.0
-	wm.route.assign(["home", "cross", "fountain", "shop"])
+	wm.route.assign(["home", "lane", "fountain", "shop"])
 	ok(wm.auto_return() and wm.is_complete() and wm.route[wm.route.size() - 1] == "home", "retour automatique à la maison")
-	wm.route.assign(["home", "cross", "fountain", "shop"])
+	wm.route.assign(["home", "lane", "fountain", "shop"])
 	wm.endurance = wm.used() + 10.0
 	ok(not wm.auto_return(), "retour refusé sans assez d'endurance")
 	wm.free()
+	ok(GameData.WALK_NODES.size() >= 20, "au moins 20 lieux sur la carte")
+	var reach := {"home": true}
+	var todo: Array = ["home"]
+	while not todo.is_empty():
+		var cur: String = todo.pop_back()
+		for nb in GameData.walk_neighbors(cur):
+			if not reach.has(nb):
+				reach[nb] = true
+				todo.append(nb)
+	ok(reach.size() == GameData.WALK_NODES.size(), "tous les lieux sont reliés à la maison")
+	ok(GS.walk_daily_take("test_x") and not GS.walk_daily_take("test_x") and GS.walk_daily_done("test_x"), "action de promenade une fois par jour")
 	# Sauvegarde : clés futures conservées, copie du jour
 	var fut := GS.sanitize({"version": 99, "nouvelle_option": 3, "pets": []})
 	ok(fut.has("nouvelle_option"), "clés d'une version plus récente conservées")

@@ -95,9 +95,16 @@ static func sb(c: Color, radius: int = 28, border: int = 0, border_c: Color = Co
 	s.content_margin_bottom = pad * 0.6
 	s.anti_aliasing = true
 	if shadow:
-		s.shadow_color = Color(0.3, 0.15, 0.05, 0.18)
-		s.shadow_size = 6
-		s.shadow_offset = Vector2(0, 4)
+		s.shadow_color = Color(0.25, 0.12, 0.04, 0.2)
+		s.shadow_size = 9
+		s.shadow_offset = Vector2(0, 5)
+		if border == 0 and c.a > 0.5:
+			# liseré plus sombre en bas : relief « touche » qui s'enfonce quand on appuie
+			s.border_width_bottom = 4
+			s.border_color = Color(c.r * 0.82, c.g * 0.8, c.b * 0.78, c.a)
+	elif border == 0 and c.a > 0.5 and pad > 0:
+		s.border_width_top = 3
+		s.border_color = Color(c.r * 0.82, c.g * 0.8, c.b * 0.78, c.a)
 	return s
 
 static func theme() -> Theme:

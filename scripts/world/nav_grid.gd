@@ -16,14 +16,37 @@ var inflate := 0.2
 func build(bounds: Rect2, obs: Array, radius: float) -> void:
 	area = bounds
 	obstacles = obs
-	CELL = clampf(sqrt(bounds.get_area() / 6000.0), 0.1, 0.25)
+	# grands lieux : cellules un peu plus larges pour garder une grille légère
+	CELL = clampf(sqrt(bounds.get_area() / 6000.0), 0.1, 0.25 if bounds.get_area() < 1200.0 else 0.4)
 	inflate = radius
 	w = maxi(2, int(ceil(bounds.size.x / CELL)))
 	h = maxi(2, int(ceil(bounds.size.y / CELL)))
 	blocked.resize(w * h)
-	for j in h:
-		for i in w:
-			blocked[j * w + i] = 1 if is_blocked_point(_center(i, j)) else 0
+	blocked.fill(0)
+	# chaque obstacle ne marque que les cellules de son voisinage (rapide même avec des centaines d'obstacles)
+	for o in obs:
+		var box: Rect2
+		if o.has("rect"):
+			box = (o["rect"] as Rect2).grow(radius)
+		else:
+			var rr := float(o["r"]) + radius
+			var c: Vector2 = o["c"]
+			box = Rect2(c.x - rr, c.y - rr, rr * 2.0, rr * 2.0)
+		var i0 := clampi(int(floor((box.position.x - area.position.x) / CELL)), 0, w - 1)
+		var i1 := clampi(int(floor((box.end.x - area.position.x) / CELL)), 0, w - 1)
+		var j0 := clampi(int(floor((box.position.y - area.position.y) / CELL)), 0, h - 1)
+		var j1 := clampi(int(floor((box.end.y - area.position.y) / CELL)), 0, h - 1)
+		if box.end.x < area.position.x or box.end.y < area.position.y or box.position.x > area.end.x or box.position.y > area.end.y:
+			continue
+		for j in range(j0, j1 + 1):
+			for i in range(i0, i1 + 1):
+				if blocked[j * w + i] == 1:
+					continue
+				var p := _center(i, j)
+				if o.has("rect"):
+					blocked[j * w + i] = 1
+				elif p.distance_to(o["c"]) < float(o["r"]) + radius:
+					blocked[j * w + i] = 1
 
 func _center(i: int, j: int) -> Vector2:
 	return area.position + Vector2((i + 0.5) * CELL, (j + 0.5) * CELL)

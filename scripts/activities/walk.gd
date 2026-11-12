@@ -75,7 +75,7 @@ func _start() -> void:
 
 # ------------------------------------------------------------------ carte : tracer la promenade
 func _map_picker() -> void:
-	info_label.text = tr("Tracez la promenade du doigt, de lieu en lieu, et revenez à la maison.")
+	info_label.text = tr("Tracez la balade du doigt et revenez à la maison.")
 	var p := GameState.active_pet()
 	var v := UiKit.vbox(8)
 	var endu := GameData.walk_endurance(GameState.pet_level()) * lerpf(0.55, 1.0, float(p["needs"]["energy"]) / 100.0)
@@ -87,7 +87,7 @@ func _map_picker() -> void:
 	v.add_child(eb)
 	map_ui = WalkMap.new()
 	map_ui.endurance = endu
-	map_ui.custom_minimum_size = Vector2(0, 700)
+	map_ui.custom_minimum_size = Vector2(0, 820)
 	map_ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_child(map_ui)
 	var h := UiKit.hbox(8)
@@ -129,7 +129,7 @@ func _begin_plan(pl: Array) -> void:
 	var diff := 1 if total < 400.0 else (2 if total < 800.0 else 3)
 	prev_env = main.env_id if main.env_id != "town" else "house"
 	_begin_route({"id": "map", "env": "town", "name": "Promenade du quartier", "length": total, "diff": diff,
-		"finds": clampi(int(total / 120.0), 2, 8), "plan": plan})
+		"finds": clampi(int(total / 110.0), 2, 12), "plan": plan})
 
 ## Chemin balisé qui suit les rues du trajet tracé.
 func _build_plan_path(pl: Array) -> void:
@@ -794,6 +794,14 @@ func _check_pois() -> void:
 		elif d > 3.0:
 			po["inside"] = false
 
+## Paie un service ; affiche un message si les pièces manquent.
+func _pay(cost: int) -> bool:
+	if GameState.spend(cost):
+		Audio.play("coin", 0.05, -6.0)
+		return true
+	main.toast(tr("Il vous manque des pièces (%d nécessaires).") % cost)
+	return false
+
 func _arrive(id: String, pos: Vector3) -> void:
 	var nd: Dictionary = GameData.WALK_NODES[id]
 	var kind := str(nd["kind"])
@@ -806,36 +814,136 @@ func _arrive(id: String, pos: Vector3) -> void:
 		GameState.change_need("energy", 4.0)
 		main.toast(tr("%s se désaltère à la fontaine.") % pet_name())
 		return
-	if kind == "park" and npcs.size() < 2:
+	if kind in ["park", "cafe"] and npcs.size() < 3:
 		_trigger("meet")
-	var v := UiKit.vbox(12)
+	# actions du lieu : [icône, libellé, activité à débloquer ("" = libre), action, disponible ?]
 	var acts: Array = []
 	match kind:
 		"shop":
-			acts.append(["shop", "Entrer dans la boutique", "", func(): Panels.shop("food")])
-		"park", "beach":
-			acts.append(["throw", "Jouer à la balle", "fetch", func(): _sub_fetch(pos, kind)])
+			acts.append(["shop", tr("Entrer dans la boutique"), "", func(): Panels.shop("food"), true])
+		"bakery":
+			var free := not GameState.walk_daily_done("bakery")
+			acts.append(["biscuit", tr("Goûter le biscuit offert") if free else tr("Biscuit déjà offert aujourd'hui"), "", func():
+				if GameState.walk_daily_take("bakery"):
+					GameState.change_need("hunger", 15.0)
+					GameState.change_need("mood", 8.0)
+					pet.model.emote("emo_yum")
+					main.toast(tr("%s se régale ! Revenez demain pour un autre biscuit.") % pet_name()), free])
+			acts.append(["treat", tr("Acheter des friandises"), "", func(): Panels.shop("treat"), true])
+		"market":
+			acts.append(["sell", tr("Vendre mes trouvailles"), "", func(): Panels.shop("sell"), true])
+			acts.append(["feed", tr("Acheter à manger"), "", func(): Panels.shop("food"), true])
+		"cafe":
+			acts.append(["bottle", tr("Faire une pause (5 pièces)"), "", func():
+				if _pay(5):
+					GameState.change_need("energy", 12.0)
+					GameState.change_need("thirst", 25.0)
+					GameState.change_need("mood", 5.0)
+					pet.do_posture("lie", 2.5)
+					main.toast(tr("Une gamelle d'eau fraîche et un peu de repos : %s repart en forme.") % pet_name()), true])
+		"groomer":
+			acts.append(["brush", tr("Toilettage complet (25 pièces)"), "", func():
+				if _pay(25):
+					GameState.change_need("clean", 100.0)
+					GameState.change_need("mood", 6.0)
+					pet.model.set_dirt(0.0)
+					pet.model.emote("emo_sparkle")
+					pet.shake_off()
+					main.toast(tr("%s ressort tout propre et parfumé.") % pet_name()), true])
+		"vet":
+			acts.append(["health", tr("Visite de contrôle (30 pièces)"), "", func():
+				if _pay(30):
+					GameState.change_need("health", 100.0)
+					pet.model.emote("emo_heart")
+					main.toast(tr("Tout va bien : %s est en pleine santé.") % pet_name()), true])
+		"school":
+			acts.append(["training", tr("Montrer un ordre au maître-chien"), "", func(): _training_challenge(), true])
+		"pond":
+			acts.append(["water", tr("Boire à l'étang"), "", func():
+				pet.face(main.env_root.get_meta("pond", pos))
+				pet.eat("water", 1.6)
+				GameState.change_need("thirst", 40.0), true])
+			acts.append(["fish", tr("Patauger au bord de l'eau"), "", func():
+				GameState.change_need("mood", 10.0)
+				GameState.change_need("clean", -8.0)
+				GameState.spend_energy("calm")
+				Audio.play("splash")
+				pet.shake_off()
+				main.toast(tr("%s s'éclabousse joyeusement !") % pet_name()), true])
+		"farm":
+			var fa := not GameState.walk_daily_done("farm")
+			acts.append(["feather", tr("Saluer les animaux de la ferme") if fa else tr("Les animaux font la sieste, revenez demain"), "", func():
+				if GameState.walk_daily_take("farm"):
+					GameState.change_need("mood", 8.0)
+					GameState.add_relation(3)
+					var pool: Array = GameData.collectibles("garden")
+					if not pool.is_empty():
+						var fid: String = pool[rng.randi() % pool.size()]
+						GameState.add_item(fid, 1)
+						main.toast("[i:%s] " % GameData.item(fid)["icon"] + tr("La fermière vous offre : %s") % tr(GameData.item(fid)["name"]))
+					pet.play_bow()
+					pet.model.hearts(2), fa])
+		"meadow":
+			acts.append(["throw", tr("Jouer à la balle dans le pré"), "fetch", func(): _sub_fetch(pos, kind), true])
+		"park":
+			acts.append(["throw", tr("Jouer à la balle"), "fetch", func(): _sub_fetch(pos, kind), true])
+		"beach":
+			acts.append(["throw", tr("Jouer à la balle sur le sable"), "fetch", func(): _sub_fetch(pos, kind), true])
+			acts.append(["water", tr("Courir dans les vagues"), "", func():
+				GameState.change_need("mood", 10.0)
+				GameState.change_need("clean", 6.0)
+				GameState.spend_energy("calm")
+				Audio.play("splash")
+				pet.shake_off()
+				main.toast(tr("%s adore les vagues !") % pet_name()), true])
 		"forest":
-			acts.append(["search", "Cache-cache en forêt", "search", func(): _sub_search()])
+			acts.append(["search", tr("Cache-cache en forêt"), "search", func(): _sub_search(), true])
 		"center":
-			acts.append(["agility", "Parcours d'agilité", "agility", func(): _sub_agility()])
+			acts.append(["agility", tr("Parcours d'agilité"), "agility", func(): _sub_agility(), true])
 		"comp":
-			acts.append(["trophy", "S'inscrire à un concours", "competition", func():
+			acts.append(["trophy", tr("S'inscrire à un concours"), "competition", func():
 				_open_comp = true
-				_finish(true)])
+				_finish(true), true])
+		"viewpoint":
+			var va := not GameState.walk_daily_done("viewpoint")
+			acts.append(["sparkle", tr("Admirer la vue") if va else tr("Vue déjà admirée aujourd'hui"), "", func():
+				if GameState.walk_daily_take("viewpoint"):
+					GameState.change_need("mood", 10.0)
+					GameState.add_xp(10)
+					pet.model.emote("emo_sparkle")
+					main.toast(tr("Quel panorama ! +10 pts d'expérience")), va])
+			acts.append(["camera", tr("Prendre une photo souvenir"), "", func(): main.take_photo(), true])
+		"lighthouse":
+			var la := not GameState.walk_daily_done("lighthouse")
+			acts.append(["search", tr("Fouiller les rochers du phare") if la else tr("Rochers déjà fouillés aujourd'hui"), "", func():
+				if GameState.walk_daily_take("lighthouse"):
+					var rares: Array = GameData.collectibles("beach", 3)
+					if rares.is_empty():
+						rares = GameData.collectibles("beach", 2)
+					if rares.is_empty():
+						rares = GameData.collectibles("beach")
+					if not rares.is_empty():
+						var rid: String = rares[rng.randi() % rares.size()]
+						GameState.add_item(rid, 1)
+						collected += 1
+						Audio.play("success")
+						pet.model.emote("emo_star")
+						main.toast("[i:%s] " % GameData.item(rid)["icon"] + tr("Trésor du phare : %s") % tr(GameData.item(rid)["name"])), la])
+	var v := UiKit.vbox(12)
 	for a in acts:
 		var cb: Callable = a[3]
 		var key: String = a[2]
-		var ok := key == "" or GameState.activity_unlocked(key)
-		var b := UiKit.button("[i:%s] %s" % [a[0], tr(a[1])], func():
+		var ok: bool = (key == "" or GameState.activity_unlocked(key)) and bool(a[4])
+		var b := UiKit.button("[i:%s] %s" % [a[0], a[1]], func():
 			main.close_panel()
 			cb.call(), UiKit.C_ACCENT if ok else UiKit.C_DISABLED, 26, 84)
 		b.disabled = not ok
 		v.add_child(b)
-		if not ok:
+		if key != "" and not GameState.activity_unlocked(key):
 			v.add_child(UiKit.label("[i:lock] " + tr("Débloqué au niveau %d de votre compagnon") % int(GameData.ACTIVITY_LEVELS[key]), 21, UiKit.C_DANGER))
 	if kind == "comp":
 		v.add_child(UiKit.label(tr("La promenade se termine ici et compte comme réussie."), 20, UiKit.C_SUB))
+	v.add_child(UiKit.label("[i:coin] " + tr("Vos pièces : %d") % GameState.coins(), 22, UiKit.C_SUB))
 	v.add_child(UiKit.button("[i:walk] " + tr("Continuer la promenade"), func(): main.close_panel(), UiKit.C_BLUE, 24, 76))
 	Audio.play("chime", 0.05, -6.0)
 	main.open_panel("[i:%s] %s" % [nd["icon"], tr(str(nd["name"]))], v)
@@ -909,7 +1017,10 @@ func _on_sub_done(score: float) -> void:
 	_update_info()
 
 func _sub_fetch(pos: Vector3, kind: String) -> void:
-	var r := Rect2(pos.x - 2.5, pos.z - 3.6, 5.0, 4.4) if kind == "park" else Rect2(pos.x - 3.5, pos.z - 4.5, 7.0, 5.0)
+	var r := Rect2(pos.x - 2.5, pos.z - 3.6, 5.0, 4.4)
+	match kind:
+		"beach": r = Rect2(pos.x - 3.5, pos.z - 3.2, 7.0, 4.6)
+		"meadow": r = Rect2(pos.x - 4.5, pos.z - 2.4, 9.0, 4.6)
 	main.env_root.set_meta("throw_area", r)
 	_run_sub(FetchGame.new(false))
 

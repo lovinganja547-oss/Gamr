@@ -127,7 +127,7 @@ func change_env(id: String, keep_pet_pos: bool = false) -> void:
 		pet_ctrl.visible = false
 	cam_rig.reset_view(3.2, -0.32, 0.0)
 	cam_rig.bounds_box = env_root.get_meta("cam_box", AABB())
-	cam_rig.obstacles = env_root.get_meta("obstacles", []).filter(func(o): return o.has("c") and float(o["r"]) >= 0.2)
+	cam_rig.obstacles = env_root.get_meta("obstacles", []).filter(func(o): return o.has("c") and float(o["r"]) >= 0.6 and bool(o.get("cam", true)))
 	cam_rig.follow = true
 	cam_rig.focus_offset = Vector3(0, 0.3, 0)
 	if pet_ctrl and pet_ctrl.visible:

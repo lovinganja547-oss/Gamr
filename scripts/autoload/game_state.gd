@@ -67,6 +67,7 @@ func default_data() -> Dictionary:
 		"trophies": [], "photos": [],
 		"search_level": 0,
 		"search_daily": {"day": "", "done": false, "seed": 0},
+		"walk_daily": {"day": "", "done": []},
 		"collection_seen": [],
 		"bowls": {"food": 0.0, "water": 0.0},
 		"tutorial": {"done": false},
@@ -385,6 +386,23 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_APPLICATION_RESUMED:
 		apply_offline()
 		ensure_daily()
+
+## Action de promenade faite une fois par jour (biscuit offert, trésor du phare…). Renvoie vrai si elle est encore disponible, et la marque comme faite.
+func walk_daily_take(id: String) -> bool:
+	var wd: Dictionary = data.get("walk_daily", {})
+	if str(wd.get("day", "")) != today() or not (wd.get("done") is Array):
+		wd = {"day": today(), "done": []}
+	if (wd["done"] as Array).has(id):
+		data["walk_daily"] = wd
+		return false
+	(wd["done"] as Array).append(id)
+	data["walk_daily"] = wd
+	mark_dirty()
+	return true
+
+func walk_daily_done(id: String) -> bool:
+	var wd: Dictionary = data.get("walk_daily", {})
+	return str(wd.get("day", "")) == today() and (wd.get("done") is Array) and (wd["done"] as Array).has(id)
 
 func mark_dirty() -> void:
 	_dirty = true

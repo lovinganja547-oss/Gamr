@@ -202,9 +202,10 @@ static func scatter(parent: Node3D, mesh: Mesh, c: Color, count: int, area: Rect
 	parent.add_child(mmi)
 
 ## Enregistre un obstacle de navigation (cercle ou rectangle au sol) sur la racine du lieu.
-static func obs_circle(root: Node, pos: Vector3, radius: float) -> void:
+## cam = false : bloque la marche mais pas la caméra (eau, rivière).
+static func obs_circle(root: Node, pos: Vector3, radius: float, cam: bool = true) -> void:
 	if root.has_meta("obstacles"):
-		(root.get_meta("obstacles") as Array).append({"c": Vector2(pos.x, pos.z), "r": radius})
+		(root.get_meta("obstacles") as Array).append({"c": Vector2(pos.x, pos.z), "r": radius, "cam": cam})
 
 static func obs_rect(root: Node, center: Vector3, size_x: float, size_z: float) -> void:
 	if root.has_meta("obstacles"):
@@ -280,6 +281,8 @@ static func interactive(node: Node3D, part: String, size: Vector3, offset: Vecto
 # ================================================================== Environnements
 static func build(env_id: String, quality: int) -> Node3D:
 	cur_quality = quality
+	Kit.q = quality
+	Kit._pending.clear()
 	var root := Node3D.new()
 	root.name = "Env_" + env_id
 	root.set_meta("bounds", Rect2(-2.5, -2.0, 5.0, 4.5))
@@ -289,13 +292,14 @@ static func build(env_id: String, quality: int) -> Node3D:
 	match env_id:
 		"house": _house(root, quality)
 		"garden": _garden(root, quality)
-		"park": _park(root, quality)
-		"beach": _beach(root, quality)
-		"forest": _forest(root, quality)
-		"center": _center(root, quality)
-		"shelter": _shelter(root, quality)
-		"field": _field(root, quality)
-		"town": _town(root, quality)
+		"park": Places.park(root, quality)
+		"beach": Places.beach(root, quality)
+		"forest": Places.forest(root, quality)
+		"center": Places.center(root, quality)
+		"shelter": Places.shelter(root, quality)
+		"field": Places.field(root, quality)
+		"town": Places.town(root, quality)
+	Kit.flush(root)
 	return root
 
 static func _density(q: int) -> float:
@@ -306,30 +310,77 @@ static func _house(r: Node3D, q: int) -> void:
 	var wall_c: Color = GameData.item(str(deco.get("wall", "wall_cream"))).get("color", Color(0.98, 0.93, 0.84))
 	r.set_meta("bounds", Rect2(-2.3, -1.9, 4.6, 4.0))
 	r.set_meta("indoor", true)
-	ground(r, Vector2(7, 7), Color(1, 1, 1), tex("wood_planks"), 2.2)
-	var walls: Array = [box(r, Vector3(7, 3.2, 0.2), Vector3(0, 1.6, -2.6), wall_c, Vector3.ZERO, false),
-		box(r, Vector3(0.2, 3.2, 7), Vector3(-3.0, 1.6, 0), wall_c.darkened(0.06), Vector3.ZERO, false),
-		box(r, Vector3(0.2, 3.2, 7), Vector3(3.0, 1.6, 0), wall_c.darkened(0.06), Vector3.ZERO, false)]
-	for w in walls:
-		var wmi: MeshInstance3D = w
-		wmi.material_override = tex_mat((wmi.material_override as StandardMaterial3D).albedo_color, "plaster", 0.6)
-	for sx in [-2.88, 2.88]:
-		box(r, Vector3(0.05, 0.14, 7), Vector3(sx, 0.07, 0), Color(1, 1, 1))
-	box(r, Vector3(7, 0.15, 0.25), Vector3(0, 0.07, -2.47), Color(1, 1, 1))
-	# Fenêtre
-	box(r, Vector3(1.5, 1.1, 0.06), Vector3(0.9, 1.75, -2.48), Color(1, 1, 1))
-	var glass := box(r, Vector3(1.3, 0.9, 0.05), Vector3(0.9, 1.75, -2.45), Color(0.7, 0.88, 1.0))
-	var gm := m(Color(0.7, 0.88, 1.0)).duplicate() as StandardMaterial3D
-	gm.emission_enabled = true
-	gm.emission = Color(0.55, 0.75, 0.95)
-	gm.emission_energy_multiplier = 0.5
-	glass.material_override = gm
-	box(r, Vector3(0.05, 0.9, 0.06), Vector3(0.9, 1.75, -2.42), Color(1, 1, 1))
-	box(r, Vector3(1.3, 0.05, 0.06), Vector3(0.9, 1.75, -2.42), Color(1, 1, 1))
-	# Tapis
+	r.set_meta("look", "indoor")
+	var fl := ground(r, Vector2(7, 7), Color(1, 1, 1), tex("wood_planks"), 1.7)
+	var fm := fl.material_override as StandardMaterial3D
+	fm.roughness = 0.55
+	fm.metallic_specular = 0.35
+	if q >= 1 and tex("wood_planks_n"):
+		fm.normal_enabled = true
+		fm.normal_texture = tex("wood_planks_n")
+		fm.normal_scale = 0.6
+	var b := MeshBatch.new()
+	var id3 := Transform3D()
+	var white := Color(0.98, 0.97, 0.94)
+	# Murs : papier peint, soubassement en lambris clair, cimaise, plinthe et corniche
+	var faces := [
+		[Transform3D(Basis(), Vector3(0, 0, -2.5)), 7.0, wall_c],
+		[Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(-2.9, 0, 0)), 7.0, wall_c.darkened(0.05)],
+		[Transform3D(Basis(Vector3.UP, -PI * 0.5), Vector3(2.9, 0, 0)), 7.0, wall_c.darkened(0.05)],
+	]
+	for f in faces:
+		var ft: Transform3D = f[0]
+		var fw: float = f[1]
+		var fc: Color = f[2]
+		b.box("t:wallpaper:0.55", ft, Vector3(fw, 3.2, 0.2), Vector3(0, 1.6, -0.1), fc, 0.0, false)
+		b.box("flat", ft, Vector3(fw, 0.92, 0.04), Vector3(0, 0.46, 0.02), Color(0.95, 0.93, 0.88), 0.1)
+		b.box("flat", ft, Vector3(fw, 0.07, 0.07), Vector3(0, 0.95, 0.035), white)
+		b.box("flat", ft, Vector3(fw, 0.14, 0.06), Vector3(0, 0.07, 0.05), white)
+		b.box("flat", ft, Vector3(fw, 0.12, 0.08), Vector3(0, 3.1, 0.04), white)
+		var np := int(fw / 0.9)
+		for k in np:
+			b.box("flat", ft, Vector3(0.03, 0.74, 0.02), Vector3(-fw * 0.5 + (k + 0.5) * fw / np, 0.5, 0.045), white.darkened(0.06))
+	# Fenêtres lumineuses avec rideaux
+	var curtain_c: Color = GameData.item(str(deco.get("sofa", "sofa_coral"))).get("color", Color(0.95, 0.55, 0.45)).lightened(0.25)
+	for wdef in [[faces[0][0], 0.9, 1.5, 1.15], [faces[1][0], -0.6, 1.2, 1.15]]:
+		var wf: Transform3D = wdef[0]
+		var wx: float = wdef[1]
+		var ww: float = wdef[2]
+		var wh: float = wdef[3]
+		var wy := 1.85
+		b.box("flat", wf, Vector3(ww + 0.18, wh + 0.18, 0.08), Vector3(wx, wy, 0.03), white)
+		b.box("emit", wf, Vector3(ww, wh, 0.03), Vector3(wx, wy, 0.06), Color(0.72, 0.88, 1.0))
+		b.box("flat", wf, Vector3(0.05, wh, 0.03), Vector3(wx, wy, 0.08), white)
+		b.box("flat", wf, Vector3(ww, 0.05, 0.03), Vector3(wx, wy + wh * 0.12, 0.08), white)
+		b.box("flat", wf, Vector3(ww + 0.36, 0.06, 0.2), Vector3(wx, wy - wh * 0.5 - 0.1, 0.1), white)
+		b.box("metal", wf, Vector3(ww + 0.9, 0.035, 0.035), Vector3(wx, wy + wh * 0.5 + 0.2, 0.12), Color(0.55, 0.42, 0.3))
+		for sd in [-1.0, 1.0]:
+			for fold in 3:
+				b.box("t:fabric:1.4", wf, Vector3(0.13, wh + 0.5, 0.05 + fold * 0.012), Vector3(wx + sd * (ww * 0.5 + 0.1 + fold * 0.12), wy - 0.06, 0.11), curtain_c.darkened(fold * 0.05))
+	# Étagère à livres
+	var sf: Transform3D = faces[2][0]
+	b.box("t:wood_planks:0.5", sf, Vector3(1.3, 0.05, 0.24), Vector3(0.8, 1.7, 0.12), Color(0.82, 0.62, 0.44))
+	for k in 8:
+		var bh := 0.2 + (k % 3) * 0.04
+		b.box("flat", sf, Vector3(0.07, bh, 0.16), Vector3(0.3 + k * 0.085, 1.725 + bh * 0.5, 0.12), Color.from_hsv(fposmod(k * 0.17, 1.0), 0.45, 0.85))
+	b.commit(r, false, "Walls")
+	# Tapis à motifs
 	var rug_c: Color = GameData.item(str(deco.get("rug", "rug_round"))).get("color", Color(0.85, 0.55, 0.45))
-	cyl(r, 1.2, 1.2, 0.02, Vector3(0, 0.01, 0.2), rug_c, 32)
-	cyl(r, 0.9, 0.9, 0.022, Vector3(0, 0.012, 0.2), rug_c.lightened(0.18), 32)
+	var rug := MeshInstance3D.new()
+	var rq := PlaneMesh.new()
+	rq.size = Vector2(2.6, 2.6)
+	rug.mesh = rq
+	var rm := StandardMaterial3D.new()
+	rm.albedo_texture = tex("rug")
+	rm.albedo_color = rug_c.lightened(0.12)
+	rm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rm.roughness = 1.0
+	rm.metallic_specular = 0.0
+	rm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	rug.material_override = rm
+	rug.position = Vector3(0, 0.012, 0.2)
+	rug.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	r.add_child(rug)
 	# Canapé
 	var sofa_c: Color = GameData.item(str(deco.get("sofa", "sofa_coral"))).get("color", Color(0.95, 0.55, 0.45))
 	var sofa := Node3D.new()
@@ -428,159 +479,79 @@ static func _house(r: Node3D, q: int) -> void:
 	r.set_meta("ambient", Color(1.0, 0.92, 0.85))
 
 static func _garden(r: Node3D, q: int) -> void:
-	var d := _density(q)
-	ground(r, Vector2(30, 30), Color(1, 1, 1), tex("grass"), 7.0)
-	var tuft := _cone_mesh(0.05, 0.0, 0.18)
-	scatter(r, tuft, Color(0.42, 0.7, 0.32), int(500 * d), Rect2(-7, -6, 14, 10), 11, Vector2(0.7, 1.3), Rect2(-2.5, -1.5, 5, 3.5))
-	var flower := SphereMesh.new()
-	flower.radius = 0.05; flower.height = 0.1; flower.radial_segments = 6; flower.rings = 3
-	scatter(r, flower, Color.WHITE, int(120 * d), Rect2(-6, -6, 12, 4), 12, Vector2(0.8, 1.2), Rect2(), [Color(1, 0.85, 0.3), Color(1, 0.5, 0.6), Color(0.95, 0.95, 1), Color(0.7, 0.5, 1)])
-	# Clôture
-	var fc := Color(0.98, 0.96, 0.92)
-	fence_line(r, Vector3(-4.5, 0, -3.5), Vector3(4.5, 0, -3.5), fc)
-	fence_line(r, Vector3(-4.5, 0, -3.5), Vector3(-4.5, 0, 3), fc)
-	fence_line(r, Vector3(4.5, 0, -3.5), Vector3(4.5, 0, 3), fc)
+	r.set_meta("look", "morning")
+	var gp := Kit.ground(r, 110.0, {"rect": Rect2(-16, -16, 32, 32), "r": "pavers", "g": "dirt", "uv_r": 0.55, "tint_r": Color(0.95, 0.92, 0.88)})
+	var b := MeshBatch.new()
+	# Maison familiale au fond, allée dallée jusqu'au portillon
+	Kit.house(b, r, Vector3(0, 0, -7.6), 0.0, {"w": 7.2, "d": 4.2, "floors": 2, "timber": true, "wall_c": Color(0.98, 0.94, 0.84),
+		"roof_c": Color(0.80, 0.42, 0.34), "shutter_c": Color(0.33, 0.52, 0.58), "win": 4, "door_x": 0.0})
+	gp.path(Vector2(0, -5.3), Vector2(0, -3.9), 1.3, 0)
+	gp.path(Vector2(0, -3.9), Vector2(0.3, 3.6), 1.1, 0)
+	gp.disc(Vector2(0, -4.6), 1.5, 0)
+	# Clôture blanche et portillon ouvert
+	var fc := Color(0.98, 0.97, 0.94)
+	Kit.fence(b, Vector3(-5.2, 0, -3.9), Vector3(-0.9, 0, -3.9), "picket", fc)
+	Kit.fence(b, Vector3(0.9, 0, -3.9), Vector3(5.2, 0, -3.9), "picket", fc)
+	Kit.fence(b, Vector3(-5.2, 0, 3.6), Vector3(-5.2, 0, -3.9), "picket", fc)
+	Kit.fence(b, Vector3(5.2, 0, -3.9), Vector3(5.2, 0, 3.6), "picket", fc)
+	obs_rect(r, Vector3(-3.05, 0, -3.9), 4.3, 0.12)
+	obs_rect(r, Vector3(3.05, 0, -3.9), 4.3, 0.12)
+	obs_rect(r, Vector3(-5.2, 0, 0), 0.12, 7.5)
+	obs_rect(r, Vector3(5.2, 0, 0), 0.12, 7.5)
 	# Niche
 	var k := Node3D.new()
-	k.position = Vector3(2.6, 0, -2.4)
+	k.position = Vector3(2.9, 0, -2.5)
 	obs_circle(r, k.position, 0.62)
 	k.rotation.y = -0.4
 	r.add_child(k)
 	prop(k, "kennel", Vector3.ZERO, Color(0.86, 0.58, 0.38), 0.0, "wood_planks", 2.5)
-	prop(k, "kennel_roof", Vector3.ZERO, Color(0.85, 0.34, 0.3))
+	prop(k, "kennel_roof", Vector3.ZERO, Color(0.85, 0.34, 0.3), 0.0, "roof_tiles", 2.2)
 	box(k, Vector3(0.36, 0.48, 0.04), Vector3(0, 0.25, 0.43), Color(0.22, 0.16, 0.13), Vector3.ZERO, false)
 	interactive(k, "bed", Vector3(1, 1, 1), Vector3(0, 0.5, 0))
+	gp.shade(Vector2(2.9, -2.5), 1.3, 0.6)
+	gp.soft(Vector2(2.75, -1.8), 0.9, 1, 0.9)
 	r.set_meta("bed", Vector3(2.6, 0, -1.7))
-	tree(r, Vector3(-3.6, 0, -4.8), 3.2, Color(0.35, 0.65, 0.3), 3)
-	tree(r, Vector3(4.2, 0, -5.5), 3.6, Color(0.4, 0.7, 0.32), 5)
-	bush(r, Vector3(-3.6, 0, -2.8), 0.8, Color(0.35, 0.62, 0.3))
-	# Potager
-	box(r, Vector3(1.6, 0.25, 0.8), Vector3(-2.2, 0.12, -2.7), Color(0.55, 0.38, 0.25))
-	obs_rect(r, Vector3(-2.2, 0, -2.7), 1.65, 0.85)
-	for i in 5:
-		ball(r, 0.1, Vector3(-2.8 + i * 0.3, 0.32, -2.7), Color(0.95, 0.45, 0.25) if i % 2 else Color(0.4, 0.75, 0.3))
-	# Maison en arrière-plan
-	box(r, Vector3(6, 3, 0.4), Vector3(0, 1.5, -7), Color(0.98, 0.9, 0.78))
-	box(r, Vector3(6.6, 0.3, 3), Vector3(0, 3.3, -6.5), Color(0.8, 0.35, 0.3), Vector3(0.35, 0, 0))
-	box(r, Vector3(1, 1.8, 0.1), Vector3(0, 0.9, -6.78), Color(0.55, 0.35, 0.25))
+	# Potager surélevé
+	var pxf := Transform3D(Basis(), Vector3(-2.9, 0, -2.8))
+	for sx in [-0.86, 0.86]:
+		b.box("t:wood_planks:1.2", pxf, Vector3(0.08, 0.32, 1.0), Vector3(sx, 0.16, 0), Color(0.68, 0.5, 0.34), 0.2)
+	for sz in [-0.5, 0.5]:
+		b.box("t:wood_planks:1.2", pxf, Vector3(1.8, 0.32, 0.08), Vector3(0, 0.16, sz), Color(0.68, 0.5, 0.34), 0.2)
+	b.box("t:dirt:0.8", pxf, Vector3(1.66, 0.24, 0.9), Vector3(0, 0.13, 0), Color(0.62, 0.5, 0.42))
+	for i in 10:
+		var vx := -0.66 + (i % 5) * 0.33
+		var vz := -0.22 + (i / 5) * 0.44
+		b.cyl("flat", pxf, 0.11, 0.02, 0.2, Vector3(vx, 0.25, vz), Color(0.34, 0.62, 0.28), 6, 0.0, false)
+		if i % 2 == 0:
+			b.box("flat", pxf, Vector3(0.09, 0.09, 0.09), Vector3(vx + 0.04, 0.33, vz), Color(0.92, 0.3, 0.25) if i % 4 == 0 else Color(0.98, 0.62, 0.2))
+	obs_rect(r, Vector3(-2.9, 0, -2.8), 1.85, 1.05)
+	gp.shade(Vector2(-2.9, -2.8), 1.6, 0.5)
+	# Arbres, haies et massifs
+	Kit.tree(r, Vector3(-4.0, 0, -5.4), 4.6, "a", Color(0.36, 0.62, 0.27), 3)
+	Kit.tree(r, Vector3(4.6, 0, -5.9), 5.2, "b", Color(0.40, 0.64, 0.28), 5)
+	Kit.tree(r, Vector3(-7.5, 0, 0.5), 5.0, "c", Color(0.34, 0.58, 0.26), 7, false)
+	Kit.tree(r, Vector3(8.0, 0, -1.5), 5.6, "a", Color(0.38, 0.6, 0.27), 8, false)
+	Kit.bush(r, Vector3(-4.4, 0, -3.0), 0.75, Color(0.33, 0.58, 0.28))
+	Kit.bush(r, Vector3(4.5, 0, 1.4), 0.7, Color(0.36, 0.6, 0.3))
+	Kit.bush(r, Vector3(-4.5, 0, 2.2), 0.65, Color(0.40, 0.62, 0.30))
+	Kit.hedge(r, Vector3(-9.0, 0, -4.4), Vector3(-5.6, 0, -4.4), 1.1)
+	Kit.hedge(r, Vector3(5.6, 0, -4.4), Vector3(9.0, 0, -4.4), 1.1)
+	Kit.rock(r, Vector3(4.3, 0, -3.2), 0.45, "a")
+	Kit.rock(r, Vector3(-1.6, 0, -3.3), 0.3, "b", false)
+	# Maisons voisines (profondeur du décor)
+	Kit.house(b, r, Vector3(-13.5, 0, -8.5), 0.5, {"w": 5.0, "d": 3.8, "floors": 1, "wall_c": Color(0.95, 0.86, 0.74), "roof_c": Color(0.52, 0.42, 0.40)})
+	Kit.house(b, r, Vector3(13.0, 0, -9.5), -0.4, {"w": 5.4, "d": 4.0, "floors": 2, "wall": "t:brick:0.7", "wall_c": Color(1, 0.95, 0.9), "roof_c": Color(0.42, 0.44, 0.50), "shutter_c": Color(0.9, 0.88, 0.82)})
+	Kit.lamp(b, r, Vector3(1.5, 0, -4.4))
+	b.commit(r)
+	var keep := func(p: Vector2) -> bool: return not Rect2(-2.6, -1.6, 5.2, 3.6).has_point(p)
+	Kit.grass(r, Rect2(-12, -11, 24, 16), 1700, 11, keep)
+	Kit.flowers(r, Rect2(-5.0, -3.7, 10.0, 1.3), 90, 12)
+	Kit.flowers(r, Rect2(-11, -10, 22, 14), 160, 13, keep)
+	Kit.backdrop(r, {"radius": 34.0, "near": Color(0.38, 0.60, 0.32), "far": Color(0.60, 0.76, 0.70)})
+	Kit.ambient(r, "pollen", Rect2(-6, -5, 12, 9))
 	r.set_meta("bounds", Rect2(-3.8, -2.8, 7.6, 5.0))
 	r.set_meta("walk_area", Rect2(-4.2, -3.2, 8.4, 6.0))
 	r.set_meta("spots_area", Rect2(-3.5, -2.8, 7.0, 4.5))
-
-static func _park(r: Node3D, q: int) -> void:
-	var d := _density(q)
-	ground(r, Vector2(40, 40), Color(0.95, 0.97, 0.95), tex("grass"), 9.0)
-	var path := MeshInstance3D.new()
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(2.0, 40)
-	path.mesh = pm
-	path.material_override = tex_mat(Color(1, 1, 1), "dirt", 1.2)
-	path.position = Vector3(3.5, 0.005, 0)
-	path.rotation.y = 0.15
-	r.add_child(path)
-	var tuft := _cone_mesh(0.05, 0.0, 0.2)
-	scatter(r, tuft, Color(0.4, 0.68, 0.3), int(700 * d), Rect2(-10, -10, 20, 16), 21, Vector2(0.7, 1.4), Rect2(-3, -2, 6, 4))
-	var flower := SphereMesh.new()
-	flower.radius = 0.045; flower.height = 0.09; flower.radial_segments = 6; flower.rings = 3
-	scatter(r, flower, Color.WHITE, int(150 * d), Rect2(-10, -10, 20, 14), 22, Vector2(0.8, 1.2), Rect2(-3, -2, 6, 4), [Color(1, 1, 1), Color(1, 0.9, 0.3), Color(0.9, 0.5, 0.9)])
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 77
-	for i in 9:
-		var a := rng.randf() * TAU
-		var dist := rng.randf_range(6.5, 11.0)
-		tree(r, Vector3(cos(a) * dist, 0, -absf(sin(a)) * dist - 1.0), rng.randf_range(2.8, 4.2), Color(0.3, 0.6, 0.28).lightened(rng.randf() * 0.15), i)
-	bench(r, Vector3(-3.2, 0, -3.4), 0.3)
-	bench(r, Vector3(5.5, 0, -2.0), -1.3)
-	# Étang
-	cyl(r, 1.8, 1.8, 0.02, Vector3(-5.5, 0.01, -1.0), Color(0.4, 0.65, 0.9), 32)
-	obs_circle(r, Vector3(-5.5, 0, -1.0), 1.85)
-	cyl(r, 1.95, 1.95, 0.015, Vector3(-5.5, 0.005, -1.0), Color(0.7, 0.62, 0.5), 32)
-	for i in 3:
-		cyl(r, 0.15, 0.15, 0.02, Vector3(-5.2 + i * 0.4, 0.025, -0.8 + (i % 2) * 0.4), Color(0.35, 0.65, 0.3), 10)
-	for i in 4:
-		bush(r, Vector3(-7 + i * 4.0, 0, -6.0 - (i % 2)), 0.9, Color(0.32, 0.58, 0.3))
-	# Lampadaires
-	for z in [-4.0, 2.0]:
-		obs_circle(r, Vector3(2.2, 0, z), 0.12)
-		cyl(r, 0.06, 0.05, 2.4, Vector3(2.2, 1.2, z), Color(0.25, 0.28, 0.3), 8)
-		ball(r, 0.16, Vector3(2.2, 2.45, z), Color(1, 0.95, 0.75))
-	# Fontaine (boire)
-	var f := Node3D.new()
-	f.position = Vector3(4.6, 0, 1.2)
-	obs_circle(r, f.position, 0.3)
-	r.add_child(f)
-	cyl(f, 0.2, 0.15, 0.9, Vector3(0, 0.45, 0), Color(0.6, 0.62, 0.66), 10)
-	cyl(f, 0.25, 0.22, 0.1, Vector3(0, 0.95, 0), Color(0.6, 0.62, 0.66), 12)
-	cyl(f, 0.2, 0.2, 0.02, Vector3(0, 1.0, 0), Color(0.5, 0.75, 1.0), 12)
-	r.set_meta("fountain", Vector3(4.6, 0, 1.2))
-	r.set_meta("bounds", Rect2(-3.5, -3.0, 7.0, 5.5))
-	r.set_meta("walk_area", Rect2(-8, -8, 16, 12))
-	r.set_meta("spots_area", Rect2(-4, -3, 8, 5))
-	r.set_meta("throw_area", Rect2(-4, -9, 8, 9))
-
-## Grand pré dégagé pour le jeu de balle : rien de gênant dans la zone de lancer,
-## décor (arbres, rochers, clôture) seulement en bordure, au-delà de la portée d'un lancer.
-static func _field(r: Node3D, q: int) -> void:
-	var d := _density(q)
-	ground(r, Vector2(90, 90), Color(0.95, 0.98, 0.92), tex("grass"), 18.0)
-	var tuft := _cone_mesh(0.05, 0.0, 0.2)
-	scatter(r, tuft, Color(0.42, 0.7, 0.3), int(1100 * d), Rect2(-16, -26, 32, 32), 31, Vector2(0.7, 1.4), Rect2(-1.2, 0.8, 2.4, 2.4))
-	var flower := SphereMesh.new()
-	flower.radius = 0.045; flower.height = 0.09; flower.radial_segments = 6; flower.rings = 3
-	scatter(r, flower, Color.WHITE, int(260 * d), Rect2(-16, -26, 32, 32), 32, Vector2(0.8, 1.2), Rect2(-1.2, 0.8, 2.4, 2.4), [Color(1, 1, 1), Color(1, 0.9, 0.3), Color(0.9, 0.5, 0.9)])
-	# Clôture basse en bois tout autour (limite visible du terrain)
-	var fence_c := Color(0.62, 0.46, 0.3)
-	var hw := 15.0
-	var z0 := -24.0
-	var z1 := 6.0
-	var step := 3.0
-	var x := -hw
-	while x <= hw + 0.01:
-		for zz in [z0, z1]:
-			cyl(r, 0.06, 0.06, 0.8, Vector3(x, 0.4, zz), fence_c, 6)
-		x += step
-	var z := z0
-	while z <= z1 + 0.01:
-		for xx in [-hw, hw]:
-			cyl(r, 0.06, 0.06, 0.8, Vector3(xx, 0.4, z), fence_c, 6)
-		z += step
-	for zz in [z0, z1]:
-		for yy in [0.35, 0.65]:
-			box(r, Vector3(hw * 2.0, 0.06, 0.04), Vector3(0, yy, zz), fence_c)
-	for xx in [-hw, hw]:
-		for yy in [0.35, 0.65]:
-			box(r, Vector3(0.04, 0.06, z1 - z0), Vector3(xx, yy, (z0 + z1) * 0.5), fence_c)
-	r.set_meta("fence", Rect2(-hw, z0, hw * 2.0, z1 - z0))
-	# Arbres et rochers hors de la clôture (décor lointain)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 91
-	var n_trees := int(lerpf(10.0, 24.0, d))
-	for i in n_trees:
-		var side := i % 3
-		var pos := Vector3.ZERO
-		match side:
-			0: pos = Vector3(rng.randf_range(-hw - 6.0, hw + 6.0), 0, z0 - rng.randf_range(2.0, 7.0))
-			1: pos = Vector3(-hw - rng.randf_range(2.0, 6.0), 0, rng.randf_range(z0, z1))
-			_: pos = Vector3(hw + rng.randf_range(2.0, 6.0), 0, rng.randf_range(z0, z1))
-		tree(r, pos, rng.randf_range(3.0, 4.6), Color(0.3, 0.6, 0.28).lightened(rng.randf() * 0.15), i)
-	for i in 4:
-		bush(r, Vector3(-hw + 1.2 + i * 9.0, 0, z1 + 1.5), 0.9, Color(0.32, 0.58, 0.3))
-	r.set_meta("sky", Color(0.6, 0.8, 0.97))
-	r.set_meta("bounds", Rect2(-hw + 0.4, z0 + 0.4, hw * 2.0 - 0.8, z1 - z0 - 0.8))
-	r.set_meta("throw_area", Rect2(-hw + 1.0, z0 + 1.0, hw * 2.0 - 2.0, z1 - z0 - 4.0))
-
-## Panneau flottant avec le nom d'un lieu (lisible de loin).
-static func sign_label(parent: Node3D, pos: Vector3, text: String) -> void:
-	var l := Label3D.new()
-	l.text = text
-	l.font_size = 72
-	l.pixel_size = 0.006
-	l.outline_size = 14
-	l.modulate = Color(1, 1, 1)
-	l.outline_modulate = Color(0.25, 0.16, 0.1)
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.position = pos
-	parent.add_child(l)
 
 ## Distance (m) d'un point à la rue la plus proche du quartier.
 static func _road_dist(q: Vector2) -> float:
@@ -602,95 +573,6 @@ static func _free_offset(base: Vector3, off: Vector3, clearance: float) -> Vecto
 			return o
 		o = o.rotated(Vector3.UP, TAU / 8.0)
 	return off
-
-## Quartier des promenades : rues et lieux de GameData.WALK_NODES, à l'échelle de la carte.
-static func _town(r: Node3D, q: int) -> void:
-	var d := _density(q)
-	ground(r, Vector2(70, 70), Color(0.95, 0.98, 0.92), tex("grass"), 14.0)
-	var nodes: Dictionary = GameData.WALK_NODES
-	var rm := tex_mat(Color(1, 1, 1), "dirt", 1.2)
-	for e in GameData.WALK_EDGES:
-		var a: Vector2 = nodes[e[0]]["pos"]
-		var b: Vector2 = nodes[e[1]]["pos"]
-		var road := MeshInstance3D.new()
-		var pm := PlaneMesh.new()
-		pm.size = Vector2(1.5, a.distance_to(b) + 1.2)
-		road.mesh = pm
-		road.material_override = rm
-		road.position = Vector3((a.x + b.x) * 0.5, 0.006, (a.y + b.y) * 0.5)
-		road.rotation.y = atan2(b.x - a.x, b.y - a.y)
-		road.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		r.add_child(road)
-	for id in nodes.keys():
-		var n: Dictionary = nodes[id]
-		var p := Vector3((n["pos"] as Vector2).x, 0, (n["pos"] as Vector2).y)
-		var plaza := cyl(r, 1.3, 1.3, 0.012, p + Vector3(0, 0.008, 0), Color(0.86, 0.8, 0.68), 20)
-		plaza.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		match str(n["kind"]):
-			"home":
-				# maison sur le côté : la caméra, derrière l'animal au départ, reste dehors
-				var h := p + _free_offset(p, Vector3(-3.4, 0, 1.2), 2.2)
-				box(r, Vector3(3.0, 2.0, 2.2), h + Vector3(0, 1.0, 0), Color(0.96, 0.9, 0.8))
-				box(r, Vector3(3.3, 0.25, 2.6), h + Vector3(0, 2.1, 0), Color(0.75, 0.35, 0.3))
-				box(r, Vector3(0.7, 1.2, 0.05), h + Vector3(0, 0.6, -1.12), Color(0.55, 0.35, 0.22))
-				obs_rect(r, h, 3.1, 2.3)
-				obs_circle(r, h, 1.7)
-			"water":
-				var fo := p + _free_offset(p, Vector3(1.4, 0, 0), 1.2)
-				obs_circle(r, fo, 0.3)
-				cyl(r, 0.2, 0.15, 0.9, fo + Vector3(0, 0.45, 0), Color(0.6, 0.62, 0.66), 10)
-				cyl(r, 0.25, 0.22, 0.1, fo + Vector3(0, 0.95, 0), Color(0.6, 0.62, 0.66), 12)
-				cyl(r, 0.2, 0.2, 0.02, fo + Vector3(0, 1.0, 0), Color(0.5, 0.75, 1.0), 12)
-				r.set_meta("fountain", fo)
-			"shop":
-				var k := p + _free_offset(p, Vector3(2.0, 0, 0), 1.9)
-				box(r, Vector3(1.8, 1.5, 1.6), k + Vector3(0, 0.75, 0), Color(0.98, 0.95, 0.88))
-				for i in 4:
-					box(r, Vector3(0.48, 0.08, 1.9), k + Vector3(-0.72 + i * 0.48, 1.62, -0.1), Color(0.9, 0.35, 0.35) if i % 2 == 0 else Color(1, 1, 1), Vector3.ZERO, false)
-				obs_rect(r, k, 1.9, 1.7)
-				obs_circle(r, k, 1.1)
-			"park":
-				var rng := RandomNumberGenerator.new()
-				rng.seed = 5
-				for i in 7:
-					var a2 := TAU * float(i) / 7.0 + 0.3
-					var tp := p + Vector3(cos(a2) * 4.2, 0, sin(a2) * 3.4 - 0.8)
-					var th := rng.randf_range(2.6, 3.6)
-					if _road_dist(Vector2(tp.x, tp.z)) > 1.6:
-						tree(r, tp, th, Color(0.3, 0.6, 0.28).lightened(rng.randf() * 0.15), i + 40)
-				bench(r, p + Vector3(-1.6, 0, 1.6), 0.6)
-			"center":
-				for i in 2:
-					var hp := p + _free_offset(p, Vector3(1.8, 0, -0.8 + i * 1.6), 1.3)
-					cyl(r, 0.03, 0.03, 0.5, hp + Vector3(-0.4, 0.25, 0), Color(0.95, 0.95, 0.95), 6)
-					cyl(r, 0.03, 0.03, 0.5, hp + Vector3(0.4, 0.25, 0), Color(0.95, 0.95, 0.95), 6)
-					box(r, Vector3(0.85, 0.05, 0.05), hp + Vector3(0, 0.42, 0), Color(0.95, 0.4, 0.3))
-					obs_circle(r, hp, 0.45)
-			"comp":
-				var t := p + _free_offset(p, Vector3(0, 0, -2.3), 2.5)
-				cyl(r, 1.6, 0.05, 2.2, t + Vector3(0, 1.1, 0), Color(0.95, 0.85, 0.4), 16)
-				cyl(r, 1.6, 1.6, 0.9, t + Vector3(0, 0.45, 0), Color(0.98, 0.96, 0.9), 16)
-				obs_circle(r, t, 1.65)
-			"forest":
-				var rng2 := RandomNumberGenerator.new()
-				rng2.seed = 9
-				for i in int(lerpf(8.0, 16.0, d)):
-					var a3 := rng2.randf() * TAU
-					var dd := rng2.randf_range(2.4, 5.5)
-					var pp := p + Vector3(cos(a3) * dd - 1.5, 0, sin(a3) * dd - 1.5)
-					var ph := rng2.randf_range(2.4, 3.8)
-					if _road_dist(Vector2(pp.x, pp.z)) > 1.5 and pp.distance_to(p) > 2.0:
-						pine(r, pp, ph, Color(0.2, 0.42, 0.25))
-			"beach":
-				var sand := cyl(r, 5.0, 5.0, 0.02, p + Vector3(0, 0.012, -1.5), Color(0.95, 0.88, 0.66), 32)
-				sand.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				var sea := cyl(r, 14.0, 14.0, 0.02, p + Vector3(0, 0.02, -19.0), Color(0.4, 0.68, 0.92), 32)
-				sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				obs_circle(r, p + Vector3(0, 0, -19.0), 14.0)
-		if str(n["kind"]) != "road":
-			sign_label(r, p + Vector3(0, 2.6, 0), str(n["name"]))
-	r.set_meta("bounds", Rect2(-14, -19, 28, 31))
-	r.set_meta("walk_area", Rect2(-14, -19, 28, 31))
 
 static func pine(parent: Node3D, pos: Vector3, h: float, c: Color) -> void:
 	obs_circle(parent, pos, 0.14 * h)
@@ -714,184 +596,6 @@ static func rock(parent: Node3D, pos: Vector3, s: float) -> void:
 	ball(parent, s, pos + Vector3(0, s * 0.35, 0), Color(0.58, 0.58, 0.56), Vector3(1.2, 0.75, 1.0), 9)
 	ball(parent, s * 0.6, pos + Vector3(s * 0.7, s * 0.2, s * 0.2), Color(0.62, 0.62, 0.6), Vector3(1.1, 0.7, 1.0), 8)
 
-static func _forest(r: Node3D, q: int) -> void:
-	var d := _density(q)
-	ground(r, Vector2(40, 40), Color(1, 1, 1), tex("forest_floor"), 9.0)
-	# sentier de terre
-	var path := MeshInstance3D.new()
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(1.6, 40)
-	path.mesh = pm
-	path.material_override = tex_mat(Color(0.95, 0.9, 0.85), "dirt", 1.2)
-	path.position = Vector3(-0.4, 0.005, 0)
-	path.rotation.y = -0.12
-	r.add_child(path)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 404
-	var placed: Array[Vector2] = []
-	for i in 34:
-		var p := Vector3(rng.randf_range(-11, 11), 0, rng.randf_range(-12, 6))
-		if absf(p.x + 0.4 + p.z * 0.12) < 1.6 or Rect2(-3.5, -2.5, 7, 5).has_point(Vector2(p.x, p.z)) or (p.z > 1.5 and absf(p.x) < 6.5):
-			continue
-		var close := false
-		for o in placed:
-			if o.distance_to(Vector2(p.x, p.z)) < 1.4:
-				close = true
-		if close:
-			continue
-		placed.append(Vector2(p.x, p.z))
-		if rng.randf() < 0.7:
-			pine(r, p, rng.randf_range(2.6, 4.2), Color(0.22, 0.45, 0.28).lightened(rng.randf() * 0.12))
-		else:
-			tree(r, p, rng.randf_range(2.6, 3.6), Color(0.35, 0.58, 0.28), i)
-	log_obj(r, Vector3(-2.6, 0, -1.6), 1.6, 0.4)
-	log_obj(r, Vector3(2.8, 0, 0.8), 1.3, -0.9)
-	rock(r, Vector3(2.4, 0, -2.2), 0.45)
-	rock(r, Vector3(-3.0, 0, 1.6), 0.35)
-	for i in int(10 * d) + 4:
-		var mp := Vector3(rng.randf_range(-6, 6), 0, rng.randf_range(-6, 3))
-		cyl(r, 0.025, 0.03, 0.12, mp + Vector3(0, 0.06, 0), Color(0.96, 0.92, 0.84), 6)
-		ball(r, 0.07, mp + Vector3(0, 0.13, 0), Color(0.85, 0.3, 0.25) if i % 3 else Color(0.85, 0.62, 0.35), Vector3(1, 0.55, 1), 8)
-	var fern := _cone_mesh(0.07, 0.0, 0.3)
-	scatter(r, fern, Color(0.3, 0.55, 0.3), int(500 * d), Rect2(-11, -12, 22, 18), 61, Vector2(0.8, 1.6), Rect2(-3.2, -2.4, 6.4, 4.6))
-	var leaf := SphereMesh.new()
-	leaf.radius = 0.05; leaf.height = 0.02; leaf.radial_segments = 6; leaf.rings = 2
-	scatter(r, leaf, Color.WHITE, int(260 * d), Rect2(-8, -8, 16, 12), 62, Vector2(0.8, 1.5), Rect2(), [Color(0.82, 0.48, 0.2), Color(0.9, 0.7, 0.25), Color(0.62, 0.36, 0.18)])
-	r.set_meta("sky", Color(0.6, 0.78, 0.86))
-	r.set_meta("ambient", Color(0.92, 0.98, 0.9))
-	r.set_meta("bounds", Rect2(-3.2, -2.6, 6.4, 5.0))
-	r.set_meta("walk_area", Rect2(-8, -9, 16, 13))
-	r.set_meta("spots_area", Rect2(-3.2, -2.6, 6.4, 4.4))
-	r.set_meta("throw_area", Rect2(-1.8, -9, 3.2, 9))
-
-static func _beach(r: Node3D, q: int) -> void:
-	var d := _density(q)
-	ground(r, Vector2(40, 40), Color(1, 1, 1), tex("sand"), 9.0)
-	# Mer animée (shader simple compatible)
-	var sea := MeshInstance3D.new()
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(60, 30)
-	pm.subdivide_width = 30 if q > 0 else 10
-	pm.subdivide_depth = 15 if q > 0 else 5
-	sea.mesh = pm
-	var sh := Shader.new()
-	sh.code = """shader_type spatial;
-render_mode diffuse_lambert, specular_disabled, cull_disabled;
-uniform vec4 deep : source_color = vec4(0.2, 0.55, 0.85, 1.0);
-uniform vec4 shallow : source_color = vec4(0.45, 0.85, 0.9, 1.0);
-varying float wave;
-void vertex() {
-	wave = sin(VERTEX.x * 0.6 + TIME * 1.3) * 0.5 + sin(VERTEX.z * 0.9 + TIME * 0.9) * 0.5;
-	VERTEX.y += wave * 0.06;
-}
-void fragment() {
-	float edge = smoothstep(0.35, 0.5, UV.y);
-	ALBEDO = mix(deep.rgb, shallow.rgb, edge) + vec3(max(wave, 0.0) * 0.06);
-	ROUGHNESS = 0.4;
-}"""
-	var smat := ShaderMaterial.new()
-	smat.shader = sh
-	sea.material_override = smat
-	sea.position = Vector3(0, 0.02, -19)
-	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	r.add_child(sea)
-	box(r, Vector3(60, 0.02, 1.0), Vector3(0, 0.015, -4.0), Color(0.98, 0.98, 0.98), Vector3.ZERO, false)
-	# Parasol + serviette
-	cyl(r, 0.03, 0.03, 2.2, Vector3(-2.6, 1.1, -2.0), Color(0.95, 0.95, 0.95), 8, Vector3(0, 0, 0.1))
-	obs_circle(r, Vector3(-2.6, 0, -2.0), 0.12)
-	cyl(r, 1.2, 0.05, 0.45, Vector3(-2.71, 2.2, -2.0), Color(0.95, 0.4, 0.35), 12, Vector3(0, 0, 0.1))
-	box(r, Vector3(0.9, 0.02, 1.7), Vector3(-1.9, 0.01, -1.6), Color(0.3, 0.6, 0.9), Vector3(0, 0.3, 0), false)
-	box(r, Vector3(0.9, 0.022, 0.3), Vector3(-1.9, 0.012, -1.6), Color(1, 1, 1), Vector3(0, 0.3, 0), false)
-	# Palmiers
-	for p in [Vector3(4.5, 0, -2.5), Vector3(6.0, 0, 0.5), Vector3(-5.5, 0, 1.0)]:
-		obs_circle(r, p, 0.25)
-		for i in 6:
-			cyl(r, 0.12 - i * 0.01, 0.11 - i * 0.01, 0.5, p + Vector3(i * 0.05, 0.25 + i * 0.48, 0), Color(0.6, 0.45, 0.3), 8, Vector3(0, 0, -0.08))
-		for k in 6:
-			var a := k * TAU / 6.0
-			box(r, Vector3(0.25, 0.04, 1.4), p + Vector3(0.3 + cos(a) * 0.55, 3.0, sin(a) * 0.55), Color(0.3, 0.65, 0.3), Vector3(0.35, -a + PI / 2, 0))
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 99
-	for i in int(14 * d) + 4:
-		ball(r, rng.randf_range(0.15, 0.4), Vector3(rng.randf_range(-9, 9), 0.05, rng.randf_range(-3.5, -7) if i % 2 else rng.randf_range(3, 6)), Color(0.6, 0.58, 0.55).lightened(rng.randf() * 0.2), Vector3(1, 0.6, 1), 8)
-	var shell := SphereMesh.new()
-	shell.radius = 0.05; shell.height = 0.05; shell.radial_segments = 6; shell.rings = 3
-	scatter(r, shell, Color.WHITE, int(60 * d), Rect2(-9, -3.5, 18, 8), 31, Vector2(0.8, 1.4), Rect2(-2.5, -1.5, 5, 3.5), [Color(1, 0.85, 0.8), Color(1, 1, 0.95), Color(0.95, 0.75, 0.6)])
-	# Château de sable
-	cyl(r, 0.35, 0.3, 0.3, Vector3(2.2, 0.15, 1.8), Color(0.92, 0.82, 0.6), 10)
-	obs_circle(r, Vector3(2.2, 0, 1.8), 0.4)
-	cyl(r, 0.18, 0.15, 0.3, Vector3(2.2, 0.45, 1.8), Color(0.92, 0.82, 0.6), 10)
-	r.set_meta("sky", Color(0.55, 0.8, 0.98))
-	r.set_meta("bounds", Rect2(-3.5, -3.2, 7.0, 5.5))
-	r.set_meta("walk_area", Rect2(-9, -3.6, 18, 9))
-	r.set_meta("spots_area", Rect2(-4, -3, 8, 5))
-	r.set_meta("throw_area", Rect2(-4, -3.8, 8, 3.8))
-
-static func _center(r: Node3D, q: int) -> void:
-	ground(r, Vector2(30, 30), Color(0.95, 0.98, 0.95), tex("grass"), 7.0)
-	cyl(r, 6.0, 6.0, 0.02, Vector3(0, 0.01, -2.5), Color(0.86, 0.75, 0.55), 40)
-	# Barrière blanche de l'arène
-	for i in 28:
-		var a := TAU * i / 28.0
-		if absf(a - PI / 2) < 0.4:
-			continue
-		box(r, Vector3(0.08, 0.6, 0.08), Vector3(cos(a) * 6.2, 0.3, -2.5 + sin(a) * 6.2), Color(1, 1, 1))
-	torus(r, 6.17, 6.23, Vector3(0, 0.55, -2.5), Color(0.95, 0.3, 0.3))
-	# Tribunes + public
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 5
-	for row in 3:
-		box(r, Vector3(12, 0.4, 0.8), Vector3(0, 0.2 + row * 0.4, -9.5 - row * 0.8), Color(0.45, 0.55, 0.75))
-		for i in 14:
-			if rng.randf() < 0.75:
-				var c := Color.from_hsv(rng.randf(), 0.5, 0.9)
-				cyl(r, 0.15, 0.13, 0.35, Vector3(-5.5 + i * 0.85, 0.6 + row * 0.4, -9.5 - row * 0.8), c, 8)
-				ball(r, 0.11, Vector3(-5.5 + i * 0.85, 0.88 + row * 0.4, -9.5 - row * 0.8), Color(0.95, 0.8, 0.65), Vector3.ONE, 8)
-	# Guirlande de fanions
-	for i in 16:
-		var x := -6.0 + i * 0.8
-		box(r, Vector3(0.3, 0.35, 0.02), Vector3(x, 2.6 - absf(sin(i * 0.4)) * 0.2, -8.2), Color.from_hsv(float(i % 5) / 5.0, 0.6, 0.95), Vector3(0, 0, PI / 4))
-	# Podium
-	for k in 3:
-		var h: float = [0.5, 0.35, 0.25][k]
-		var x: float = [0.0, -0.9, 0.9][k]
-		box(r, Vector3(0.85, h, 0.8), Vector3(x + 6.0, h * 0.5, -6.0), [Color(1, 0.82, 0.3), Color(0.8, 0.82, 0.86), Color(0.85, 0.55, 0.35)][k])
-	r.set_meta("bounds", Rect2(-3.5, -4.5, 7.0, 6.5))
-	r.set_meta("ambient", Color(1.0, 0.96, 0.9))
-
-static func _shelter(r: Node3D, q: int) -> void:
-	var d := _density(q)
-	ground(r, Vector2(30, 30), Color(1.0, 1.0, 0.95), tex("grass"), 7.0)
-	box(r, Vector3(14, 0.02, 3.4), Vector3(0, 0.01, -0.6), Color(0.9, 0.85, 0.75), Vector3.ZERO, false)
-	# Bâtiment du refuge
-	box(r, Vector3(14, 3.2, 0.4), Vector3(0, 1.6, -4.5), Color(0.98, 0.9, 0.8))
-	box(r, Vector3(14.6, 0.3, 2.4), Vector3(0, 3.35, -4.0), Color(0.45, 0.65, 0.55), Vector3(0.25, 0, 0))
-	box(r, Vector3(4.2, 0.8, 0.1), Vector3(0, 2.5, -4.25), Color(0.98, 0.6, 0.4))
-	var sign_l := Label3D.new()
-	sign_l.text = "REFUGE DES PATTES DOUCES"
-	sign_l.font_size = 64
-	sign_l.pixel_size = 0.004
-	sign_l.modulate = Color.WHITE
-	sign_l.outline_size = 0
-	sign_l.position = Vector3(0, 2.5, -4.18)
-	r.add_child(sign_l)
-	for i in 4:
-		box(r, Vector3(0.8, 0.8, 0.06), Vector3(-5.0 + i * 3.3, 1.6, -4.27), Color(0.7, 0.88, 1.0))
-	# Enclos individuels
-	for i in 7:
-		var x := -4.5 + i * 1.5
-		box(r, Vector3(0.06, 0.8, 1.6), Vector3(x, 0.4, -2.9), Color(0.85, 0.85, 0.88))
-	for i in 6:
-		var x := -3.75 + i * 1.5
-		cyl(r, 0.35, 0.35, 0.05, Vector3(x, 0.03, -3.2), Color(0.95, 0.85, 0.4), 12)
-	bush(r, Vector3(-6.5, 0, -2.0), 0.9, Color(0.35, 0.62, 0.3))
-	bush(r, Vector3(6.5, 0, -2.0), 0.9, Color(0.35, 0.62, 0.3))
-	tree(r, Vector3(-8, 0, -6), 3.5, Color(0.35, 0.62, 0.3), 9)
-	tree(r, Vector3(8, 0, -6), 3.2, Color(0.4, 0.68, 0.32), 10)
-	var tuft := _cone_mesh(0.05, 0.0, 0.18)
-	scatter(r, tuft, Color(0.45, 0.7, 0.35), int(300 * d), Rect2(-9, -3, 18, 9), 41, Vector2(0.7, 1.2), Rect2(-7, -2.5, 14, 3.5))
-	r.set_meta("bounds", Rect2(-5.0, -3.0, 10.0, 4.0))
-
 static func _cone_mesh(rb: float, rt: float, h: float) -> CylinderMesh:
 	var c := CylinderMesh.new()
 	c.bottom_radius = rb
@@ -903,65 +607,4 @@ static func _cone_mesh(rb: float, rt: float, h: float) -> CylinderMesh:
 
 ## Lumière + ciel adaptés à l'environnement et à la qualité graphique.
 static func make_lighting(env_root: Node3D, quality: int) -> Node3D:
-	var n := Node3D.new()
-	n.name = "Lighting"
-	var sun := DirectionalLight3D.new()
-	sun.rotation = Vector3(-0.95, 0.55, 0)
-	sun.light_energy = 0.5
-	sun.light_color = Color(1.0, 0.97, 0.9)
-	sun.shadow_enabled = quality >= 1
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = 14.0
-	sun.shadow_blur = 1.5
-	n.add_child(sun)
-	var we := WorldEnvironment.new()
-	var env := Environment.new()
-	var sky_c: Color = env_root.get_meta("sky", Color(0.62, 0.82, 0.96))
-	if quality >= 1 and not env_root.get_meta("indoor", false):
-		var sky := Sky.new()
-		var psm := ProceduralSkyMaterial.new()
-		psm.sky_top_color = sky_c.darkened(0.15)
-		psm.sky_horizon_color = sky_c.lightened(0.35)
-		psm.ground_horizon_color = sky_c.lightened(0.35)
-		psm.ground_bottom_color = Color(0.5, 0.6, 0.45)
-		psm.sun_angle_max = 20.0
-		sky.sky_material = psm
-		sky.radiance_size = Sky.RADIANCE_SIZE_32
-		sky.process_mode = Sky.PROCESS_MODE_QUALITY
-		env.background_mode = Environment.BG_SKY
-		env.sky = sky
-	else:
-		env.background_mode = Environment.BG_COLOR
-		env.background_color = sky_c.lightened(0.15)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = env_root.get_meta("ambient", Color(1, 0.95, 0.9))
-	env.ambient_light_energy = 0.34
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	if env_root.get_meta("indoor", false):
-		env.ambient_light_energy = 0.3
-		sun.light_energy = 0.42
-		if quality >= 1:
-			var ceil_l := OmniLight3D.new()
-			ceil_l.position = Vector3(0, 2.6, 0.4)
-			ceil_l.light_color = Color(1.0, 0.86, 0.68)
-			ceil_l.light_energy = 0.28
-			ceil_l.omni_range = 5.5
-			ceil_l.omni_attenuation = 1.4
-			n.add_child(ceil_l)
-	elif quality >= 1:
-		# brouillard léger : estompe les bords du terrain et donne de la profondeur
-		env.fog_enabled = true
-		env.fog_mode = Environment.FOG_MODE_DEPTH
-		env.fog_light_color = sky_c.lightened(0.12)
-		env.fog_light_energy = 1.0
-		env.fog_density = 1.0
-		env.fog_depth_begin = 13.0
-		env.fog_depth_end = 34.0
-		env.fog_depth_curve = 1.4
-	if quality >= 2:
-		env.glow_enabled = true
-		env.glow_intensity = 0.3
-		env.glow_bloom = 0.05
-	we.environment = env
-	n.add_child(we)
-	return n
+	return Kit.lighting(env_root, quality)

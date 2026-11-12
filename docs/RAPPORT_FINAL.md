@@ -58,3 +58,14 @@ Compilé via l'export Gradle (Gradle 8.11.1, gabarit Android de Godot 4.5.1 dans
 3. Fusionner les décors statiques (MultiMesh / maillages combinés) pour réduire les appels de rendu.
 4. Ajouter une traduction anglaise (architecture `tr()` déjà en place).
 5. Préparer la fiche Play Store (captures, description, classification du contenu, sécurité des données : « aucune donnée collectée »).
+
+## 8. Version 2.2.0 — refonte graphique et carte agrandie (12 novembre 2026)
+- **Rendu** : ciel dégradé à nuages ombrés et soleil, ambiances lumineuses par lieu (matin, midi, après-midi, heure dorée, sous-bois), brouillard d'horizon, collines et silhouettes d'arbres au loin, ombres portées réglées (biais, fondu, portée 20 à 26 m).
+- **Sols** : herbe, chemins, pavés et sable fondus par un masque peint (bords irréguliers, variation de teinte à grande échelle, ombres de contact sous arbres et bâtiments).
+- **Textures** : 13 matières 512 px avec relief (pavés, briques, dalles, tuiles, écorce, pierre, roche, feuillage, herbe, sable, terre, sous-bois, plâtre), mipmaps et compression GPU activés (fin du scintillement à distance).
+- **Végétation** : arbres, sapins, buissons, haies, rochers, souches sculptés ; herbe et fleurs animées par le vent ; eau animée avec écume (mer, rivière, étangs, fontaine).
+- **Bâtiments** : maisons détaillées (soubassement en pierre, colombages, tuiles, cheminée, fenêtres à volets et jardinières, portes, auvents rayés, enseignes), fusionnées en un seul maillage par lieu.
+- **Lieux refaits** : maison (papier peint, soubassement, fenêtres à rideaux, tapis à motifs), jardin, parc, forêt, plage, terrain de concours, refuge, grand pré, quartier.
+- **Carte** : 22 lieux (boulangerie, marché, café, toiletteur, vétérinaire, école du chiot, étang, ferme, belvédère, phare…), rivière et ponts, endurance de 450 m (+80 m par niveau), actions propres à chaque lieu dont 4 quotidiennes.
+- **Interface** : boutons en relief, socle des actions, carte illustrée.
+- **Tests** : 154 tests unitaires OK, parcours complet sans erreur de script. Quartier, par qualité : Faible 183 appels / 142 000 primitives, Moyen 313 / 471 000, Élevé 377 / 618 000. Non mesuré sur téléphone.

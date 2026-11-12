@@ -113,10 +113,35 @@ func sc_progress() -> void:
 func sc_visuals() -> void:
 	GameState.data["deco"]["plant"] = "plant_fern"
 	GameState.data["deco"]["box"] = "toybox"
-	for e in ["garden", "house", "park", "forest", "beach", "center"]:
-		Panels.go_to(e)
+	var vq := OS.get_environment("VIS_Q")
+	if vq != "":
+		main.apply_quality(int(vq))
+	var ve := OS.get_environment("VIS_ENVS")
+	var envs: Array = ["garden", "house", "park", "forest", "beach", "center", "town", "field"]
+	if ve != "":
+		envs = Array(ve.split(","))
+	main.screen.visible = OS.get_environment("VIS_UI") != "0"
+	for e in envs:
+		var t0 := Time.get_ticks_msec()
+		main.change_env(e)
+		print("BUILD ", e, " ms=", Time.get_ticks_msec() - t0)
 		await wait(1.5)
+		if e == "town":
+			for nid in OS.get_environment("VIS_NODES").split(",", false):
+				var np: Vector2 = GameData.WALK_NODES[nid]["pos"]
+				main.pet_ctrl.position = Vector3(np.x, 0, np.y)
+				main.cam_rig.distance = float(OS.get_environment("VIS_DIST")) if OS.get_environment("VIS_DIST") != "" else 9.0
+				main.cam_rig.pitch = -0.42
+				main.cam_rig.yaw = 0.0
+				main.close_all_panels()
+				await wait(1.2)
+				main.close_all_panels()
+				await shot("town_" + nid)
 		main.close_all_panels()
+		for ch in main.env_root.get_children():
+			if ch is MeshInstance3D and str(ch.name).begins_with("Batch"):
+				var am: ArrayMesh = ch.mesh
+				print("BATCH ", e, " surfaces=", am.get_surface_count(), " aabb=", am.get_aabb(), " faces=", am.get_faces().size() / 3)
 		await shot("env_" + e)
 		main.cam_rig.distance = 4.8 if e == "house" else 6.5
 		main.cam_rig.pitch = -0.45
@@ -126,7 +151,8 @@ func sc_visuals() -> void:
 		print("PERF ", e, " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " prims=", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), " fps=", Performance.get_monitor(Performance.TIME_FPS))
 
 func sc_perf() -> void:
-	Panels.go_to("park")
+	main.change_env("town")
+	main.close_all_panels()
 	await wait(1.5)
 	for q in [0, 1, 2]:
 		main.apply_quality(q)
@@ -299,7 +325,7 @@ func sc_walkmap() -> void:
 	var m := w.map_ui
 	await wait(0.3)
 	# tracé au doigt : maison -> carrefour -> fontaine -> boutique, puis carrefour -> parc
-	for id in ["cross", "fountain", "shop"]:
+	for id in ["lane", "fountain", "shop"]:
 		m._try_add(m.to_screen(id))
 	print("MAP trace=", m.route, " utilise=", int(m.used()), " endurance=", int(m.endurance))
 	m._try_add(m.to_screen("comp"))   # pas voisin : refusé
@@ -338,7 +364,7 @@ func sc_walkmap() -> void:
 	await wait(0.6)
 	w = main.activity as WalkActivity
 	m = w.map_ui
-	for id in ["cross", "park"]:
+	for id in ["lane", "cafe", "market", "park"]:
 		m._try_add(m.to_screen(id))
 	m.auto_return()
 	pl = m.route.duplicate()
@@ -347,15 +373,25 @@ func sc_walkmap() -> void:
 	w._begin_plan(pl)
 	await wait(0.8)
 	guard = 0
-	while main.activity == w and not main.has_panel() and guard < 300:
+	var at_park := false
+	while main.activity == w and not at_park and guard < 400:
 		guard += 1
-		if w.next_cp < w.path.size():
+		if main.has_panel():
+			for po in w.pois:
+				if po["id"] == "park" and po["inside"]:
+					at_park = true
+			if not at_park:
+				main.close_all_panels()
+		if not at_park and w.next_cp < w.path.size():
 			w.pet.position = w.pet.position.move_toward(w.path[w.next_cp], 0.9)
 		await wait(0.08)
 	print("WALK parc atteint, panneau=", main.has_panel())
 	await shot("walk_poi_park")
 	main.close_all_panels()
-	var park_pos: Vector3 = w.pois[0]["pos"]
+	var park_pos := Vector3.ZERO
+	for po in w.pois:
+		if po["id"] == "park":
+			park_pos = po["pos"]
 	w._sub_fetch(park_pos, "park")
 	await wait(1.0)
 	var f := w.sub as FetchGame

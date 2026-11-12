@@ -138,16 +138,22 @@ func _build() -> void:
 	row1.add_child(UiKit.icon_button("brush", tr("Brosser"), func(): Main.inst.start_activity(BrushActivity.new()), Color(0.98, 0.93, 0.85), 108))
 	row1.add_child(UiKit.icon_button("treat", tr("Friandise"), func(): Panels.food_picker("treat", give_treat), Color(1, 0.95, 0.88), 108))
 	row1.add_child(UiKit.icon_button("cuddle", tr("Câlin"), func(): Main.inst.start_activity(CuddleActivity.new()), Color(1, 0.92, 0.95), 108))
-	root.add_child(row1)
+	# socle translucide : les deux rangées d'actions forment un seul bloc lisible sur tous les décors
+	var dock := PanelContainer.new()
+	dock.add_theme_stylebox_override("panel", UiKit.sb(Color(1.0, 0.98, 0.94, 0.62), 44, 0, Color.TRANSPARENT, false, 12))
+	var dock_v := UiKit.vbox(8)
+	dock.add_child(dock_v)
+	dock_v.add_child(row1)
 	var row2 := UiKit.hbox(8)
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
 	row2.add_child(UiKit.icon_button("throw", tr("Jouer"), func(): Panels.play(self), Color(0.95, 1, 0.88), 108))
 	row2.add_child(UiKit.icon_button("training", tr("Dressage"), func(): Panels.training(), Color(0.98, 0.85, 0.75), 108))
 	# Promenade : la carte du quartier donne accès aux activités, concours et à la boutique
-	row2.add_child(UiKit.icon_button("walk", tr("Promenade"), func(): Main.inst.start_activity(WalkActivity.new()), Color(0.85, 0.95, 0.85), 108))
+	row2.add_child(UiKit.icon_button("map", tr("Balade"), func(): Main.inst.start_activity(WalkActivity.new()), Color(0.80, 0.94, 0.80), 108))
 	row2.add_child(UiKit.icon_button("shop", tr("Boutique"), func(): Panels.shop(), Color(0.9, 0.88, 1), 108))
 	row2.add_child(UiKit.icon_button("inventory", tr("Sac"), func(): Panels.inventory(), Color(0.95, 0.9, 0.85), 108))
-	root.add_child(row2)
+	dock_v.add_child(row2)
+	root.add_child(dock)
 
 func _on_pet_panel_input(e: InputEvent) -> void:
 	if _is_tap(e):

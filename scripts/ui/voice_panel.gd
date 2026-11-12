@@ -215,6 +215,8 @@ func _on_utterance(res: Dictionary) -> void:
 		var reason := str(res.get("reason", ""))
 		status_l.text = tr(Voice.QUALITY_TEXT.get(reason, "Enregistrement inutilisable."))
 		tip_l.text = tr("Touchez « Recommencer » pour réessayer.") if not result.is_empty() else tr("Touchez « Enregistrer » pour réessayer.")
+		if reason in ["no_audio", "silence", "quiet", "no_mic"]:
+			tip_l.text += "\n" + Voice.diag()
 		Audio.play("buzz", 0.0, -8.0)
 		_set_state("review" if not result.is_empty() and bool(result.get("ok", false)) else "idle")
 		return

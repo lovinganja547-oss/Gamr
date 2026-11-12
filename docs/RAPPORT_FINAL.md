@@ -84,3 +84,9 @@ Compilé via l'export Gradle (Gradle 8.11.1, gabarit Android de Godot 4.5.1 dans
 ## Version 2.5.1
 
 - Pelage refait : mèches fines à racine décalée (plus de grille), touffes, épis, sous-poil sombre et pointes claires, duvet éclairé à contre-jour, anti-scintillement à distance. Couches : 3 / 6 / 12 selon la qualité. Illustration de chargement et icône régénérées.
+
+## Version 2.5.2
+
+- Micro : réglages audio du moteur remis par défaut, les courtes suites de zéros ne sont plus traitées comme des trous (signal faible écrasé), réouverture complète de l'entrée après 3 s sans son, ligne de diagnostic affichée en cas d'échec.
+- Listes : défilement au doigt même en partant d'un bouton (`scripts/ui/drag_scroll.gd`), appui annulé pendant le glissé, position conservée quand une fenêtre est reconstruite (vente, achat, onglet).
+- Balade : GPS (cadran avec flèche et distance, flèche au sol, anneau sur la prochaine étape) à la place des drapeaux.

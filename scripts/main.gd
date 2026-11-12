@@ -33,6 +33,8 @@ var _stroke_acc := 0.0
 var _pinch_d := 0.0
 var _moved := 0.0
 
+var _last_scroll: Dictionary = {}
+
 func _ready() -> void:
 	inst = self
 	get_tree().set_auto_accept_quit(false)
@@ -315,8 +317,13 @@ func open_panel(title: String, content: Control, on_close: Callable = Callable()
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(content)
 	overlay.set_meta("on_close", on_close)
+	overlay.set_meta("title", title)
 	panel_stack.append(overlay)
-	if not UiKit.reduce_motion():
+	# même fenêtre reconstruite (achat, vente, onglet…) : la liste reste où elle était
+	var keep_pos: bool = _last_scroll.get("title", "") == title and Time.get_ticks_msec() - int(_last_scroll.get("t", -9999)) < 500
+	if keep_pos:
+		_restore_scroll(overlay, int(_last_scroll.get("v", 0)))
+	if not UiKit.reduce_motion() and not keep_pos:
 		pnl.pivot_offset = Vector2(330, 600)
 		pnl.scale = Vector2(0.92, 0.92)
 		pnl.modulate.a = 0.0
@@ -330,9 +337,31 @@ func close_panel() -> void:
 		return
 	var o: Control = panel_stack.pop_back()
 	var cb: Callable = o.get_meta("on_close", Callable())
+	var sc := _find_scroll(o)
+	_last_scroll = {"title": str(o.get_meta("title", "")), "v": sc.scroll_vertical if sc else 0, "t": Time.get_ticks_msec()}
 	o.queue_free()
 	if cb.is_valid():
 		cb.call()
+
+func _find_scroll(n: Node) -> ScrollContainer:
+	for c in n.get_children():
+		if c is ScrollContainer:
+			return c
+		var r := _find_scroll(c)
+		if r:
+			return r
+	return null
+
+func _restore_scroll(overlay: Control, v: int) -> void:
+	var sc := _find_scroll(overlay)
+	if sc == null or v <= 0:
+		return
+	# la hauteur du contenu n'est connue qu'après la mise en page
+	for i in 2:
+		await get_tree().process_frame
+		if not is_instance_valid(sc):
+			return
+		sc.scroll_vertical = v
 
 func close_all_panels() -> void:
 	while not panel_stack.is_empty():

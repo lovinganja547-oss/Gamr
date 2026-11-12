@@ -95,6 +95,10 @@ var _bus := -1
 var _mix_rate := 44100.0
 var _heal := 0                 # échantillons restants du raccord après un trou audio
 const HEAL_LEN := 96
+var _dbg_frames := 0            # diagnostic : images reçues du micro depuis l'ouverture
+var _dbg_peak := 0.0
+var _dbg_holes := 0
+var _stage2 := false
 var _hold := 0                  # micro maintenu ouvert (écran d'apprentissage)
 var _cache := {}
 var _perm_connected := false
@@ -819,6 +823,10 @@ func ensure_permission() -> bool:
 		OS.request_permission("RECORD_AUDIO")
 	return false
 
+## Résumé technique affiché quand la capture échoue, pour savoir où le son se perd.
+func diag() -> String:
+	return "micro : autorisation %s · %d entrée(s) · %d Hz · %d images · niveau max %.4f · %d trou(s)" % ["oui" if has_permission() else "non", AudioServer.get_input_device_list().size(), int(AudioServer.get_mix_rate()), _dbg_frames, _dbg_peak, _dbg_holes]
+
 ## Alias utilisé par l'écran des paramètres.
 func request_permission() -> bool:
 	return ensure_permission()
@@ -894,6 +902,10 @@ func _reset_stream() -> void:
 	_rs_pos = 0.0
 	_no_audio_t = 0.0
 	_restarted = false
+	_stage2 = false
+	_dbg_frames = 0
+	_dbg_peak = 0.0
+	_dbg_holes = 0
 	_no_audio_sent = false
 	_wait_frames = 0
 	_bursts = 0
@@ -1014,6 +1026,19 @@ func _process(delta: float) -> void:
 		_restarted = true
 		_player.stop()
 		_player.play()
+	if _no_audio_t > 3.0 and not _stage2 and not test_mode and _player != null:
+		# toujours rien : on rouvre complètement l'entrée audio du système
+		_stage2 = true
+		_player.stop()
+		_player.queue_free()
+		AudioServer.input_device = AudioServer.input_device
+		_player = AudioStreamPlayer.new()
+		_player.stream = AudioStreamMicrophone.new()
+		_player.bus = "Mic"
+		add_child(_player)
+		_player.play()
+		if _capture:
+			_capture.clear_buffer()
 	if _no_audio_t > NO_AUDIO_TIMEOUT:
 		if _mode == "record":
 			_fail_record("no_audio")
@@ -1063,24 +1088,32 @@ func feed_raw(frames: PackedVector2Array, mix_rate: float) -> void:
 	var hist := _rs_hist
 	var zr := _zrun
 	var heal := _heal
+	var pk := _dbg_peak
 	for fr in frames:
 		var v := (fr.x + fr.y) * 0.5
 		if v == 0.0:
 			zr += 1
 			continue
 		if zr > 0:
-			if zr == 1:
-				hist.append(0.0)   # un zéro isolé est un vrai échantillon
+			if zr < ZERO_RUN:
+				# quelques zéros de suite sont du vrai signal (micro à faible niveau) : on les garde
+				for k in zr:
+					hist.append(0.0)
 			else:
 				# trou du pilote audio (tampon d'entrée sous-alimenté) : on le retire et on raccorde
 				# en douceur sur quelques millisecondes pour éviter le clic (grésillement)
 				heal = HEAL_LEN
+				_dbg_holes += 1
 			zr = 0
 		if heal > 0 and hist.size() > 0:
 			var k2 := 1.0 - float(heal) / HEAL_LEN
 			v = lerpf(hist[hist.size() - 1], v, k2 * k2)
 			heal -= 1
+		if absf(v) > pk:
+			pk = absf(v)
 		hist.append(v)
+	_dbg_peak = pk
+	_dbg_frames += frames.size()
 	_zrun = zr
 	_heal = heal
 	var ratio := mix_rate / float(SR)

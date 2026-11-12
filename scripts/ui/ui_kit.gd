@@ -393,7 +393,8 @@ static func expand(c: Control) -> Control:
 	return c
 
 static func scroll(content: Control) -> ScrollContainer:
-	var s := ScrollContainer.new()
+	var s := DragScroll.new()
+	s.scroll_deadzone = 14
 	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	s.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL

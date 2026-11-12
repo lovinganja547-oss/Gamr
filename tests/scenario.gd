@@ -582,3 +582,78 @@ func sc_art() -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(out_dir + "/icon_face.png")
 	print("ART ok")
+
+## Défilement au doigt (geste commencé sur un bouton) et position de liste conservée après une vente.
+func _ftouch(pos: Vector2, pressed: bool) -> void:
+	var e := InputEventScreenTouch.new()
+	e.index = 0
+	e.position = pos
+	e.pressed = pressed
+	Input.parse_input_event(e)
+
+func _fdrag(from: Vector2, to: Vector2) -> void:
+	_ftouch(from, true)
+	await get_tree().process_frame
+	var steps := 8
+	var prev := from
+	for i in steps:
+		var p := from.lerp(to, float(i + 1) / steps)
+		var d := InputEventScreenDrag.new()
+		d.index = 0
+		d.position = p
+		d.relative = p - prev
+		prev = p
+		Input.parse_input_event(d)
+		await get_tree().process_frame
+	_ftouch(to, false)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+func sc_scroll() -> void:
+	main.close_all_panels()
+	for id in GameData.ITEMS.keys():
+		if GameData.ITEMS[id].get("cat", "") in ["collection", "treat", "food", "care"]:
+			GameState.data["inventory"][id] = 3
+	Panels.open_shop("food", "shop")
+	await wait(0.6)
+	var sc := main._find_scroll(main.panel_stack.back())
+	var coins0 := GameState.coins()
+	# le doigt se pose sur un bouton d'achat (colonne de droite) puis glisse vers le haut
+	await _fdrag(Vector2(600, 900), Vector2(600, 500))
+	await wait(0.4)
+	print("SCROLL boutique defile=", sc.scroll_vertical > 50, " (", sc.scroll_vertical, ") achat_involontaire=", GameState.coins() != coins0)
+	await shot("scroll_shop")
+	main.close_all_panels()
+	Panels.shop("sell")
+	await wait(0.6)
+	sc = main._find_scroll(main.panel_stack.back())
+	await _fdrag(Vector2(600, 1000), Vector2(600, 400))
+	await _fdrag(Vector2(600, 1000), Vector2(600, 400))
+	var c0 := GameState.coins()
+	await wait(0.8)
+	sc = main._find_scroll(main.panel_stack.back())
+	print("SCROLL vente : defile=", sc.scroll_vertical, " vente_involontaire=", GameState.coins() != c0 or GameState.coins() != coins0)
+	var before := sc.scroll_vertical
+	var c1 := GameState.coins()
+	# appui simple sur un bouton de vente visible au milieu de l'écran
+	var hit: Button = null
+	for b in sc.find_children("*", "Button", true, false):
+		var r := (b as Button).get_global_rect()
+		if r.position.y > 500 and r.position.y < 900 and (b as Button).text.contains("+"):
+			hit = b
+			break
+	var names: Array = []
+	for b in sc.find_children("*", "Button", true, false):
+		names.append("%s@%d" % [(b as Button).text, int((b as Button).get_global_rect().position.y)])
+	print("SCROLL boutons=", names.slice(0, 12), " pieces=", c1)
+	if hit:
+		var at := hit.get_global_rect().get_center()
+		_ftouch(at, true)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_ftouch(at, false)
+	await wait(0.6)
+	var sc2 := main._find_scroll(main.panel_stack.back())
+	print("SCROLL vente : bouton=", names.size() > 0, " pieces=", GameState.coins(), " vendu=", GameState.coins() > c1, " position avant=", before, " apres=", sc2.scroll_vertical)
+	await shot("scroll_sell")
+	main.close_all_panels()

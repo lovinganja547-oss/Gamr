@@ -21,6 +21,12 @@ var _last_pos := Vector3.ZERO
 var walker := Vector3.ZERO
 var leash: MeshInstance3D
 var flag: Node3D
+var gps_arrow: Node3D
+var gps_ring: MeshInstance3D
+var gps_dial: GpsDial
+var gps_label: Label
+var _suffix: PackedFloat32Array = PackedFloat32Array()
+var _gps_t := 0.0
 var markers: Array[Node3D] = []
 var items: Array[Dictionary] = []
 var npcs: Array[PetController] = []
@@ -156,13 +162,7 @@ func _build_plan_path(pl: Array) -> void:
 		var mk := WorldBuilder.cyl(main.world, 0.07, 0.07, 0.01, path[i] + Vector3(0, 0.012, 0), Color(1, 0.95, 0.75), 10)
 		mk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		markers.append(mk)
-	flag = Node3D.new()
-	main.world.add_child(flag)
-	WorldBuilder.cyl(flag, 0.03, 0.03, 1.5, Vector3(0, 0.75, 0), Color(0.95, 0.95, 0.95), 6)
-	WorldBuilder.box(flag, Vector3(0.5, 0.3, 0.02), Vector3(0.25, 1.33, 0), Color(0.45, 0.8, 0.45), Vector3.ZERO, false)
-	var tw := flag.create_tween().set_loops()
-	tw.tween_property(flag, "scale", Vector3(1.15, 1.15, 1.15), 0.5)
-	tw.tween_property(flag, "scale", Vector3.ONE, 0.5)
+	_make_gps()
 
 func can_recenter() -> bool:
 	return started
@@ -317,19 +317,13 @@ func _build_path(total: float) -> void:
 		path.append(Vector3(p.x, 0, p.y))
 	home = path[0]
 	path.remove_at(0)
-	# empreintes au sol (une sur deux) + drapeau du prochain point
+	# empreintes au sol (une sur deux) ; le guidage se fait par la flèche GPS
 	for i in path.size():
 		if i % 2 == 0:
 			var mk := WorldBuilder.cyl(main.world, 0.07, 0.07, 0.01, path[i] + Vector3(0, 0.012, 0), Color(1, 0.95, 0.75), 10)
 			mk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			markers.append(mk)
-	flag = Node3D.new()
-	main.world.add_child(flag)
-	WorldBuilder.cyl(flag, 0.02, 0.02, 0.9, Vector3(0, 0.45, 0), Color(0.95, 0.95, 0.95), 6)
-	WorldBuilder.box(flag, Vector3(0.3, 0.18, 0.02), Vector3(0.15, 0.8, 0), Color(0.45, 0.8, 0.45), Vector3.ZERO, false)
-	var tw := flag.create_tween().set_loops()
-	tw.tween_property(flag, "scale", Vector3(1.15, 1.15, 1.15), 0.5)
-	tw.tween_property(flag, "scale", Vector3.ONE, 0.5)
+	_make_gps()
 
 func _spawn_finds(n: int) -> void:
 	var pool: Array = GameData.collectibles(main.env_id).filter(func(id): return int(GameData.item(id).get("rarity", 1)) < 3)
@@ -456,7 +450,7 @@ func _process(delta: float) -> void:
 				_finish(true)
 				return
 	var goal := home if returning or next_cp >= path.size() else path[next_cp]
-	flag.position = goal
+	_update_gps(goal, delta)
 	# événements
 	var frac := progress()
 	for e in events:
@@ -496,6 +490,131 @@ func _process(delta: float) -> void:
 		home_btn.add_theme_stylebox_override("normal", UiKit.sb(UiKit.C_DANGER))
 	_update_info()
 
+# ------------------------------------------------------------------ GPS
+## Cadran à l'écran : la flèche tourne vers la prochaine étape, avec la distance restante.
+class GpsDial extends Control:
+	var angle := 0.0
+	func _init() -> void:
+		custom_minimum_size = Vector2(124, 124)
+		size = custom_minimum_size
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		var c := size * 0.5
+		draw_circle(c, 58.0, Color(0.18, 0.11, 0.06, 0.6))
+		draw_arc(c, 58.0, 0.0, TAU, 48, Color(1.0, 0.96, 0.88), 5.0, true)
+		for k in 4:
+			var d := Vector2.UP.rotated(k * PI * 0.5)
+			draw_line(c + d * 47.0, c + d * 54.0, Color(1, 0.96, 0.88, 0.7), 3.0)
+		draw_set_transform(c, angle, Vector2.ONE)
+		var pts := PackedVector2Array([Vector2(0, -44), Vector2(28, 24), Vector2(0, 9), Vector2(-28, 24)])
+		var big := PackedVector2Array()
+		for q in pts:
+			big.append(q * 1.2 + Vector2(0, 1.5))
+		draw_colored_polygon(big, Color(1, 1, 1))
+		draw_colored_polygon(pts, Color(0.3, 0.78, 0.4))
+		draw_colored_polygon(PackedVector2Array([Vector2(0, -44), Vector2(0, 9), Vector2(-28, 24)]), Color(0.42, 0.88, 0.5))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+static func _arrow_mesh(scale_k: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pts: Array = [Vector2(0, 0.34), Vector2(0.26, -0.06), Vector2(0.1, -0.06), Vector2(0.1, -0.3), Vector2(-0.1, -0.3), Vector2(-0.1, -0.06), Vector2(-0.26, -0.06)]
+	for tri in [[0, 1, 6], [2, 3, 4], [2, 4, 5]]:
+		for i in tri:
+			var q: Vector2 = pts[i] * scale_k
+			st.set_normal(Vector3.UP)
+			st.add_vertex(Vector3(q.x, 0, q.y))
+	return st.commit()
+
+static func _flat_mat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if c.a < 1.0:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	return m
+
+## Flèche au sol devant l'animal + anneau sur la prochaine étape + cadran à l'écran.
+func _make_gps() -> void:
+	flag = Node3D.new()
+	main.world.add_child(flag)
+	gps_arrow = Node3D.new()
+	flag.add_child(gps_arrow)
+	for lay in [[1.22, Color(1, 1, 1), 0.03], [1.0, Color(0.3, 0.8, 0.4), 0.04]]:
+		var mi := MeshInstance3D.new()
+		mi.mesh = _arrow_mesh(float(lay[0]))
+		mi.material_override = _flat_mat(lay[1])
+		mi.position.y = float(lay[2])
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gps_arrow.add_child(mi)
+	gps_ring = MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.42
+	tm.outer_radius = 0.52
+	tm.rings = 24
+	tm.ring_segments = 6
+	gps_ring.mesh = tm
+	gps_ring.scale = Vector3(1, 0.12, 1)
+	gps_ring.material_override = _flat_mat(Color(0.3, 0.8, 0.4, 0.85))
+	gps_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	flag.add_child(gps_ring)
+	if gps_dial == null and ui != null:
+		var box := VBoxContainer.new()
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		box.position = Vector2(-150, 176 + main.safe.get_theme_constant("margin_top"))
+		box.custom_minimum_size = Vector2(300, 0)
+		box.add_theme_constant_override("separation", 2)
+		gps_dial = GpsDial.new()
+		gps_dial.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		box.add_child(gps_dial)
+		gps_label = UiKit.label("", 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+		gps_label.add_theme_color_override("font_outline_color", Color(0.2, 0.1, 0.05, 0.9))
+		gps_label.add_theme_constant_override("outline_size", 8)
+		gps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(gps_label)
+		ui.add_child(box)
+
+## Mètres (affichés) restant jusqu'à la fin du tracé, en suivant le chemin.
+func _remaining(goal: Vector3) -> float:
+	if _suffix.size() != path.size():
+		_suffix.resize(path.size())
+		var acc := 0.0
+		for i in range(path.size() - 1, -1, -1):
+			_suffix[i] = acc
+			if i > 0:
+				acc += path[i].distance_to(path[i - 1])
+	var d := pet.position.distance_to(goal)
+	if not returning and next_cp < path.size():
+		d += _suffix[next_cp]
+	return d * SCALE
+
+func _update_gps(goal: Vector3, delta: float) -> void:
+	if flag == null or not is_instance_valid(flag):
+		return
+	_gps_t += delta
+	var dir := goal - pet.position
+	dir.y = 0
+	var dist := dir.length()
+	if dist > 0.01:
+		dir /= dist
+	gps_ring.position = goal + Vector3(0, 0.03, 0)
+	var pulse := 1.0 + sin(_gps_t * 4.0) * 0.12
+	gps_ring.scale = Vector3(pulse, 0.12, pulse)
+	gps_arrow.visible = dist > 0.9
+	gps_arrow.position = pet.position + dir * (0.85 + sin(_gps_t * 5.0) * 0.08)
+	gps_arrow.rotation.y = atan2(dir.x, dir.z)
+	if gps_dial:
+		# angle à l'écran : direction du but vue par la caméra (0 = vers le haut)
+		var cb := main.cam_rig.cam.global_transform.basis
+		var right := Vector3(cb.x.x, 0, cb.x.z).normalized()
+		var fwd := Vector3(-cb.z.x, 0, -cb.z.z).normalized()
+		gps_dial.angle = lerp_angle(gps_dial.angle, atan2(dir.dot(right), dir.dot(fwd)), minf(1.0, delta * 10.0))
+		gps_dial.queue_redraw()
+		var nxt := tr("Maison") if returning else _next_poi_name()
+		gps_label.text = ("%d m" % int(round(_remaining(goal) / 5.0) * 5.0)) + ((" · " + nxt) if nxt != "" else "")
+
 func progress() -> float:
 	return clampf(float(next_cp) / float(maxi(1, path.size())), 0.0, 1.0)
 
@@ -519,13 +638,13 @@ func _update_info() -> void:
 	var finds_total := int(route.get("finds", 0))
 	var txt := tr("%d m parcourus · Parcours %d %% · Trouvailles %d/%d") % [int(dist_done * SCALE), int(progress() * 100.0), collected, finds_total]
 	if returning:
-		txt = tr("Retour à la maison : suivez le drapeau. Trouvailles %d/%d") % [collected, finds_total]
+		txt = tr("Retour à la maison : suivez la flèche. Trouvailles %d/%d") % [collected, finds_total]
 	obj_l.text = txt
 	if not plan.is_empty():
 		var nxt := _next_poi_name()
-		info_label.text = tr("Suivez le drapeau vert.") + ("  " + tr("Prochaine étape : %s") % nxt if nxt != "" else "")
+		info_label.text = tr("Suivez la flèche verte.") + ("  " + tr("Prochaine étape : %s") % nxt if nxt != "" else "")
 	else:
-		info_label.text = tr("Joystick : touchez et glissez. Suivez le drapeau vert.")
+		info_label.text = tr("Joystick : touchez et glissez. Suivez la flèche verte.")
 
 func _set_energy(e: float) -> void:
 	energy_bar.value = e
@@ -686,7 +805,7 @@ func _go_home() -> void:
 	for m in markers:
 		if is_instance_valid(m) and m is MeshInstance3D:
 			m.visible = false
-	main.toast(tr("Direction la maison : suivez le drapeau."))
+	main.toast(tr("Direction la maison : suivez la flèche."))
 
 # ------------------------------------------------------------------ fin
 func _finish(arrived: bool) -> void:

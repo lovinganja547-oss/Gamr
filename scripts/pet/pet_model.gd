@@ -322,7 +322,7 @@ func _shell_mats(head: bool) -> Array:
 			m.set_shader_parameter("hole_b", Vector3(-e.x, e.y, e.z))
 			var sn: Vector2 = bd["snout"]
 			m.set_shader_parameter("hole_c", _v3("nose", Vector3(0, -hr * 0.28 + sn.y * 0.45, hr * 0.78 + sn.x * 1.1)))
-			m.set_shader_parameter("hole_r", float(meta.get("eye_r", hr * 0.2)) * 1.2)
+			m.set_shader_parameter("hole_r", float(meta.get("eye_r", hr * 0.2)) * 1.04)
 			m.set_shader_parameter("comb", Vector3(0, -0.2, -0.6))
 		m.render_priority = i
 		arr.append(m)
@@ -421,20 +421,26 @@ func _build() -> void:
 		var e := _pivot(head_pivot, Vector3(sx * ep0.x, ep0.y, ep0.z), "Eye")
 		e.rotation = Vector3(0, sx * 0.3, 0)
 		e.scale = Vector3(1, 1, 0.62)
-		_mi(_sphere(), c_eye.darkened(0.62), e, Vector3.ZERO, Vector3.ONE * er * 2.0, Vector3.ZERO, 0.12, 0.0)
-		_mi(_sphere(), c_eye, e, Vector3(0, 0, er * 0.55), Vector3(er * 1.78, er * 1.82, er * 0.95), Vector3.ZERO, 0.15, 0.0)
-		_mi(_sphere(), Color(0.02, 0.02, 0.03), e, Vector3(0, 0, er * 0.86), Vector3(er * 0.78, er * (0.95 if cat else 0.82), er * 0.4), Vector3.ZERO, 0.1, 0.0)
-		var hl := _mi(_sphere(), Color.WHITE, e, Vector3(er * 0.3, er * 0.38, er * 0.92), Vector3.ONE * er * 0.46, Vector3.ZERO, 0.1, 0.0)
-		hl.material_override = _glow_mat()
-		var hl2 := _mi(_sphere(), Color.WHITE, e, Vector3(-er * 0.28, -er * 0.3, er * 0.95), Vector3.ONE * er * 0.2, Vector3.ZERO, 0.1, 0.0)
-		hl2.material_override = _glow_mat()
+		# globe unique : iris, pupille, blanc et reflets dessinés par le shader
+		var ball := MeshInstance3D.new()
+		ball.mesh = _sphere()
+		ball.scale = Vector3.ONE * er * 2.0
+		ball.material_override = _eye_mat(cat)
+		ball.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		e.add_child(ball)
+		# paupières : coque de la couleur du pelage doublée d'un liseré sombre (trait de l'œil)
+		var rim_c := Color(0.16, 0.11, 0.09)
 		var lid := _pivot(e, Vector3.ZERO, "Lid")
 		var lm := _mi(_hemi(er * 1.13), lid_c, lid, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
 		lm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var lr2 := _mi(_hemi(er * 1.085), rim_c, lid, Vector3.ZERO, Vector3(1, 1, 1), Vector3(0.13, 0, 0), 0.6, 0.0)
+		lr2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		lids.append(lid)
 		var low := _pivot(e, Vector3.ZERO, "LowerLid")
 		var lw := _mi(_hemi(er * 1.12), lid_c, low, Vector3.ZERO, Vector3(1, 1, 1), Vector3.ZERO, 0.9, 0.1)
 		lw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var lw2 := _mi(_hemi(er * 1.08), rim_c, low, Vector3.ZERO, Vector3(1, 1, 1), Vector3(0.1, 0, 0), 0.6, 0.0)
+		lw2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		low.rotation.x = PI + 0.95
 		lower_lids.append(low)
 		eyes.append(e)
@@ -898,6 +904,16 @@ func head_reach() -> float:
 func set_leg_hit(on: bool) -> void:
 	if hit_legs:
 		hit_legs.collision_layer = 2 if on else 0
+
+## Matière de l'œil (une par animal : couleur d'iris propre).
+func _eye_mat(is_cat: bool) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://assets/shaders/eye.gdshader")
+	m.set_shader_parameter("iris_color", Vector3(c_eye.r, c_eye.g, c_eye.b))
+	m.set_shader_parameter("slit", 1.0 if is_cat else 0.0)
+	m.set_shader_parameter("iris_size", 0.84 if is_cat else 0.8)
+	m.set_shader_parameter("pupil_size", 0.44 if is_cat else 0.36)
+	return m
 
 func body_length() -> float:
 	return (bz * 1.1 + hr * 1.4) * scale.x

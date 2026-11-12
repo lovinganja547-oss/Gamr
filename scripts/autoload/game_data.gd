@@ -24,8 +24,8 @@ const BREEDS := {
 	"labrador": {
 		"name": "Labrador", "species": "dog", "voice": "bark_mid",
 		"desc": "Gentil et gourmand, il adore rapporter tout ce qu'on lui lance.",
-		"body": Vector3(0.30, 0.27, 0.56), "leg_len": 0.27, "leg_rad": 0.065, "head": 0.19,
-		"snout": Vector2(0.15, 0.085), "ear": "floppy", "ear_size": 0.11, "tail": "otter",
+		"body": Vector3(0.3, 0.28, 0.62), "leg_len": 0.3, "leg_rad": 0.06, "head": 0.18,
+		"snout": Vector2(0.19, 0.085), "ear": "floppy", "ear_size": 0.11, "tail": "otter",
 		"pattern": "solid", "scale": 1.0,
 		"palettes": [
 			{"name": "Sable", "main": Color(0.93, 0.78, 0.52), "second": Color(0.98, 0.9, 0.74)},
@@ -39,8 +39,8 @@ const BREEDS := {
 	"shiba": {
 		"name": "Shiba Inu", "species": "dog", "voice": "yip",
 		"desc": "Fier et malicieux, il obéit… quand il en a envie.",
-		"body": Vector3(0.24, 0.22, 0.44), "leg_len": 0.22, "leg_rad": 0.052, "head": 0.165,
-		"snout": Vector2(0.11, 0.07), "ear": "pointy", "ear_size": 0.085, "tail": "curl",
+		"body": Vector3(0.24, 0.23, 0.48), "leg_len": 0.24, "leg_rad": 0.048, "head": 0.158,
+		"snout": Vector2(0.135, 0.066), "ear": "pointy", "ear_size": 0.085, "tail": "curl",
 		"pattern": "shiba", "scale": 0.92,
 		"palettes": [
 			{"name": "Roux", "main": Color(0.88, 0.5, 0.22), "second": Color(0.99, 0.94, 0.85)},
@@ -54,8 +54,8 @@ const BREEDS := {
 	"poodle": {
 		"name": "Caniche", "species": "dog", "voice": "bark_small",
 		"desc": "Élégant et très vif d'esprit, il apprend les tours en un clin d'œil.",
-		"body": Vector3(0.22, 0.24, 0.40), "leg_len": 0.30, "leg_rad": 0.045, "head": 0.155,
-		"snout": Vector2(0.14, 0.06), "ear": "fluffy", "ear_size": 0.09, "tail": "pompom",
+		"body": Vector3(0.21, 0.24, 0.42), "leg_len": 0.32, "leg_rad": 0.042, "head": 0.148,
+		"snout": Vector2(0.16, 0.056), "ear": "fluffy", "ear_size": 0.09, "tail": "pompom",
 		"pattern": "poodle", "scale": 0.95,
 		"palettes": [
 			{"name": "Abricot", "main": Color(0.95, 0.72, 0.5), "second": Color(0.98, 0.8, 0.62)},
@@ -69,8 +69,8 @@ const BREEDS := {
 	"shepherd": {
 		"name": "Berger allemand", "species": "dog", "voice": "bark_big",
 		"desc": "Courageux et appliqué, un partenaire idéal pour l'obéissance et le pistage.",
-		"body": Vector3(0.30, 0.28, 0.62), "leg_len": 0.31, "leg_rad": 0.065, "head": 0.18,
-		"snout": Vector2(0.18, 0.08), "ear": "pointy", "ear_size": 0.12, "tail": "bushy",
+		"body": Vector3(0.29, 0.28, 0.66), "leg_len": 0.33, "leg_rad": 0.06, "head": 0.175,
+		"snout": Vector2(0.215, 0.076), "ear": "pointy", "ear_size": 0.12, "tail": "bushy",
 		"pattern": "saddle", "scale": 1.05,
 		"palettes": [
 			{"name": "Feu & noir", "main": Color(0.78, 0.52, 0.28), "second": Color(0.14, 0.12, 0.12)},
@@ -84,8 +84,8 @@ const BREEDS := {
 	"beagle": {
 		"name": "Beagle", "species": "dog", "voice": "bark_mid",
 		"desc": "Un nez exceptionnel et une curiosité sans limite. Un peu distrait…",
-		"body": Vector3(0.24, 0.22, 0.46), "leg_len": 0.2, "leg_rad": 0.055, "head": 0.17,
-		"snout": Vector2(0.13, 0.064), "ear": "long", "ear_size": 0.13, "tail": "whip",
+		"body": Vector3(0.24, 0.23, 0.5), "leg_len": 0.22, "leg_rad": 0.05, "head": 0.162,
+		"snout": Vector2(0.155, 0.064), "ear": "long", "ear_size": 0.13, "tail": "whip",
 		"pattern": "beagle", "scale": 0.9,
 		"palettes": [
 			{"name": "Tricolore", "main": Color(0.82, 0.55, 0.3), "second": Color(0.15, 0.13, 0.12)},
@@ -99,7 +99,7 @@ const BREEDS := {
 	"cat": {
 		"name": "Chat domestique", "species": "cat", "voice": "meow",
 		"desc": "Indépendant et câlin à ses heures. Il apprend à son rythme.",
-		"body": Vector3(0.19, 0.19, 0.42), "leg_len": 0.18, "leg_rad": 0.04, "head": 0.15,
+		"body": Vector3(0.18, 0.19, 0.44), "leg_len": 0.2, "leg_rad": 0.036, "head": 0.142,
 		"snout": Vector2(0.05, 0.06), "ear": "cat", "ear_size": 0.075, "tail": "cat",
 		"pattern": "tabby", "scale": 0.85,
 		"palettes": [
@@ -182,7 +182,9 @@ const ITEMS := {
 	"cheese": {"name": "Dés de fromage", "cat": "treat", "icon": "cheese", "price": 8, "fx": {"hunger": 5, "mood": 14, "affection": 3}, "desc": "Irrésistible."},
 	"cookie": {"name": "Cookie au potiron", "cat": "treat", "icon": "cookie", "price": 12, "fx": {"hunger": 10, "mood": 18, "affection": 6}, "desc": "La friandise de luxe."},
 	# Soins
-	"shampoo": {"name": "Shampooing doux", "cat": "care", "icon": "shampoo", "price": 15, "fx": {"clean": 20}, "desc": "Bain plus efficace (+20 propreté)."},
+	"shampoo": {"name": "Shampooing doux", "cat": "care", "icon": "shampoo", "price": 15, "bath": true, "foam": Color(1, 1, 1), "fx": {"clean": 20}, "desc": "Indispensable pour le bain (+20 propreté)."},
+	"shampoo_shine": {"name": "Shampooing brillance", "cat": "care", "icon": "shampoo", "price": 28, "bath": true, "foam": Color(1.0, 0.9, 0.95), "fx": {"clean": 20, "mood": 10}, "desc": "Pelage éclatant : propreté et bonne humeur."},
+	"shampoo_care": {"name": "Shampooing soin", "cat": "care", "icon": "shampoo", "price": 34, "bath": true, "foam": Color(0.88, 1.0, 0.92), "fx": {"clean": 20, "health": 8}, "desc": "Aux plantes : propreté et un peu de santé."},
 	"vitamins": {"name": "Vitamines", "cat": "care", "icon": "vitamins", "price": 30, "fx": {"health": 30}, "desc": "Redonne de la santé."},
 	# Jouets
 	"ball": {"name": "Balle rouge", "cat": "toy", "icon": "ball", "price": 0, "color": Color(0.9, 0.2, 0.2), "toy": "ball", "desc": "La balle classique.", "bonus": 0},

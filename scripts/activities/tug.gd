@@ -3,7 +3,7 @@ extends Activity
 ## Tir à la corde : glisser vers le bas pour tirer ; l'animal tire par à-coups selon
 ## son énergie et son caractère. Gagner ou perdre rend l'animal heureux.
 
-const DURATION := 22.0
+const DURATION := 50.0
 const TOY_LEN := 0.9
 
 var balance := 0.0        # -100 (l'animal gagne) .. 100 (le joueur gagne)
@@ -18,12 +18,22 @@ var _dog_force := 0.0
 var _burst_t := 0.0
 var _dog_rest := false     # l'animal reprend son souffle : c'est le moment de tirer
 var phase_label: Label
+# Direction : l'animal tire d'un côté, il faut tirer dans le sens indiqué pour être efficace
+const DIR_ANGLES: Array[float] = [-0.65, 0.0, 0.65]
+var dir_idx := 1
+var _dir_t := 0.0
+var dir_boxes: Array[PanelContainer] = []
+# Prise : chaque traction fatigue la main ; à zéro la corde glisse
+var grip := 100.0
+var grip_bar: ProgressBar
+var _idle_t := 0.0
+var _slip_t := 0.0
 var strength := 1.0
 var start_pos := Vector3.ZERO
 
 func _start() -> void:
 	make_top("[i:tug] " + tr("Tir à la corde"))
-	info_label.text = tr("Donnez des petits coups de doigt vers le bas, n'importe où sur l'écran.")
+	info_label.text = tr("Tirez dans le sens de la flèche. Relâchez pour reprendre votre prise.")
 	var bb := bottom_bar()
 	var pv := UiKit.panel(14)
 	pv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -39,6 +49,24 @@ func _start() -> void:
 	vv.add_child(meter)
 	phase_label = UiKit.label("", 26, UiKit.C_ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	vv.add_child(phase_label)
+	var dh := UiKit.hbox(8)
+	for k in 3:
+		var bx := PanelContainer.new()
+		bx.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bx.custom_minimum_size = Vector2(0, 64)
+		var dl := UiKit.label(["[i:left] " + tr("À gauche"), tr("Tout droit"), "[i:right] " + tr("À droite")][k], 22, UiKit.C_TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		bx.add_child(dl)
+		dir_boxes.append(bx)
+		dh.add_child(bx)
+	vv.add_child(dh)
+	var gh := UiKit.hbox(6)
+	gh.add_child(UiKit.label(tr("Prise"), 22, UiKit.C_SUB))
+	grip_bar = UiKit.bar(100, UiKit.C_ACCENT2, 20)
+	grip_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grip_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	gh.add_child(grip_bar)
+	vv.add_child(gh)
+	_show_dir()
 	pv.add_child(vv)
 	bb.add_child(pv)
 	var p := GameState.active_pet()
@@ -73,20 +101,37 @@ func _start() -> void:
 	main.world.add_child(rope)
 	pet.voice()
 
+func _show_dir() -> void:
+	for k in dir_boxes.size():
+		var on := k == dir_idx
+		dir_boxes[k].add_theme_stylebox_override("panel", UiKit.sb(Color(1.0, 0.86, 0.5) if on else Color(1, 1, 1, 0.55), 18, 3 if on else 0, UiKit.C_ACCENT, false, 6))
+
 func handle_input(event: InputEvent) -> bool:
 	if finished:
 		return false
 	if event is InputEventScreenTouch and event.index == 0:
 		_holding = event.pressed
 		_last_y = event.position.y
-		if event.pressed:
-			_power = minf(_power + 0.25, 3.0)   # un simple appui compte aussi un peu
 		return true
 	if event is InputEventScreenDrag and event.index == 0 and _holding:
-		var dy: float = event.position.y - _last_y
-		_last_y = event.position.y
-		if dy > 0.0:
-			_power = minf(_power + dy / 260.0, 3.0)
+		var rel: Vector2 = event.relative
+		if rel.y > 0.0 and _slip_t <= 0.0:
+			# efficacité selon la direction du geste par rapport à la flèche
+			var ang := atan2(rel.x, rel.y)
+			var match_k := clampf(1.0 - absf(ang - DIR_ANGLES[dir_idx]) / 0.6, 0.15, 1.0)
+			var amount := rel.length()
+			_power = minf(_power + amount / 260.0 * match_k, 3.0)
+			grip = maxf(0.0, grip - amount / 52.0)
+			_idle_t = 0.0
+			if grip <= 0.0:
+				# la corde glisse des mains : on perd du terrain et il faut reprendre sa prise
+				_slip_t = 1.0
+				_power = 0.0
+				balance = maxf(-100.0, balance - 14.0)
+				grip = 35.0
+				Audio.play("fail", 0.0, -8.0)
+				Audio.vibrate(40)
+				big_hint(tr("La corde glisse !"), 0.7, UiKit.C_DANGER)
 		return true
 	return false
 
@@ -95,27 +140,44 @@ func _process(delta: float) -> void:
 		return
 	time_left -= delta
 	_power *= exp(-2.2 * delta)
-	# L'animal alterne : il tire fort, puis reprend son souffle
+	_slip_t = maxf(0.0, _slip_t - delta)
+	_idle_t += delta
+	if _idle_t > 0.22:
+		grip = minf(100.0, grip + 34.0 * delta)
+	grip_bar.value = grip
+	grip_bar.add_theme_stylebox_override("fill", UiKit.sb(UiKit.need_color(grip), 12, 0, Color.TRANSPARENT, false, 0))
+	# L'animal change de côté de temps en temps
+	_dir_t -= delta
+	if _dir_t <= 0.0:
+		_dir_t = randf_range(2.2, 3.8)
+		var nd := randi() % 3
+		if nd == dir_idx:
+			nd = (nd + 1 + randi() % 2) % 3
+		dir_idx = nd
+		_show_dir()
+		Audio.play("tick", 0.05, -8.0)
+	# Il alterne : il tire fort, puis reprend son souffle
 	_burst_t -= delta
 	if _burst_t <= 0.0:
 		_dog_rest = not _dog_rest
 		if _dog_rest:
-			_burst_t = randf_range(0.8, 1.4)
-			_dog_force = 0.15 * strength
+			_burst_t = randf_range(0.9, 1.5)
+			_dog_force = 0.22 * strength
 			pet.model.set_posture("stand", 5.0)
 			pet.model.tongue_out = 1.0
 		else:
-			_burst_t = randf_range(1.0, 1.8)
-			_dog_force = randf_range(0.55, 0.95) * strength
+			_burst_t = randf_range(1.2, 2.0)
+			_dog_force = randf_range(0.6, 1.0) * strength
 			pet.model.set_posture("bow", 5.0)
 			pet.model.tongue_out = 0.0
 			if randf() < 0.4:
 				pet.voice()
 	var k := 1.4 if _dog_rest else 1.0
-	balance = clampf(balance + (_power * k - _dog_force) * 17.0 * delta, -100.0, 100.0)
+	balance = clampf(balance + (_power * k - _dog_force) * 13.0 * delta, -100.0, 100.0)
 	meter.value = (balance + 100.0) * 0.5
 	phase_label.text = tr("Il souffle : tirez !") if _dog_rest else tr("Il tire fort, tenez bon !")
 	phase_label.add_theme_color_override("font_color", UiKit.C_ACCENT2 if _dog_rest else UiKit.C_DANGER)
+	pet.model.head_extra.z = lerpf(pet.model.head_extra.z, [0.35, 0.0, -0.35][dir_idx], minf(1.0, delta * 4.0))
 	# Animation : l'animal recule ou avance, secoue la tête
 	var dir := (pet.player_pos - start_pos).normalized()
 	pet.position = start_pos + dir * (balance / 100.0) * 0.35
@@ -139,6 +201,7 @@ func _finish() -> void:
 	pet.model.shake = 0.0
 	pet.model.head_extra.y = 0.0
 	pet.model.tongue_out = 0.0
+	pet.model.head_extra.z = 0.0
 	var won := balance > 0.0
 	GameState.spend_energy("tug")
 	GameState.change_need("mood", 12.0)

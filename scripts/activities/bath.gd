@@ -16,11 +16,30 @@ var bubbles: Array[Node3D] = []
 var _rubbing := false
 var _acc := 0.0
 var shampoo := false
+var shampoo_id := ""
+var foam_c := Color(1, 1, 1)
+
+func _init(id: String = "") -> void:
+	shampoo_id = id
 var _rinsing := false
 var clean_before := 0.0
 var shower: CPUParticles3D
 
 func _start() -> void:
+	# Pas de bain sans shampooing : celui choisi (ou le premier du sac) est utilisé dès le début
+	if shampoo_id == "" or GameState.item_count(shampoo_id) <= 0:
+		shampoo_id = ""
+		for id in GameData.ITEMS.keys():
+			if GameData.ITEMS[id].get("bath", false) and GameState.item_count(id) > 0:
+				shampoo_id = id
+				break
+	if shampoo_id == "" or not GameState.consume(shampoo_id):
+		finished = true
+		main.toast(tr("Il faut du shampooing pour donner le bain : la boutique du quartier en vend."))
+		main.call_deferred("end_activity")
+		return
+	shampoo = true
+	foam_c = GameData.item(shampoo_id).get("foam", Color(1, 1, 1))
 	make_top("[i:wash] " + tr("Bain de %s") % pet_name())
 	info_label.text = tr("Frottez l'animal du doigt. Glissez à côté pour tourner, ou touchez une zone.")
 	var bb := bottom_bar()
@@ -30,14 +49,9 @@ func _start() -> void:
 	var zp := care_zone_panel(ZONES, Color(0.55, 0.85, 0.95))
 	zone_bars = zp["bars"]
 	vv.add_child(zp["grid"])
-	var h2 := UiKit.hbox(10)
-	shampoo_btn = UiKit.button("[i:shampoo] " + tr("Shampooing (×%d)") % GameState.item_count("shampoo"), _use_shampoo, UiKit.C_BLUE, 22, 76)
-	shampoo_btn.disabled = GameState.item_count("shampoo") <= 0
-	h2.add_child(UiKit.expand(shampoo_btn))
 	rinse_btn = UiKit.button("[i:shower] " + tr("Rincer"), _rinse, UiKit.C_ACCENT2, 24, 76)
 	rinse_btn.disabled = true
-	h2.add_child(UiKit.expand(rinse_btn))
-	vv.add_child(h2)
+	vv.add_child(rinse_btn)
 	pv.add_child(vv)
 	bb.add_child(pv)
 	clean_before = float(GameState.active_pet()["needs"]["clean"])
@@ -46,12 +60,37 @@ func _start() -> void:
 	tub = Node3D.new()
 	tub.position = pet.position
 	main.world.add_child(tub)
-	var r := maxf(0.55, pet.model.body_length() * 0.62)
-	# bassin plat : rebord bas pour que les pattes restent visibles et accessibles
-	var rim := WorldBuilder.cyl(tub, r * 1.05, r * 1.12, 0.07, Vector3(0, 0.035, 0), Color(0.6, 0.78, 0.95), 28)
-	rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var water := WorldBuilder.cyl(tub, r, r, 0.012, Vector3(0, 0.05, 0), Color(0.75, 0.9, 1.0), 28)
+	var r := maxf(0.6, pet.model.body_length() * 0.66)
+	Kit.q = main.quality
+	var tb := MeshBatch.new()
+	var tx := Transform3D()
+	# tapis de bain, baquet en bois cerclé, fond, eau mousseuse
+	tb.disc("t:fabric:1.4", tx, r * 1.55, Vector3(0, 0.008, 0), Color(0.62, 0.80, 0.92), 28)
+	tb.disc("t:fabric:1.4", tx, r * 1.38, Vector3(0, 0.011, 0), Color(0.92, 0.96, 1.0), 28)
+	var staves := 22
+	var wall_h := 0.15
+	for i in staves:
+		var a := TAU * i / staves
+		var sx := Transform3D(Basis(Vector3.UP, -a), Vector3(cos(a) * r * 1.08, 0, sin(a) * r * 1.08))
+		tb.box("t:wood_planks:0.6", sx, Vector3(0.05, wall_h, TAU * r * 1.08 / staves + 0.01), Vector3(0, 0.02 + wall_h * 0.5, 0), Color(0.92, 0.74, 0.52).darkened((i % 3) * 0.05), 0.15)
+		for hy in [0.05, 0.135]:
+			tb.box("metal", sx, Vector3(0.012, 0.022, TAU * r * 1.08 / staves + 0.012), Vector3(0.03, hy, 0), Color(0.62, 0.64, 0.68))
+	tb.disc("t:wood_planks:0.6", tx, r * 1.07, Vector3(0, 0.022, 0), Color(0.8, 0.64, 0.46), 24)
+	var tmi := tb.commit(tub, false, "Tub")
+	tmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var water := MeshInstance3D.new()
+	var wm := CylinderMesh.new()
+	wm.top_radius = r * 1.05
+	wm.bottom_radius = r * 1.05
+	wm.height = 0.01
+	wm.radial_segments = 32
+	wm.rings = 1
+	water.mesh = wm
+	water.material_override = Kit.water_mat({"radius": r * 1.05, "center": Vector2(tub.position.x, tub.position.z), "scale": 3.0,
+		"shallow": Color(0.66, 0.88, 0.96), "deep": Color(0.42, 0.72, 0.9)})
+	water.position = Vector3(0, 0.105, 0)
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tub.add_child(water)
 	pet.face(pet.player_pos)
 	pet.model.set_posture("stand", 3.0)
 	pet.state = "action"
@@ -109,19 +148,11 @@ func progress() -> float:
 func _add_bubble(p: Vector3) -> void:
 	if bubbles.size() > 90:
 		return
-	var b := WorldBuilder.ball(main.world, randf_range(0.03, 0.07), p + Vector3(randf_range(-0.03, 0.03), 0.015, randf_range(-0.03, 0.03)), Color(1, 1, 1), Vector3.ONE, 8)
+	var b := WorldBuilder.ball(main.world, randf_range(0.03, 0.07), p + Vector3(randf_range(-0.03, 0.03), 0.015, randf_range(-0.03, 0.03)), foam_c, Vector3.ONE, 8)
 	b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	b.scale = Vector3.ONE * 0.2
 	b.create_tween().tween_property(b, "scale", Vector3.ONE * randf_range(0.8, 1.3), 0.15)
 	bubbles.append(b)
-
-func _use_shampoo() -> void:
-	if shampoo or not GameState.consume("shampoo"):
-		return
-	shampoo = true
-	shampoo_btn.disabled = true
-	shampoo_btn.text = tr("Shampooing actif")
-	Audio.play("chime")
 
 func _rinse() -> void:
 	_rinsing = true
@@ -178,8 +209,9 @@ func _rinse() -> void:
 	await get_tree().create_timer(1.1, false).timeout
 	var q := progress()
 	GameState.bath_done(q)
-	if shampoo:
-		GameState.change_need("clean", 20.0)
+	var fx: Dictionary = GameData.item(shampoo_id).get("fx", {})
+	for k in fx.keys():
+		GameState.change_need(str(k), float(fx[k]))
 	pet.model.emote("emo_sparkle")
 	# Récompense selon le travail réel, sans abus par répétition
 	var p := GameState.active_pet()

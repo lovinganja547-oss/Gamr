@@ -198,7 +198,7 @@ func _build_custom(refocus: bool = false, detail: String = "") -> void:
 	var nh := UiKit.hbox(10)
 	var le := LineEdit.new()
 	le.text = custom["name"]
-	le.max_length = 16
+	le.max_length = 0   # pas de limite ; les espaces sont permis
 	le.custom_minimum_size = Vector2(0, 84)
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	le.text_changed.connect(func(t): custom["name"] = t)

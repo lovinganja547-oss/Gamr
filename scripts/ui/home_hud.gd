@@ -134,7 +134,7 @@ func _build() -> void:
 	row1.alignment = BoxContainer.ALIGNMENT_CENTER
 	row1.add_child(UiKit.icon_button("feed", tr("Nourrir"), func(): Panels.food_picker("food", feed), Color(1, 0.93, 0.85), 108))
 	row1.add_child(UiKit.icon_button("water", tr("Eau"), give_water, Color(0.88, 0.95, 1), 108))
-	row1.add_child(UiKit.icon_button("wash", tr("Laver"), func(): Main.inst.start_activity(BathActivity.new()), Color(0.88, 0.97, 1), 108))
+	row1.add_child(UiKit.icon_button("wash", tr("Laver"), func(): Panels.bath_picker(), Color(0.88, 0.97, 1), 108))
 	row1.add_child(UiKit.icon_button("brush", tr("Brosser"), func(): Main.inst.start_activity(BrushActivity.new()), Color(0.98, 0.93, 0.85), 108))
 	row1.add_child(UiKit.icon_button("treat", tr("Friandise"), func(): Panels.food_picker("treat", give_treat), Color(1, 0.95, 0.88), 108))
 	row1.add_child(UiKit.icon_button("cuddle", tr("Câlin"), func(): Main.inst.start_activity(CuddleActivity.new()), Color(1, 0.92, 0.95), 108))

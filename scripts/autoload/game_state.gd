@@ -51,7 +51,7 @@ func default_data() -> Dictionary:
 		"last_time": Time.get_unix_time_from_system(),
 		"coins": 150, "coins_earned": 0, "xp": 0, "level": 1,
 		"active_pet": "", "pets": [],
-		"inventory": {"kibble": 5, "biscuit": 10, "shampoo": 1},
+		"inventory": {"kibble": 5, "biscuit": 10, "shampoo": 3},
 		"owned": ["ball", "collar_red", "collar_blue", "collar_green", "acc_none", "bandana", "bow",
 			"rug_round", "bed_basic", "sofa_coral", "wall_cream"],
 		"deco": {"wall": "wall_cream", "rug": "rug_round", "sofa": "sofa_coral", "bed": "bed_basic",
@@ -333,7 +333,7 @@ func sanitize_pet(p: Dictionary) -> Dictionary:
 	var b: Dictionary = GameData.BREEDS[breed]
 	var out := {
 		"id": str(p.get("id", "pet_%d" % randi())),
-		"name": str(p.get("name", b["name"])).substr(0, 16),
+		"name": str(p.get("name", b["name"])).strip_edges(),
 		"breed": breed,
 		"sex": "f" if str(p.get("sex", "m")) == "f" else "m",
 		"palette": clampi(int(p.get("palette", 0)), 0, b["palettes"].size() - 1),

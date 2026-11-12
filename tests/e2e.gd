@@ -179,7 +179,8 @@ func _run() -> void:
 	await shot("inventory")
 	main.close_all_panels()
 	# Bain
-	main.start_activity(BathActivity.new())
+	GameState.add_item("shampoo", 2)
+	main.start_activity(BathActivity.new("shampoo"))
 	await wait(0.6)
 	var a := main.activity as BathActivity
 	pp = main.cam_rig.cam.unproject_position(main.pet_ctrl.model.body_pivot.global_position)

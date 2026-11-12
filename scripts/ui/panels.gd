@@ -82,7 +82,7 @@ static func pet_info() -> void:
 	var rn := UiKit.hbox(10)
 	var le := LineEdit.new()
 	le.text = p["name"]
-	le.max_length = 16
+	le.max_length = 0
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rn.add_child(le)
 	rn.add_child(UiKit.button(_t("Renommer"), func():
@@ -139,6 +139,33 @@ static func food_picker(cat: String, cb: Callable) -> void:
 	if not any:
 		v.add_child(UiKit.label(_t("Votre sac est vide ! Partez en balade : la boutique, la boulangerie et le marché du quartier vendent de quoi le régaler."), 26))
 	_m().open_panel(_t("Que lui donner ?"), UiKit.scroll(v))
+
+# ================================================================== Bain : choix du shampooing
+## Le bain exige un shampooing : on le choisit avant de commencer (il est utilisé à ce moment-là).
+static func bath_picker() -> void:
+	var owned: Array = []
+	for id in GameData.ITEMS.keys():
+		if GameData.ITEMS[id].get("bath", false) and GameState.item_count(id) > 0:
+			owned.append(id)
+	if owned.is_empty():
+		_m().toast(_t("Il faut du shampooing pour donner le bain : la boutique du quartier en vend."))
+		return
+	var v := UiKit.vbox(12)
+	v.add_child(UiKit.label(_t("Choisissez le shampooing du bain."), 26, UiKit.C_SUB))
+	for id in owned:
+		var iid: String = id
+		var it: Dictionary = GameData.ITEMS[id]
+		var c := _card()
+		var info := UiKit.vbox(2)
+		info.add_child(UiKit.label("[i:%s] %s ×%d" % [it["icon"], _t(it["name"]), GameState.item_count(id)], 28))
+		info.add_child(UiKit.label(_t(it["desc"]), 21, UiKit.C_SUB))
+		var btn := UiKit.button(_t("Utiliser"), func():
+			_m().close_panel()
+			_m().start_activity(BathActivity.new(iid)), UiKit.C_ACCENT2, 26, 80)
+		btn.custom_minimum_size = Vector2(160, 80)
+		c.add_child(_row(info, btn))
+		v.add_child(c)
+	_m().open_panel("[i:wash] " + _t("Bain"), UiKit.scroll(v))
 
 # ================================================================== Boutique
 ## Accès à la boutique : "" = fermée (à la maison), "shop" = boutique du quartier (achats et vente),

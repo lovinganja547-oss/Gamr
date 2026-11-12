@@ -209,9 +209,44 @@ func add_extra_pet(p: Dictionary, pos: Vector3) -> PetController:
 	extra_pets.append(c)
 	return c
 
-func _process(_delta: float) -> void:
+var _fit_t := 0.0
+
+func _process(delta: float) -> void:
 	if pet_ctrl and pet_ctrl.visible and cam_rig.cam:
 		pet_ctrl.player_pos = cam_rig.player_ground_pos()
+	_fit_t -= delta
+	if _fit_t <= 0.0:
+		_fit_t = 0.25
+		_fit_ui()
+
+## Garantit que chaque interface tient à l'écran : si son contenu est plus large ou plus haut que
+## l'écran (nom très long, grande taille de texte, écran étroit), elle est réduite d'un bloc.
+func _fit_ui() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	_fit_one(safe, vp)
+	if activity and is_instance_valid(activity) and activity.has_method("fit"):
+		var sc := safe.scale.x
+		activity.fit(vp.x / maxf(sc, 0.01) - float(safe.get_theme_constant("margin_left") + safe.get_theme_constant("margin_right")))
+		var sub_a: Variant = activity.get("sub")
+		if sub_a is Activity and is_instance_valid(sub_a):
+			(sub_a as Activity).fit(vp.x / maxf(sc, 0.01) - float(safe.get_theme_constant("margin_left") + safe.get_theme_constant("margin_right")))
+	for ov in panel_stack:
+		if is_instance_valid(ov) and ov.get_child_count() > 0:
+			_fit_one(ov.get_child(0) as Control, vp)
+
+func _fit_one(c: Control, vp: Vector2) -> void:
+	if c == null:
+		return
+	var need := c.get_combined_minimum_size()
+	var k := minf(1.0, minf(vp.x / maxf(need.x, 1.0), vp.y / maxf(need.y, 1.0)))
+	if k < 0.999:
+		c.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		c.scale = Vector2(k, k)
+		c.position = Vector2.ZERO
+		c.size = vp / k
+	elif c.scale.x < 0.999:
+		c.scale = Vector2.ONE
+		c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 # ================================================================== Écrans et panneaux
 func show_screen(nm: String, args: Dictionary = {}) -> void:

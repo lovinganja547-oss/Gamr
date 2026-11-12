@@ -262,6 +262,12 @@ static func icon_button(icon_name: String, caption: String, cb: Callable, color:
 	var c := label(caption, 21, C_TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	c.autowrap_mode = TextServer.AUTOWRAP_OFF
 	c.clip_text = true
+	# le libellé rétrécit pour tenir en entier dans le bouton (jamais coupé)
+	var fnt := font()
+	var fs := ts(21)
+	while fs > 12 and fnt.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 10:
+		fs -= 1
+	c.add_theme_font_size_override("font_size", fs)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(i)
 	v.add_child(c)

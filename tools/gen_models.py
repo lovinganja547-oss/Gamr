@@ -18,12 +18,12 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "models")
 
 # Mêmes valeurs que scripts/autoload/game_data.gd
 BREEDS = {
-    "labrador": dict(species="dog", body=(0.30, 0.27, 0.56), leg_len=0.27, leg_rad=0.065, head=0.19, snout=(0.15, 0.085), ear="floppy", ear_size=0.11, tail="otter", pattern="solid"),
-    "shiba": dict(species="dog", body=(0.24, 0.22, 0.44), leg_len=0.22, leg_rad=0.052, head=0.165, snout=(0.11, 0.07), ear="pointy", ear_size=0.085, tail="curl", pattern="shiba"),
-    "poodle": dict(species="dog", body=(0.22, 0.24, 0.40), leg_len=0.30, leg_rad=0.045, head=0.155, snout=(0.14, 0.06), ear="fluffy", ear_size=0.09, tail="pompom", pattern="poodle"),
-    "shepherd": dict(species="dog", body=(0.30, 0.28, 0.62), leg_len=0.31, leg_rad=0.065, head=0.18, snout=(0.18, 0.08), ear="pointy", ear_size=0.12, tail="bushy", pattern="saddle"),
-    "beagle": dict(species="dog", body=(0.24, 0.22, 0.46), leg_len=0.20, leg_rad=0.055, head=0.17, snout=(0.13, 0.064), ear="long", ear_size=0.13, tail="whip", pattern="beagle"),
-    "cat": dict(species="cat", body=(0.19, 0.19, 0.42), leg_len=0.18, leg_rad=0.04, head=0.15, snout=(0.05, 0.06), ear="cat", ear_size=0.075, tail="cat", pattern="tabby"),
+    "labrador": dict(species="dog", body=(0.3, 0.28, 0.62), leg_len=0.3, leg_rad=0.06, head=0.18, snout=(0.19, 0.085), ear="floppy", ear_size=0.11, tail="otter", pattern="solid"),
+    "shiba": dict(species="dog", body=(0.24, 0.23, 0.48), leg_len=0.24, leg_rad=0.048, head=0.158, snout=(0.135, 0.066), ear="pointy", ear_size=0.085, tail="curl", pattern="shiba"),
+    "poodle": dict(species="dog", body=(0.21, 0.24, 0.42), leg_len=0.32, leg_rad=0.042, head=0.148, snout=(0.16, 0.056), ear="fluffy", ear_size=0.09, tail="pompom", pattern="poodle"),
+    "shepherd": dict(species="dog", body=(0.29, 0.28, 0.66), leg_len=0.33, leg_rad=0.06, head=0.175, snout=(0.215, 0.076), ear="pointy", ear_size=0.12, tail="bushy", pattern="saddle"),
+    "beagle": dict(species="dog", body=(0.24, 0.23, 0.5), leg_len=0.22, leg_rad=0.05, head=0.162, snout=(0.155, 0.064), ear="long", ear_size=0.13, tail="whip", pattern="beagle"),
+    "cat": dict(species="cat", body=(0.18, 0.19, 0.44), leg_len=0.2, leg_rad=0.036, head=0.142, snout=(0.05, 0.06), ear="cat", ear_size=0.075, tail="cat", pattern="tabby"),
 }
 TAIL = {"otter": (3, 0.075, 0.042), "curl": (4, 0.055, 0.045), "pompom": (2, 0.07, 0.018),
         "bushy": (4, 0.08, 0.05), "whip": (3, 0.07, 0.03), "cat": (5, 0.07, 0.028)}
@@ -171,12 +171,14 @@ def make_breed(name, B, res_scale):
 
     # ---------- torse + cou
     def torso(P):
-        d = sd_ellipsoid(P, (0, by * 0.04, bz * 0.24), (bx * 0.5, by * 0.52, bz * 0.3))
-        d = smin(d, sd_ellipsoid(P, (0, by * 0.02, -bz * 0.27), (bx * 0.48, by * 0.48, bz * 0.27)), 0.05)
-        waist = 0.40 if cat else (0.36 if pat in ("shepherd", "poodle") else 0.42)
-        d = smin(d, sd_ellipsoid(P, (0, by * 0.08, -bz * 0.02), (bx * waist, by * waist, bz * 0.35)), 0.06)
+        # poitrail profond à l'avant, arrière-train plus fin, ventre relevé (silhouette de chien, pas de tonneau)
+        d = sd_ellipsoid(P, (0, -by * 0.02, bz * 0.23), (bx * 0.5, by * 0.57, bz * 0.3))
+        d = smin(d, sd_ellipsoid(P, (0, by * 0.07, -bz * 0.27), (bx * 0.45, by * 0.44, bz * 0.27)), 0.05)
+        waist = 0.38 if cat else (0.33 if pat in ("shepherd", "poodle") else 0.37)
+        d = smin(d, sd_ellipsoid(P, (0, by * 0.13, -bz * 0.03), (bx * waist, by * waist, bz * 0.36)), 0.07)
+        d = smin(d, sd_ellipsoid(P, (0, by * 0.3, bz * 0.26), (bx * 0.3, by * 0.24, bz * 0.2)), 0.05)   # garrot
         top = head_pos * 0.82 + neck_base * 0.18
-        d = smin(d, sd_round_cone(P, neck_base, top, hr * (0.62 if not cat else 0.55), hr * (0.5 if not cat else 0.45)), 0.05)
+        d = smin(d, sd_round_cone(P, neck_base, top, hr * (0.6 if not cat else 0.52), hr * (0.43 if not cat else 0.42)), 0.06)
         for sx in (-1, 1):   # épaules et hanches
             d = smin(d, sd_ellipsoid(P, (sx * hx, hy * 0.2, zf), (lr * 1.7, by * 0.35, lr * 2.0)), 0.04)
             d = smin(d, sd_ellipsoid(P, (sx * hx * 1.05, hy * 0.1, zr), (lr * 2.0, by * 0.4, lr * 2.4)), 0.04)
@@ -214,18 +216,20 @@ def make_breed(name, B, res_scale):
     parts["torso"] = (torso, paint_torso, (-bx, -by, -bz * 0.62), (bx, head_pos[1] + hr * 0.2, bz * 0.62 + hr * 0.4), H(0.019))
 
     # ---------- tête (repère du pivot de tête)
-    eye_r = hr * 0.2
-    eye_p = np.array([hr * 0.4, hr * 0.12, hr * 0.8])
+    eye_r = hr * (0.235 if not cat else 0.25)
+    eye_p = np.array([hr * 0.39, hr * 0.15, hr * 0.8])
     snout_c = np.array([0, -hr * 0.28, hr * 0.78 + sl * 0.35])
     nose_p = snout_c + [0, sw * 0.45, sl * 0.78]
     if cat:
         nose_p = np.array([0, -hr * 0.12, hr * 0.98])
 
     def head_base(P, muzzle=True):
-        d = sd_ellipsoid(P, (0, hr * 0.06, -hr * 0.04), (hr * 0.98, hr * 0.92, hr * 0.98))
+        # crâne un peu plus étroit et aplati sur le dessus, front bombé, joues discrètes
+        d = sd_ellipsoid(P, (0, hr * 0.05, -hr * 0.05), (hr * (0.93 if not cat else 0.98), hr * 0.88, hr * 0.98))
+        d = smin(d, sd_ellipsoid(P, (0, hr * 0.3, hr * 0.38), (hr * 0.6, hr * 0.42, hr * 0.5)), 0.06)   # front
         for sx in (-1, 1):
-            d = smin(d, sd_ellipsoid(P, (sx * hr * 0.42, -hr * 0.28, hr * 0.3), (hr * 0.5, hr * 0.45, hr * 0.5)), 0.05)
-            d = smin(d, sd_ellipsoid(P, (sx * hr * 0.36, hr * 0.33, hr * 0.62), (hr * 0.26, hr * 0.16, hr * 0.22)), 0.03)  # arcades
+            d = smin(d, sd_ellipsoid(P, (sx * hr * 0.42, -hr * 0.26, hr * 0.28), (hr * 0.46, hr * 0.42, hr * 0.48)), 0.05)
+            d = smin(d, sd_ellipsoid(P, (sx * hr * 0.37, hr * 0.37, hr * 0.63), (hr * 0.27, hr * 0.15, hr * 0.22)), 0.03)  # arcades
         if cat:
             for sx in (-1, 1):
                 d = smin(d, sd_ellipsoid(P, (sx * hr * 0.17, -hr * 0.3, hr * 0.82), (hr * 0.24, hr * 0.2, hr * 0.18)), 0.03)
@@ -234,9 +238,11 @@ def make_breed(name, B, res_scale):
         elif muzzle:
             tip = snout_c + [0, 0, sl * 0.55]
             back = snout_c - [0, -sw * 0.15, sl * 0.6]
-            m = sd_round_cone(P, back, tip, sw * 1.0, sw * 0.82)
+            m = sd_round_cone(P, back, tip, sw * 1.05, sw * 0.74)   # museau effilé vers la truffe
             m = smax(m, -(P[..., 1] - (snout_c[1] - sw * 0.75)), 0.02)   # dessous aplati
-            d = smin(d, m, 0.06)
+            d = smin(d, m, 0.045)
+            # chanfrein : arête douce qui relie le front à la truffe (stop marqué de profil)
+            d = smin(d, sd_round_cone(P, np.array([0, hr * 0.02, hr * 0.7]), tip + [0, sw * 0.5, -sl * 0.1], sw * 0.5, sw * 0.42), 0.03)
             for sx in (-1, 1):   # babines
                 jow = 1.1 if name == "labrador" else 1.0
                 d = smin(d, sd_ellipsoid(P, tip + [sx * sw * 0.42, -sw * 0.55, -sl * 0.2], (sw * 0.55 * jow, sw * 0.42 * jow, sl * 0.45)), 0.03)
@@ -265,14 +271,16 @@ def make_breed(name, B, res_scale):
         muzzle = soft(z, hr * 0.55, hr * 0.8) * soft(-y, -hr * 0.05, hr * 0.15)
         cheeks = soft(-y, hr * 0.15, hr * 0.35) * soft(z, hr * 0.0, hr * 0.4)
         b = muzzle.copy()   # extrémités (siamois)
+        brow = np.clip(1.0 - np.sqrt(((abs(x) - hr * 0.34) / (hr * 0.13)) ** 2 + ((y - hr * 0.5) / (hr * 0.1)) ** 2), 0, 1) * soft(z, hr * 0.3, hr * 0.5)
+        brow = soft(brow, 0.1, 0.6)
         if pat == "shiba":
-            g = np.maximum(muzzle, cheeks)
-            g = np.maximum(g, soft(z, hr * 0.5, hr * 0.7) * soft(y, hr * 0.15, hr * 0.25) * soft(abs(x) - hr * 0.33, -0.02, 0.0) * 0)
+            g = np.maximum(np.maximum(muzzle, cheeks), brow)
         elif pat == "beagle":
             blaze = soft(hr * 0.12 - abs(x), 0.0, hr * 0.06) * soft(z, hr * 0.3, hr * 0.6) * soft(N[:, 2] + N[:, 1], 0.2, 0.8)
             g = np.maximum(muzzle, blaze)
         elif pat == "saddle":
             r = muzzle * soft(z, hr * 0.75, hr * 0.95) * 0.9 + soft(y, hr * 0.6, hr * 0.9) * 0.3
+            r = r * (1 - brow)
         elif pat == "tabby":
             stripes = soft(0.5 + 0.5 * np.sin(x / hr * 18.0), 0.6, 0.85) * soft(y, hr * 0.35, hr * 0.55) * soft(z, -hr * 0.1, hr * 0.3)
             r = stripes
@@ -290,10 +298,10 @@ def make_breed(name, B, res_scale):
         if cat:
             d = sd_ellipsoid(P, (0, 0, 0), (hr * 0.1, hr * 0.065, hr * 0.06))
             return smax(d, P[..., 1] - hr * 0.04, 0.01)
-        d = sd_ellipsoid(P, (0, 0, 0), (sw * 0.48, sw * 0.32, sw * 0.3))
-        d = smin(d, sd_ellipsoid(P, (0, -sw * 0.15, -sw * 0.05), (sw * 0.2, sw * 0.25, sw * 0.25)), 0.02)
+        d = sd_ellipsoid(P, (0, 0, 0), (sw * 0.37, sw * 0.26, sw * 0.25))
+        d = smin(d, sd_ellipsoid(P, (0, -sw * 0.13, -sw * 0.05), (sw * 0.16, sw * 0.2, sw * 0.2)), 0.02)
         for sx in (-1, 1):
-            d = smax(d, -sd_sphere(P, (sx * sw * 0.18, -sw * 0.05, sw * 0.27), sw * 0.08), 0.01)
+            d = smax(d, -sd_sphere(P, (sx * sw * 0.15, -sw * 0.04, sw * 0.22), sw * 0.065), 0.008)
         return d
     nb = sw * 0.7 if not cat else hr * 0.15
     parts["nose"] = (nose, None, (-nb, -nb, -nb), (nb, nb, nb), H(0.0045 if not cat else 0.0032))
@@ -353,8 +361,8 @@ def make_breed(name, B, res_scale):
                 d = smin(d, sd_ellipsoid(P, (0, -a * 0.1, lr * 0.15), (ur * 1.25, a * 0.45, ur * 1.35)), 0.04)
             return d + fur(P, fur_amp * 0.7, fur_f)
         def lower(P, front=front):
-            d = sd_round_cone(P, (0, 0.0, 0), (0, -bl + lr * 0.4, lr * 0.1), lr * 0.95, lr * 0.75)
-            paw = sd_ellipsoid(P, (0, -bl + lr * 0.05, lr * 0.45), (lr * 1.2, lr * 0.62, lr * 1.5))
+            d = sd_round_cone(P, (0, 0.0, 0), (0, -bl + lr * 0.4, lr * 0.1), lr * 0.92, lr * 0.66)
+            paw = sd_ellipsoid(P, (0, -bl + lr * 0.08, lr * 0.5), (lr * 1.28, lr * 0.7, lr * 1.6))
             paw = smax(paw, -(P[..., 1] + bl - lr * 0.45), 0.01)  # dessous plat
             d = smin(d, paw, 0.03)
             for k in range(4):   # orteils

@@ -14,6 +14,7 @@ func _ready() -> void:
 	GameState.reset_game()
 	GameState.create_pet("shiba", "Moka", "f", 0, 0, "collar_red", "acc_none", "curieux")
 	GameState.add_coins(2000)
+	GameState.add_item("shampoo", 6)
 	GameState.active_pet()["level"] = 8
 	for e in ["park", "forest", "beach"]:
 		if not GameState.data["envs"].has(e):
@@ -240,19 +241,25 @@ func sc_tug() -> void:
 		main.start_activity(TugActivity.new())
 		await wait(0.6)
 		var t := main.activity as TugActivity
-		var el := 0.0
-		while not t.finished and el < 24.0:
-			if mode == "actif":
+		var t0 := Time.get_ticks_msec()
+		var slips := 0
+		while not t.finished and Time.get_ticks_msec() - t0 < 70000:
+			if mode == "actif" and t.grip > 30.0 and t._slip_t <= 0.0:
+				# un coup de doigt de 250 px dans le sens de la flèche, environ 3 par seconde
 				var p := Vector2(360, 500)
+				var ang: float = t.DIR_ANGLES[t.dir_idx]
+				var step := Vector2(sin(ang), cos(ang)) * 50.0
 				_touch(t, p, true)
 				for k in 5:
-					p += Vector2(0, 50)
-					_drag(t, p, Vector2(0, 50))
-					await get_tree().process_frame
+					p += step
+					_drag(t, p, step)
 				_touch(t, p, false)
-			await wait(0.18)
-			el += 0.18
-		print("TUG ", mode, " balance=", int(t.balance), " fini=", t.finished, " duree=", snappedf(el, 0.1), "s gagne=", t.balance > 0.0)
+				await wait(0.33)
+			else:
+				if t._slip_t > 0.0:
+					slips += 1
+				await wait(0.6)
+		print("TUG ", mode, " balance=", int(t.balance), " fini=", t.finished, " duree=", snappedf((Time.get_ticks_msec() - t0) / 1000.0, 0.1), "s gagne=", t.balance > 0.0, " prise=", int(t.grip))
 		await shot("tug_" + mode)
 		main.close_all_panels()
 		main.end_activity()
@@ -449,3 +456,47 @@ func sc_housewall() -> void:
 	pc.position = Vector3(-1.6, 0, -1.9)
 	await wait(2.0)
 	print("STUCK sorti du canape=", not main.nav.is_blocked_point(Vector2(pc.position.x, pc.position.z), -0.08), " pos=", pc.position)
+
+## Tour des interfaces : vérifie qu'aucune ne dépasse de l'écran (largeur et hauteur).
+func _ui_check(nm: String) -> void:
+	await wait(0.7)
+	var worst := 0.0
+	var who := ""
+	var stack: Array = [main.ui_root]
+	while not stack.is_empty():
+		var c: Node = stack.pop_back()
+		for ch in c.get_children():
+			stack.append(ch)
+		if c is Control and (c as Control).is_visible_in_tree() and (c is Button or c is Label):
+			var r := (c as Control).get_global_rect()
+			var sc: Vector2 = (c as Control).get_global_transform().get_scale()
+			var right := r.position.x + r.size.x * sc.x / maxf(sc.x, 0.001) * 1.0
+			var over := maxf(right - vp.x, -r.position.x)
+			if over > worst:
+				worst = over
+				who = str(c.get("text")).substr(0, 30)
+	print("UI ", nm, " depassement_px=", int(worst), " ", who)
+	await shot("ui_" + nm)
+
+func sc_ui() -> void:
+	var ts := OS.get_environment("UI_TS")
+	if ts != "":
+		GameState.set_setting("text_scale", int(ts))
+	GameState.active_pet()["name"] = OS.get_environment("UI_NAME") if OS.get_environment("UI_NAME") != "" else "Moka"
+	main.show_screen("home")
+	await _ui_check("home")
+	for it in [["menu", func(): Panels.more()], ["besoins", func(): Panels.needs()], ["animaux", func(): Panels.pets()], ["sac", func(): Panels.inventory()],
+			["dressage", func(): Panels.training()], ["jouer", func(): Panels.play(main.screen)], ["reglages", func(): Panels.settings()], ["quotidien", func(): Panels.daily()],
+			["bain_choix", func(): Panels.bath_picker()], ["boutique", func(): Panels.open_shop("food", "shop")], ["collection", func(): Panels.collection("items")]]:
+		main.close_all_panels()
+		(it[1] as Callable).call()
+		await _ui_check(str(it[0]))
+	main.close_all_panels()
+	Panels.shop_mode = ""
+	for it in [["bain", func(): main.start_activity(BathActivity.new("shampoo"))], ["brosse", func(): main.start_activity(BrushActivity.new())], ["corde", func(): main.start_activity(TugActivity.new())],
+			["carte", func(): main.start_activity(WalkActivity.new())], ["dressage_seance", func(): main.start_activity(TrainingActivity.new("sit"))]]:
+		(it[1] as Callable).call()
+		await _ui_check(str(it[0]))
+		main.close_all_panels()
+		main.end_activity()
+		await wait(0.4)

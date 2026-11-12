@@ -9,6 +9,18 @@ var main: Main
 var pet: PetController
 var finished := false
 var on_done: Callable = Callable()   # utilisé par les concours : on_done.call(score)
+var _fit_boxes: Array = []            # [conteneur, ancré en bas ?] : réduits s'ils dépassent de l'écran
+
+## Réduit les barres de l'activité plus larges que l'écran (texte long, grande taille de police).
+func fit(avail: float) -> void:
+	for fb in _fit_boxes:
+		var c: Control = fb[0]
+		if not is_instance_valid(c):
+			continue
+		var need := c.get_combined_minimum_size().x
+		var k := minf(1.0, avail / maxf(need, 1.0))
+		c.pivot_offset = Vector2(0, c.size.y if fb[1] else 0.0)
+		c.scale = Vector2(k, k)
 
 func _ready() -> void:
 	main = Main.inst
@@ -49,6 +61,9 @@ func make_top(title: String, show_quit: bool = true) -> VBoxContainer:
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var pv := UiKit.vbox(2)
 	top_label = UiKit.label(title, 32)
+	top_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	top_label.clip_text = true
+	top_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	pv.add_child(top_label)
 	info_label = UiKit.label("", 24, UiKit.C_SUB)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # textes longs : retour à la ligne, jamais hors écran
@@ -66,6 +81,7 @@ func make_top(title: String, show_quit: bool = true) -> VBoxContainer:
 		h.add_child(q)
 	v.add_child(h)
 	ui.add_child(v)
+	_fit_boxes.append([v, false])
 	return v
 
 func bottom_bar() -> HBoxContainer:
@@ -74,6 +90,7 @@ func bottom_bar() -> HBoxContainer:
 	h.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	ui.add_child(h)
+	_fit_boxes.append([h, true])
 	return h
 
 func big_hint(text: String, dur: float = 1.6, color: Color = Color.WHITE) -> void:
@@ -176,14 +193,9 @@ func care_zone_panel(zones: Dictionary, col: Color) -> Dictionary:
 		cell.add_child(bar)
 		bars[z] = bar
 		grid.add_child(cell)
-	var rot := UiKit.hbox(10)
-	rot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rot.add_child(UiKit.expand(UiKit.button("[i:left] " + tr("Tourner"), func(): care_rotate(-1.0), UiKit.C_DISABLED, 22, 60)))
-	rot.add_child(UiKit.expand(UiKit.button(tr("Tourner") + " [i:right]", func(): care_rotate(1.0), UiKit.C_DISABLED, 22, 60)))
 	var box := UiKit.vbox(8)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(grid)
-	box.add_child(rot)
 	return {"grid": box, "bars": bars}
 
 ## Oriente la caméra pour bien voir une zone du corps.

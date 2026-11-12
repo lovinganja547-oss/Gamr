@@ -22,7 +22,7 @@ func _ready() -> void:
 			i += 1
 			continue
 		var m := PetModel.new(); add_child(m)
-		m.setup({"breed": b, "palette": 0, "eyes": i % 5, "collar": "collar_red", "accessory": ["bandana", "bow", "hat", "crown", "glasses", "scarf"][i]}, 2)
+		m.setup({"breed": b, "palette": 0, "eyes": i % 5, "collar": "collar_red", "accessory": ("acc_none" if OS.get_environment("NOACC") != "" else ["bandana", "bow", "hat", "crown", "glasses", "scarf"][i])}, 2)
 		m.position = Vector3((i % 3 - 1) * 0.75, 0, -(i / 3) * 0.9) if only == "" else Vector3.ZERO
 		m.rotation.y = 0.6
 		m.set_posture(pose, 100.0)

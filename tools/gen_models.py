@@ -221,7 +221,7 @@ def make_breed(name, B, res_scale):
     snout_c = np.array([0, -hr * 0.28, hr * 0.78 + sl * 0.35])
     nose_p = snout_c + [0, sw * 0.45, sl * 0.78]
     if cat:
-        nose_p = np.array([0, -hr * 0.12, hr * 0.98])
+        nose_p = np.array([0, -hr * 0.16, hr * 1.10])
 
     def head_base(P, muzzle=True):
         # crâne un peu plus étroit et aplati sur le dessus, front bombé, joues discrètes
@@ -231,10 +231,11 @@ def make_breed(name, B, res_scale):
             d = smin(d, sd_ellipsoid(P, (sx * hr * 0.42, -hr * 0.26, hr * 0.28), (hr * 0.46, hr * 0.42, hr * 0.48)), 0.05)
             d = smin(d, sd_ellipsoid(P, (sx * hr * 0.37, hr * 0.37, hr * 0.63), (hr * 0.27, hr * 0.15, hr * 0.22)), 0.03)  # arcades
         if cat:
+            # museau du chat : deux coussinets de moustaches bien bombés, menton, chanfrein court
             for sx in (-1, 1):
-                d = smin(d, sd_ellipsoid(P, (sx * hr * 0.17, -hr * 0.3, hr * 0.82), (hr * 0.24, hr * 0.2, hr * 0.18)), 0.03)
-            d = smin(d, sd_ellipsoid(P, (0, -hr * 0.46, hr * 0.7), (hr * 0.2, hr * 0.14, hr * 0.16)), 0.03)
-            d = smin(d, sd_ellipsoid(P, (0, -hr * 0.1, hr * 0.85), (hr * 0.12, hr * 0.12, hr * 0.14)), 0.03)
+                d = smin(d, sd_ellipsoid(P, (sx * hr * 0.16, -hr * 0.32, hr * 0.9), (hr * 0.24, hr * 0.19, hr * 0.22)), 0.025)
+            d = smin(d, sd_ellipsoid(P, (0, -hr * 0.5, hr * 0.78), (hr * 0.18, hr * 0.13, hr * 0.17)), 0.03)
+            d = smin(d, sd_ellipsoid(P, (0, -hr * 0.12, hr * 0.92), (hr * 0.13, hr * 0.14, hr * 0.18)), 0.03)
         elif muzzle:
             tip = snout_c + [0, 0, sl * 0.55]
             back = snout_c - [0, -sw * 0.15, sl * 0.6]
@@ -296,8 +297,9 @@ def make_breed(name, B, res_scale):
     # ---------- truffe
     def nose(P):
         if cat:
-            d = sd_ellipsoid(P, (0, 0, 0), (hr * 0.1, hr * 0.065, hr * 0.06))
-            return smax(d, P[..., 1] - hr * 0.04, 0.01)
+            d = sd_ellipsoid(P, (0, 0, 0), (hr * 0.115, hr * 0.085, hr * 0.07))
+            d = smin(d, sd_ellipsoid(P, (0, -hr * 0.07, -hr * 0.02), (hr * 0.04, hr * 0.07, hr * 0.05)), 0.01)   # pointe vers la bouche
+            return smax(d, P[..., 1] - hr * 0.05, 0.01)
         d = sd_ellipsoid(P, (0, 0, 0), (sw * 0.37, sw * 0.26, sw * 0.25))
         d = smin(d, sd_ellipsoid(P, (0, -sw * 0.13, -sw * 0.05), (sw * 0.16, sw * 0.2, sw * 0.2)), 0.02)
         for sx in (-1, 1):
